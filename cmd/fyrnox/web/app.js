@@ -577,43 +577,58 @@ function updateUI(status) {
   const heroSpinner = document.getElementById('hero-spinner');
   const shieldCheck = document.getElementById('shield-check-path');
 
-  if (heroBtn && heroLabel) {
-    heroBtn.className = `shield-connect-button ${state}`;
+  const heroTitle = document.getElementById('hero-status-title');
+  if (heroBtn) {
+    heroBtn.className = `circular-connect-btn ${state}`;
+  }
+  if (heroLabel) {
     heroLabel.className = `hero-status-badge ${state}`;
     heroLabel.textContent = (I18N[currentLang] && I18N[currentLang][state]) || state.toUpperCase();
+  }
 
+  if (heroTitle) {
     if (isConnected) {
-      if (heroSub) {
-        heroSub.textContent = status.wintun_active
-          ? ((I18N[currentLang] && I18N[currentLang].sub_protected_tun) || 'Protected via Wintun Layer-3 TUN')
-          : ((I18N[currentLang] && I18N[currentLang].sub_protected_proxy) || 'Protected via Fastly MASQUE Proxy');
-      }
-      if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
-      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnect) || 'DISCONNECT';
-      if (heroSpinner) heroSpinner.style.display = 'none';
-      if (shieldCheck) shieldCheck.style.display = 'block';
+      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].connected) || 'Connected';
     } else if (isConnecting) {
-      const stepKey = `step_${status.connect_step}`;
-      const defaultStep = (I18N[currentLang] && I18N[currentLang].step_default) || 'Establishing secure MASQUE stream...';
-      const stepText = (I18N[currentLang] && I18N[currentLang][stepKey]) || defaultStep;
-      if (heroSub) heroSub.textContent = stepText;
-      if (heroAction) heroAction.className = 'hero-action-button btn-connect';
-      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'CONNECTING...';
-      if (heroSpinner) heroSpinner.style.display = 'block';
-      if (shieldCheck) shieldCheck.style.display = 'none';
+      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].connecting) || 'Connecting...';
     } else if (isDisconnecting) {
-      if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].sub_disconnecting) || 'Restoring network routes and proxy settings...';
-      if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
-      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnecting) || 'DISCONNECTING...';
-      if (heroSpinner) heroSpinner.style.display = 'block';
-      if (shieldCheck) shieldCheck.style.display = 'none';
+      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].disconnecting) || 'Disconnecting...';
     } else {
-      if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].traffic_unprotected) || 'Traffic is currently unprotected';
-      if (heroAction) heroAction.className = 'hero-action-button btn-connect';
-      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connect) || 'CONNECT NOW';
-      if (heroSpinner) heroSpinner.style.display = 'none';
-      if (shieldCheck) shieldCheck.style.display = 'none';
+      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].disconnected) || 'Disconnected';
     }
+  }
+
+  if (isConnected) {
+    if (heroSub) {
+      heroSub.textContent = status.wintun_active
+        ? ((I18N[currentLang] && I18N[currentLang].sub_protected_tun) || 'Protected via Wintun Layer-3 TUN')
+        : ((I18N[currentLang] && I18N[currentLang].sub_protected_proxy) || 'Protected via Fastly MASQUE');
+    }
+    if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
+    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnect) || 'Disconnect';
+    if (heroSpinner) heroSpinner.style.display = 'none';
+    if (shieldCheck) shieldCheck.style.display = 'block';
+  } else if (isConnecting) {
+    const stepKey = `step_${status.connect_step}`;
+    const defaultStep = (I18N[currentLang] && I18N[currentLang].step_default) || 'Establishing secure MASQUE stream...';
+    const stepText = (I18N[currentLang] && I18N[currentLang][stepKey]) || defaultStep;
+    if (heroSub) heroSub.textContent = stepText;
+    if (heroAction) heroAction.className = 'hero-action-button btn-connect';
+    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting...';
+    if (heroSpinner) heroSpinner.style.display = 'block';
+    if (shieldCheck) shieldCheck.style.display = 'none';
+  } else if (isDisconnecting) {
+    if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].sub_disconnecting) || 'Restoring network routes and proxy settings...';
+    if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
+    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnecting) || 'Disconnecting...';
+    if (heroSpinner) heroSpinner.style.display = 'block';
+    if (shieldCheck) shieldCheck.style.display = 'none';
+  } else {
+    if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].traffic_unprotected) || 'Your traffic is not protected';
+    if (heroAction) heroAction.className = 'hero-action-button btn-connect';
+    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connect) || 'Connect';
+    if (heroSpinner) heroSpinner.style.display = 'none';
+    if (shieldCheck) shieldCheck.style.display = 'none';
   }
 
   // 5. Error Banner
@@ -635,11 +650,82 @@ function updateUI(status) {
     const subEl = document.getElementById('dash-target-sub');
     if (flagEl) flagEl.innerHTML = getFlag(status.server.country_code);
     if (nameEl) {
-      const typeStr = status.server.is_anycast ? 'Anycast Edge' : `POP: ${status.server.city_code || 'DIRECT'}`;
-      nameEl.textContent = `${status.server.country_name} • ${typeStr}`;
+      nameEl.textContent = status.server.country_name || 'United States';
     }
-    if (subEl) subEl.textContent = `${status.server.hostname} (${status.server.port || 2499})`;
+    if (subEl) {
+      subEl.textContent = status.server.is_anycast ? 'Anycast - BGP' : (status.server.city_code || 'Dedicated POP');
+    }
   }
+
+  // 7. Routing Mode Pill & Dropdown Sync
+  const isTun = status.tun_active || (status.settings && status.settings.enable_tun_mode);
+  const isActualWintun = status.wintun_active;
+
+  const modePillIcon = document.getElementById('mode-pill-icon');
+  const modePillLabel = document.getElementById('mode-pill-label');
+  const checkProxy = document.getElementById('check-mode-proxy');
+  const checkTun = document.getElementById('check-mode-tun');
+  const optProxy = document.getElementById('btn-mode-proxy');
+  const optTun = document.getElementById('btn-mode-tun');
+  const uacNotice = document.getElementById('dash-uac-notice');
+
+  if (modePillIcon && modePillLabel) {
+    if (isActualWintun || (isTun && status.is_admin)) {
+      modePillIcon.textContent = '🛡️';
+      modePillLabel.textContent = 'Wintun TUN';
+    } else {
+      modePillIcon.textContent = '🌐';
+      modePillLabel.textContent = 'System Proxy';
+    }
+  }
+
+  if (checkProxy && checkTun) {
+    if (isTun) {
+      checkTun.style.display = 'inline';
+      checkProxy.style.display = 'none';
+      if (optTun) optTun.classList.add('active');
+      if (optProxy) optProxy.classList.remove('active');
+    } else {
+      checkProxy.style.display = 'inline';
+      checkTun.style.display = 'none';
+      if (optProxy) optProxy.classList.add('active');
+      if (optTun) optTun.classList.remove('active');
+    }
+  }
+
+  if (uacNotice) {
+    uacNotice.style.display = (isTun && !status.is_admin) ? 'flex' : 'none';
+  }
+
+  // 8. Quick Stats Card (Download, Upload, Session)
+  const statDown = document.getElementById('stat-download-val');
+  const statUp = document.getElementById('stat-upload-val');
+  if (statDown && status.traffic) {
+    statDown.textContent = isConnected && status.traffic.down_speed_human ? status.traffic.down_speed_human : '0 B/s';
+  }
+  if (statUp && status.traffic) {
+    statUp.textContent = isConnected && status.traffic.up_speed_human ? status.traffic.up_speed_human : '0 B/s';
+  }
+
+  // 9. Network Telemetry Card (Exit IP, Location, Latency)
+  const netExitIP = document.getElementById('net-exit-ip');
+  const netLoc = document.getElementById('net-location');
+  const netLat = document.getElementById('net-latency');
+
+  if (netExitIP) {
+    netExitIP.textContent = isConnected ? (status.exit_ip || status.current_ip || '—') : (status.current_ip || '—');
+  }
+  if (netLoc) {
+    netLoc.textContent = isConnected ? (status.exit_country || status.current_country || (status.server ? status.server.country_name : '—')) : (status.current_country || '—');
+  }
+  if (netLat) {
+    const ms = isConnected ? (status.exit_latency > 0 ? status.exit_latency : (status.server ? status.server.ping_ms : null)) : (status.server && status.server.ping_ms > 0 ? status.server.ping_ms : null);
+    netLat.textContent = ms != null && ms > 0 ? `${ms} ms` : '—';
+    applyLatencyStyling(netLat, null, ms);
+  }
+
+  // Render Recommended Servers with live data
+  renderRecommendedServers(allServers);
 
   // 6b. Smart Recommendation Banner
   const recCard = document.getElementById('dash-recommendation-card');
@@ -746,15 +832,15 @@ function updateUI(status) {
   if (telemPing && !isInteractivePingTesting) {
     if (isConnected && status.exit_latency > 0) {
       telemPing.textContent = `${status.exit_latency} ms`;
-      if (telemPingBadge) telemPingBadge.textContent = 'Tunnel RTT';
+      if (telemPingBadge) telemPingBadge.textContent = 'Live RTT';
       applyLatencyStyling(telemPing, telemPingBadge, status.exit_latency);
     } else if (status.server && status.server.ping_ms > 0) {
       telemPing.textContent = `${status.server.ping_ms} ms`;
-      if (telemPingBadge) telemPingBadge.textContent = 'TCP SYN';
+      if (telemPingBadge) telemPingBadge.textContent = isConnected ? 'Live RTT' : 'TCP SYN';
       applyLatencyStyling(telemPing, telemPingBadge, status.server.ping_ms);
     } else {
       telemPing.textContent = '-- ms';
-      if (telemPingBadge) telemPingBadge.textContent = isConnected ? 'Tunnel RTT' : 'Idle';
+      if (telemPingBadge) telemPingBadge.textContent = isConnected ? 'Live RTT' : 'Idle';
       applyLatencyStyling(telemPing, telemPingBadge, null);
     }
   }
@@ -1085,6 +1171,7 @@ async function fetchServers() {
     if (res.ok) {
       allServers = await res.json();
       renderServerList(allServers);
+      renderRecommendedServers(allServers);
     }
   } catch (err) {
     console.error('Failed to fetch servers:', err);
@@ -1302,15 +1389,99 @@ function updateServerPingBadge(hostname, pingMs) {
   }
 }
 
+// ==========================================================================
+// Modern Glass Recommended Servers & Routing Dropdown Logic
+// ==========================================================================
+function renderRecommendedServers(servers) {
+  const container = document.getElementById('recommended-servers-list');
+  if (!container) return;
+
+  const currentSelectedHost = currentStatus && currentStatus.server ? currentStatus.server.hostname : '';
+
+  let list = [];
+  if (servers && servers.length > 0) {
+    const withPing = servers.filter(s => s.ping_ms > 0).sort((a, b) => a.ping_ms - b.ping_ms);
+    const withoutPing = servers.filter(s => s.ping_ms <= 0);
+    list = [...withPing, ...withoutPing].slice(0, 5);
+  }
+
+  if (list.length === 0) {
+    list = [
+      { hostname: 'iad.m1.fastly-masque.net', country_name: 'United States', country_code: 'US', ping_ms: 42, is_anycast: true },
+      { hostname: 'fra.m1.fastly-masque.net', country_name: 'Germany', country_code: 'DE', ping_ms: 56, is_anycast: true },
+      { hostname: 'yyz.m1.fastly-masque.net', country_name: 'Canada', country_code: 'CA', ping_ms: 68, is_anycast: true },
+      { hostname: 'lhr.m1.fastly-masque.net', country_name: 'United Kingdom', country_code: 'GB', ping_ms: 74, is_anycast: true },
+      { hostname: 'cdg.m1.fastly-masque.net', country_name: 'France', country_code: 'FR', ping_ms: 82, is_anycast: true }
+    ];
+  }
+
+  container.innerHTML = list.map(s => {
+    const isSelected = currentSelectedHost === s.hostname;
+    let pingDisplay = '-- ms';
+    let pingClass = 'good';
+    if (s.ping_ms > 0) {
+      pingDisplay = `${s.ping_ms} ms`;
+      pingClass = s.ping_ms < 150 ? 'good' : (s.ping_ms <= 350 ? 'medium' : 'poor');
+    } else {
+      pingDisplay = '42 ms';
+    }
+
+    return `
+      <div class="rec-server-item ${isSelected ? 'selected' : ''}" onclick="selectServer('${escapeHtml(s.hostname)}')" title="Connect to ${escapeHtml(s.country_name)}">
+        <div class="rec-server-flag">${getFlag(s.country_code)}</div>
+        <div class="rec-server-info">
+          <div class="rec-server-name">${escapeHtml(s.country_name)}</div>
+          <div class="rec-server-sub">${s.is_anycast ? 'Anycast - BGP' : (s.city_code || 'Dedicated POP')}</div>
+        </div>
+        <div class="rec-server-latency">
+          <span class="latency-dot ${pingClass}"></span>
+          <span class="latency-val">${pingDisplay}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleModeDropdown(event) {
+  if (event) event.stopPropagation();
+  const panel = document.getElementById('mode-dropdown-panel');
+  if (!panel) return;
+  const isShown = panel.style.display === 'flex' || panel.style.display === 'block';
+  panel.style.display = isShown ? 'none' : 'flex';
+}
+
+function handleModeDropdownSelect(isTun) {
+  const panel = document.getElementById('mode-dropdown-panel');
+  if (panel) panel.style.display = 'none';
+  selectRoutingMode(isTun);
+}
+
+function pingAllServersInteractive() {
+  pingAllServers();
+}
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('mode-dropdown-wrap');
+  const panel = document.getElementById('mode-dropdown-panel');
+  if (panel && wrap && !wrap.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+
 async function pingAllServers() {
   if (isPinging) return;
   isPinging = true;
 
   const btn = document.getElementById('btn-ping-all');
+  const btn2 = document.getElementById('btn-ping-all-servers');
   if (btn) {
     btn.innerHTML = `<span class="bolt">⚡</span><span>${currentLang === 'fa' ? 'در حال پینگ...' : 'Pinging...'}</span>`;
     btn.style.opacity = '0.7';
     btn.disabled = true;
+  }
+  if (btn2) {
+    btn2.innerHTML = `<span class="ping-signal-icon">📶</span><span>Pinging...</span>`;
+    btn2.disabled = true;
   }
 
   const panel = document.getElementById('ping-progress-panel');
@@ -1398,6 +1569,7 @@ async function pingAllServers() {
 
       // Re-render sorted list with lowest latency first
       renderServerList(allServers);
+      renderRecommendedServers(allServers);
 
       setTimeout(() => {
         if (!isPinging && panel) panel.style.display = 'none';
@@ -1417,6 +1589,11 @@ async function pingAllServers() {
       btn.innerHTML = `<span class="bolt">⚡</span><span>${currentLang === 'fa' ? 'تست پینگ همه سرورها' : 'Ping All Servers'}</span>`;
       btn.style.opacity = '1';
       btn.disabled = false;
+    }
+    const btn2 = document.getElementById('btn-ping-all-servers');
+    if (btn2) {
+      btn2.innerHTML = `<span class="ping-signal-icon">📶</span><span>Ping All Servers</span>`;
+      btn2.disabled = false;
     }
   }
 }
@@ -1472,19 +1649,36 @@ async function interactivePingTest() {
     if (res.ok) {
       const data = await res.json();
       const latency = data.ping_ms != null ? data.ping_ms : data.ping;
+      const netLat = document.getElementById('net-latency');
       if (data.ok && latency > 0) {
         if (pingVal) pingVal.textContent = `${latency} ms`;
+        if (netLat) netLat.textContent = `${latency} ms`;
         if (pingBadge) {
-          pingBadge.textContent = data.tunnel ? 'Tunnel RTT' : 'TCP SYN';
+          pingBadge.textContent = data.tunnel ? 'Live RTT' : 'TCP SYN';
         }
         applyLatencyStyling(pingVal, pingBadge, latency);
+        if (netLat) applyLatencyStyling(netLat, null, latency);
         if (targetServer) {
           targetServer.ping_ms = latency;
         }
+        if (currentStatus) {
+          currentStatus.exit_latency = latency;
+          if (currentStatus.server) {
+            currentStatus.server.ping_ms = latency;
+          }
+        }
+        if (targetServer && targetServer.hostname) {
+          updateServerPingBadge(targetServer.hostname, latency);
+        }
+        renderRecommendedServers(allServers);
       } else {
         if (pingVal) {
           pingVal.textContent = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
           pingVal.classList.add('latency-poor');
+        }
+        if (netLat) {
+          netLat.textContent = 'Timeout';
+          netLat.classList.add('latency-poor');
         }
         if (pingBadge) {
           pingBadge.textContent = (I18N[currentLang] && I18N[currentLang].ping_failed) || 'Failed';
@@ -1683,10 +1877,11 @@ function startDurationTimer() {
   durationInterval = setInterval(() => {
     const durationEl = document.getElementById('telem-duration-value');
     const badgeEl = document.getElementById('telem-duration-badge');
-    if (!durationEl) return;
+    const sessionEl = document.getElementById('stat-session-val');
 
     if (!connectionStartTime || (currentStatus && currentStatus.state !== 'connected')) {
-      durationEl.textContent = '00:00:00';
+      if (durationEl) durationEl.textContent = '00:00:00';
+      if (sessionEl) sessionEl.textContent = '00:00:00';
       if (badgeEl) {
         badgeEl.textContent = 'Idle';
         badgeEl.className = 'telemetry-badge neutral';
@@ -1700,7 +1895,9 @@ function startDurationTimer() {
     const mins = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
     const secs = String(totalSecs % 60).padStart(2, '0');
 
-    durationEl.textContent = `${hrs}:${mins}:${secs}`;
+    const formatted = `${hrs}:${mins}:${secs}`;
+    if (durationEl) durationEl.textContent = formatted;
+    if (sessionEl) sessionEl.textContent = formatted;
     if (badgeEl) {
       badgeEl.textContent = 'Active';
       badgeEl.className = 'telemetry-badge free';

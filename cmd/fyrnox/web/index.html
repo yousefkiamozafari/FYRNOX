@@ -15,13 +15,20 @@
       <div class="titlebar-brand">
         <img src="favicon.png" alt="FYRNOX" class="titlebar-icon">
         <span class="titlebar-title">FYRNOX</span>
-        <span class="titlebar-version-badge">v1.0.4</span>
-        <span class="titlebar-divider">•</span>
-        <span class="titlebar-status-text" id="titlebar-status-text">DISCONNECTED</span>
       </div>
     </div>
     
     <div class="titlebar-controls">
+      <button class="titlebar-utility-btn" id="btn-notifications" onclick="showNotificationPanel()" title="Notifications">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
+      <button class="titlebar-utility-btn" id="btn-refresh-status" onclick="fetchStatus()" title="Refresh Status">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+      <button class="titlebar-utility-btn" id="btn-toggle-lang" onclick="toggleLanguage()" title="Toggle Language (EN / FA)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </button>
+      <div class="titlebar-divider-vert"></div>
       <button class="titlebar-btn btn-min" id="btn-win-min" onclick="windowMinimize()" title="Minimize">
         <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
       </button>
@@ -39,51 +46,32 @@
     <!-- LEFT NAVIGATION RAIL -->
     <aside class="app-sidebar">
       <div class="sidebar-top">
-        <div class="sidebar-brand" onclick="switchNav('dashboard')">
-          <img src="favicon.png" alt="FYRNOX Logo" class="brand-logo-img">
-          <div class="brand-text">
-            <span class="brand-title">FYRNOX</span>
-            <span class="brand-badge" data-i18n="brand_badge">DESKTOP VPN</span>
-          </div>
-        </div>
-
         <nav class="sidebar-nav">
           <button class="nav-item active" data-tab="dashboard" onclick="switchNav('dashboard')">
             <span class="nav-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
               </svg>
             </span>
-            <span class="nav-label" data-i18n="nav_dashboard">Dashboard</span>
+            <span class="nav-label" data-i18n="nav_dashboard">Home</span>
           </button>
 
           <button class="nav-item" data-tab="servers" onclick="switchNav('servers')">
             <span class="nav-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
               </svg>
             </span>
             <span class="nav-label" data-i18n="nav_locations">Servers</span>
           </button>
 
-          <button class="nav-item" data-tab="split-tunnel" onclick="switchNav('split-tunnel')">
-            <span class="nav-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-            </span>
-            <span class="nav-label" data-i18n="nav_split_tunnel">Split Tunnel</span>
-          </button>
-
           <button class="nav-item" data-tab="diagnostics" onclick="switchNav('diagnostics')">
             <span class="nav-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
               </svg>
             </span>
             <span class="nav-label" data-i18n="nav_diagnostics">Diagnostics</span>
@@ -91,9 +79,9 @@
 
           <button class="nav-item" data-tab="settings" onclick="switchNav('settings')">
             <span class="nav-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
             </span>
             <span class="nav-label" data-i18n="nav_settings">Settings</span>
@@ -102,24 +90,21 @@
       </div>
 
       <div class="sidebar-bottom">
-        <div class="account-card" onclick="handleAuthClick()">
-          <div class="account-avatar">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+        <div class="account-card" onclick="handleAuthClick()" title="Account & Subscription">
+          <div class="account-avatar-wrap">
+            <img src="favicon.png" alt="User Avatar" class="account-avatar-img">
           </div>
           <div class="account-info">
-            <span class="account-name" id="sidebar-user-name" data-i18n="account_firefox">Firefox Account</span>
-            <span class="account-status" id="sidebar-user-status" data-i18n="sign_in">Sign In</span>
+            <span class="account-name" id="sidebar-user-name">user@fyrnox.app</span>
+            <div class="account-badge-row">
+              <span class="account-badge-pill" id="sidebar-user-badge">Premium</span>
+              <div class="account-badge-bar"></div>
+            </div>
           </div>
         </div>
 
-        <div class="sidebar-footer-links">
-          <span class="app-version-pill">v1.0.4</span>
-          <div class="lang-switch-toggle" onclick="toggleLanguage()">
-            <span id="lang-current-label">EN</span> • <span id="lang-alt-label">FA</span>
-          </div>
+        <div class="sidebar-version-row">
+          <span class="sidebar-version-text">v1.0.4</span>
         </div>
       </div>
     </aside>
@@ -170,7 +155,7 @@
       <main class="app-view-container">
 
         <!-- ============================================================== -->
-        <!-- VIEW 1: DASHBOARD -->
+        <!-- VIEW 1: DASHBOARD (MODERN GLASS / PREMIUM HYBRID LAYOUT) -->
         <!-- ============================================================== -->
         <section id="view-dashboard" class="view-panel active">
           
@@ -184,45 +169,215 @@
             <button class="error-dismiss-btn" onclick="dismissError()">✕</button>
           </div>
 
-          <!-- Hero Connection Center with Official FYRNOX Emblem -->
-          <div class="dashboard-hero-card">
+          <!-- Main Modern Glass Dashboard Container -->
+          <div class="modern-dashboard-frame">
             
-            <div class="hero-left-brand">
-              <img src="favicon.png" alt="FYRNOX Emblem" class="hero-brand-emblem">
-            </div>
+            <!-- LEFT WORKSPACE: Hero Connect, Stats, and Network Span -->
+            <div class="dashboard-left-workspace">
+              
+              <div class="dash-top-columns">
+                <!-- Sub-Column 1: Hero Connect & Mode Selector -->
+                <div class="hero-connect-column">
+                  
+                  <div class="connection-status-header">
+                    <div class="status-title-row">
+                      <span class="status-flame-icon">🔥</span>
+                      <h2 class="status-title-text" id="hero-status-title">Disconnected</h2>
+                    </div>
+                    <p class="status-subtitle-text" id="hero-status-sub">Your traffic is not protected</p>
+                    <span id="hero-status-label" style="display: none;">DISCONNECTED</span>
+                  </div>
 
-            <div class="hero-shield-wrap">
-              <button id="hero-connect-btn" class="shield-connect-button disconnected" onclick="toggleConnect()" title="Click to Connect or Disconnect">
-                <div class="shield-rings">
-                  <div class="ring-pulse r1"></div>
-                  <div class="ring-pulse r2"></div>
+                  <!-- Circular Connect Button with Glowing Neon Ring -->
+                  <div class="circular-connect-wrap">
+                    <button type="button" class="circular-connect-btn disconnected" id="hero-connect-btn" onclick="toggleConnect()" title="Click to Connect or Disconnect">
+                      <div class="connect-ring-pulse"></div>
+                      <div class="connect-inner-content">
+                        <div class="connect-power-icon">
+                          <svg id="hero-shield-svg" viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2v10M18.36 6.64A9 9 0 1 1 5.64 6.64" />
+                            <polyline points="9 12 11 14 15 10" id="shield-check-path" style="display: none;" />
+                          </svg>
+                          <div id="hero-spinner" class="hero-loading-spinner" style="display: none;"></div>
+                        </div>
+                        <span class="connect-btn-text" id="hero-action-label">Connect</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <!-- Mode Dropdown Pill: System Proxy (Default) vs Wintun TUN -->
+                  <div class="mode-dropdown-wrap" id="mode-dropdown-wrap">
+                    <button type="button" class="mode-pill-btn" id="mode-dropdown-trigger" onclick="toggleModeDropdown(event)" title="Select Routing Engine">
+                      <span class="mode-pill-icon" id="mode-pill-icon">🌐</span>
+                      <span class="mode-pill-label" id="mode-pill-label">System Proxy</span>
+                      <span class="mode-pill-chevron">⌄</span>
+                    </button>
+                    
+                    <div class="mode-dropdown-panel" id="mode-dropdown-panel" style="display: none;">
+                      <div class="mode-dropdown-header">ROUTING ENGINE</div>
+                      
+                      <div class="mode-dropdown-item active" id="btn-mode-proxy" onclick="handleModeDropdownSelect(false)">
+                        <div class="mode-item-left">
+                          <span class="mode-item-icon">🌐</span>
+                          <div class="mode-item-meta">
+                            <span class="mode-item-title">System Proxy <span class="mode-default-badge">Default</span></span>
+                            <span class="mode-item-sub">Zero-config web & apps proxy</span>
+                          </div>
+                        </div>
+                        <span class="mode-item-check" id="check-mode-proxy">✓</span>
+                      </div>
+
+                      <div class="mode-dropdown-item" id="btn-mode-tun" onclick="handleModeDropdownSelect(true)">
+                        <div class="mode-item-left">
+                          <span class="mode-item-icon">🛡️</span>
+                          <div class="mode-item-meta">
+                            <span class="mode-item-title">Wintun TUN</span>
+                            <span class="mode-item-sub">Full system kernel virtual adapter</span>
+                          </div>
+                        </div>
+                        <span class="mode-item-check" id="check-mode-tun" style="display: none;">✓</span>
+                      </div>
+
+                      <div id="dash-uac-notice" class="dropdown-uac-notice" style="display: none;">
+                        <span>Administrator rights required for TUN</span>
+                        <button type="button" class="uac-elevate-action-btn" onclick="restartAsAdmin()">Elevate ⚡</button>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
-                <div class="shield-icon-inner">
-                  <svg id="hero-shield-svg" viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <polyline points="9 12 11 14 15 10" id="shield-check-path" style="display: none;" />
-                  </svg>
-                  <div id="hero-spinner" class="hero-loading-spinner" style="display: none;"></div>
+
+                <!-- Sub-Column 2: Selected Server & Quick Stats -->
+                <div class="hero-stats-column">
+                  
+                  <!-- Selected Server Card -->
+                  <div class="reference-card selected-server-card">
+                    <div class="card-caption">Selected Server</div>
+                    <div class="server-info-row">
+                      <div class="server-flag" id="dash-target-flag">🇺🇸</div>
+                      <div class="server-text-wrap">
+                        <div class="server-name" id="dash-target-name">United States</div>
+                        <div class="server-tag" id="dash-target-sub">Anycast - BGP</div>
+                      </div>
+                      <button type="button" class="card-action-btn" onclick="switchNav('servers')">Change</button>
+                    </div>
+                  </div>
+
+                  <!-- Quick Stats Card -->
+                  <div class="reference-card quick-stats-card">
+                    <div class="card-caption">Quick Stats</div>
+                    <div class="stats-rows">
+                      <div class="stat-item-row">
+                        <span class="stat-label">Download</span>
+                        <span class="stat-val font-mono" id="stat-download-val">0 B/s</span>
+                      </div>
+                      <div class="stat-item-row">
+                        <span class="stat-label">Upload</span>
+                        <span class="stat-val font-mono" id="stat-upload-val">0 B/s</span>
+                      </div>
+                      <div class="stat-item-row">
+                        <span class="stat-label">Session</span>
+                        <span class="stat-val font-mono" id="stat-session-val">00:00:00</span>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
-              </button>
+              </div>
+
+              <!-- Bottom Spanning Row: Network Card -->
+              <div class="dash-network-span">
+                <div class="reference-card network-card">
+                  <div class="network-header-row">
+                    <span class="network-title">Network</span>
+                    <button type="button" class="network-config-btn" onclick="switchNav('settings')">Configure ›</button>
+                  </div>
+                  <div class="network-columns-row">
+                    <div class="net-col">
+                      <span class="net-label">Exit IP</span>
+                      <span class="net-val font-mono" id="net-exit-ip">—</span>
+                    </div>
+                    <div class="net-col">
+                      <span class="net-label">Location</span>
+                      <span class="net-val" id="net-location">—</span>
+                    </div>
+                    <div class="net-col clickable" id="dash-ping-card" onclick="interactivePingTest()" title="Click to test live latency">
+                      <span class="net-label">Latency</span>
+                      <div class="net-latency-row">
+                        <span class="net-val font-mono" id="net-latency">—</span>
+                        <span class="net-badge" id="telem-ping-badge" style="display: none;">RTT</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="network-waveform-wrap">
+                    <svg class="waveform-svg" viewBox="0 0 500 24" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stop-color="#FF6A00" stop-opacity="0.1" />
+                          <stop offset="45%" stop-color="#FF8533" stop-opacity="0.9" />
+                          <stop offset="60%" stop-color="#FFB000" stop-opacity="0.95" />
+                          <stop offset="100%" stop-color="#FF6A00" stop-opacity="0.1" />
+                        </linearGradient>
+                      </defs>
+                      <path class="waveform-path" d="M0 16 Q 60 14, 120 18 T 240 10 T 360 18 T 440 12 T 500 16" fill="none" stroke="url(#waveGrad)" stroke-width="1.8" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-            <div class="hero-status-content">
-              <div class="hero-status-badge disconnected" id="hero-status-label" data-i18n="disconnected">DISCONNECTED</div>
-              <div class="hero-status-subtext" id="hero-status-sub" data-i18n="traffic_unprotected">Traffic is currently unprotected</div>
-              <button id="hero-action-btn" class="hero-action-button btn-connect" onclick="toggleConnect()">
-                <span id="hero-action-label" data-i18n="btn_connect">CONNECT NOW</span>
-              </button>
+            <!-- RIGHT WORKSPACE: Recommended Servers Panel -->
+            <div class="dashboard-right-workspace">
+              <div class="recommended-card">
+                <div class="rec-header">
+                  <div class="rec-title-wrap">
+                    <span class="rec-bolt-icon">⚡</span>
+                    <span class="rec-title-text">Recommended Servers</span>
+                  </div>
+                  <button type="button" class="rec-sort-btn" onclick="pingAllServersInteractive()" title="Sort & Test Latency">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="16 3 21 3 21 8" />
+                      <line x1="4" y1="20" x2="21" y2="3" />
+                      <polyline points="21 16 21 21 16 21" />
+                      <line x1="15" y1="15" x2="21" y2="21" />
+                      <line x1="4" y1="4" x2="9" y2="9" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="recommended-servers-list" id="recommended-servers-list">
+                  <!-- Dynamically populated with 5 low-latency recommended servers -->
+                </div>
+
+                <div class="rec-footer-btn-wrap">
+                  <button type="button" class="ping-all-btn" id="btn-ping-all-servers" onclick="pingAllServersInteractive()">
+                    <span class="ping-signal-icon">📶</span>
+                    <span>Ping All Servers</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
+          </div>
+
+          <!-- Hidden legacy containers for background telemetry & compatibility -->
+          <div style="display: none;" aria-hidden="true">
+            <span id="telem-ping-value">-- ms</span>
+            <span id="telem-duration-value">00:00:00</span>
+            <span id="telem-traffic-value">↓ 0 B / ↑ 0 B</span>
+            <span id="telem-quota-value">50.0 GB</span>
+            <span id="telem-quota-badge">100% Left</span>
+            <span id="egress-public-ip">--</span>
+            <span id="egress-observed-country">--</span>
+            <span id="egress-target-country">--</span>
+            <span id="dash-mode-tag">Web & App Proxy</span>
           </div>
 
           <!-- Gaming Mode Live Telemetry Card (When active) -->
           <div id="dash-gaming-card" class="gaming-telemetry-hud" style="display: none;">
             <div class="gaming-hud-left">
-              <div class="gaming-pulse-indicator">
-                <span class="gaming-pulse-dot"></span>
-              </div>
+              <div class="gaming-pulse-indicator"><span class="gaming-pulse-dot"></span></div>
               <div class="gaming-hud-titles">
                 <div class="gaming-hud-title">
                   <span data-i18n="gaming_active">⚡ Gaming Mode Active</span>
@@ -242,157 +397,6 @@
               </div>
               <button type="button" class="gaming-hud-toggle-btn" onclick="toggleGamingMode()" data-i18n="btn_disable">Turn Off</button>
             </div>
-          </div>
-
-          <!-- Smart Server Recommendation Glass Banner -->
-          <div id="dash-recommendation-card" class="recommendation-glass-card" style="display: none;">
-            <div class="rec-badge-icon">⚡</div>
-            <div class="rec-body">
-              <div class="rec-tag" data-i18n="rec_tag">SMART RECOMMENDATION</div>
-              <div class="rec-server-text">
-                <span id="rec-server-flag">🇩🇪</span>
-                <strong id="rec-server-name">Germany • Frankfurt</strong>
-                <span class="rec-ping-pill" id="rec-server-ping">38 ms</span>
-                <span class="rec-reason" id="rec-server-reason" data-i18n="rec_fastest_edge">Fastest verified edge</span>
-              </div>
-            </div>
-            <button class="rec-action-btn" onclick="applyRecommendedServer()" data-i18n="btn_use_rec">Use Recommended</button>
-          </div>
-
-          <!-- Selected Server & Routing Mode Bar -->
-          <div class="dashboard-control-row">
-            
-            <!-- Selected Server Card -->
-            <div class="server-target-card" onclick="switchNav('servers')">
-              <div class="target-flag-box" id="dash-target-flag">🇺🇸</div>
-              <div class="target-details">
-                <div class="target-label" data-i18n="lbl_target_location">Selected Server Location</div>
-                <div class="target-name" id="dash-target-name">United States • Anycast Edge</div>
-                <div class="target-sub" id="dash-target-sub">us.m1.fastly-masque.net (Fastly MASQUE)</div>
-              </div>
-              <button class="target-change-btn">
-                <span data-i18n="btn_change_server">Change Server</span>
-                <span class="chevron">›</span>
-              </button>
-            </div>
-
-            <!-- Routing Mode Toggle Card -->
-            <div class="routing-mode-card">
-              <div class="mode-header">
-                <span class="mode-title" data-i18n="lbl_routing_engine">Traffic Routing Engine</span>
-                <span class="mode-status-tag" id="dash-mode-tag" data-i18n="mode_tag_proxy">Web & App Proxy</span>
-              </div>
-              <div class="mode-button-group">
-                <button type="button" class="mode-select-btn active" id="btn-mode-proxy" onclick="selectRoutingMode(false)">
-                  <span class="icon">🌐</span>
-                  <span class="label" data-i18n="mode_system_proxy">System Proxy</span>
-                </button>
-                <button type="button" class="mode-select-btn" id="btn-mode-tun" onclick="selectRoutingMode(true)">
-                  <span class="icon">🛡️</span>
-                  <span class="label" data-i18n="mode_wintun_tun">Wintun L3 TUN</span>
-                </button>
-              </div>
-              <div id="dash-uac-notice" class="uac-inline-callout" style="display: none;">
-                <span data-i18n="uac_admin_required">Administrator rights required for kernel TUN</span>
-                <button type="button" class="uac-elevate-action-btn" onclick="restartAsAdmin()" data-i18n="btn_elevate">Elevate ⚡</button>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Geolocation & Exit IP Transparency Card -->
-          <div class="dashboard-egress-card">
-            <div class="egress-header">
-              <span class="egress-title" data-i18n="lbl_egress_title">Exit Verification & Geolocation Transparency</span>
-              <span class="egress-shield-status verified" id="egress-status-pill" data-i18n="lbl_direct_verification">Direct Verification</span>
-            </div>
-
-            <div class="egress-grid">
-              
-              <div class="egress-col">
-                <span class="egress-label" data-i18n="lbl_target_server">Target Server</span>
-                <span class="egress-val" id="egress-target-country">United States</span>
-                <span class="egress-sub" id="egress-target-type" data-i18n="type_anycast">Anycast Edge</span>
-              </div>
-
-              <div class="egress-divider">➔</div>
-
-              <div class="egress-col">
-                <span class="egress-label" data-i18n="lbl_public_ip">Observed Public IP</span>
-                <div class="egress-ip-row">
-                  <span class="egress-val font-mono" id="egress-public-ip">--</span>
-                  <button class="mini-copy-btn" onclick="copyIPToClipboard()" title="Copy Public IP">📋</button>
-                </div>
-                <span class="egress-sub" id="egress-ip-status" data-i18n="lbl_direct_conn">Direct Connection</span>
-              </div>
-
-              <div class="egress-divider">➔</div>
-
-              <div class="egress-col">
-                <span class="egress-label" data-i18n="lbl_exit_country">Observed Exit Country</span>
-                <span class="egress-val" id="egress-observed-country" data-i18n="detecting">Detecting...</span>
-                <span class="egress-sub" id="egress-isp-name">Fastly MASQUE Egress</span>
-              </div>
-
-            </div>
-
-            <!-- Anycast BGP Routing Disclosure Callout -->
-            <div id="dash-anycast-callout" class="anycast-callout-box" style="display: none;">
-              <span class="anycast-info-icon">ℹ️</span>
-              <span id="dash-anycast-text">
-                <strong data-i18n="lbl_anycast_title">Anycast Routing:</strong> <span data-i18n="lbl_anycast_desc">Traffic terminates at nearest Fastly regional edge node to minimize latency.</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- Real-Time Telemetry Row (Ping, Uptime, Traffic, Quota) -->
-          <div class="telemetry-grid">
-            
-            <div class="telemetry-card clickable" id="dash-ping-card" onclick="interactivePingTest()" title="Click to measure live round-trip latency">
-              <div class="telemetry-icon ping" id="dash-ping-icon">⚡</div>
-              <div class="telemetry-info">
-                <span class="telemetry-label" data-i18n="lbl_telemetry_latency">Network Latency (RTT)</span>
-                <div class="telemetry-value-row">
-                  <span class="telemetry-value" id="telem-ping-value">-- ms</span>
-                  <span class="telemetry-badge" id="telem-ping-badge">TCP SYN</span>
-                </div>
-              </div>
-              <button type="button" class="telemetry-refresh-btn" id="telem-ping-refresh" title="Refresh Ping" onclick="event.stopPropagation(); interactivePingTest();">↻</button>
-            </div>
-
-            <div class="telemetry-card">
-              <div class="telemetry-icon uptime">⏱️</div>
-              <div class="telemetry-info">
-                <span class="telemetry-label" data-i18n="lbl_telemetry_duration">Connection Duration</span>
-                <div class="telemetry-value-row">
-                  <span class="telemetry-value font-mono" id="telem-duration-value">00:00:00</span>
-                  <span class="telemetry-badge neutral" id="telem-duration-badge" data-i18n="lbl_idle">Idle</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="telemetry-card">
-              <div class="telemetry-icon speed">📊</div>
-              <div class="telemetry-info">
-                <span class="telemetry-label" data-i18n="lbl_telemetry_traffic">Session Data Transferred</span>
-                <div class="telemetry-value-row">
-                  <span class="telemetry-value font-mono" id="telem-traffic-value">↓ 0 B / ↑ 0 B</span>
-                  <span class="telemetry-badge neutral" data-i18n="lbl_live_meter">Live Meter</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="telemetry-card">
-              <div class="telemetry-icon quota">🛡️</div>
-              <div class="telemetry-info">
-                <span class="telemetry-label" data-i18n="lbl_telemetry_allowance">Monthly Mozilla Allowance</span>
-                <div class="telemetry-value-row">
-                  <span class="telemetry-value" id="telem-quota-value">50.0 GB</span>
-                  <span class="telemetry-badge free" id="telem-quota-badge" data-i18n="lbl_quota_left">100% Left</span>
-                </div>
-              </div>
-            </div>
-
           </div>
 
         </section>

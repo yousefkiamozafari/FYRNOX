@@ -932,13 +932,18 @@ type ExitProbeResult struct {
 }
 
 func VerifyExit(opener tunnelOpener, timeout time.Duration) (ExitProbeResult, error) {
-	start := time.Now()
+	var streamLatency int64
 	transport := &http.Transport{
 		DisableKeepAlives:   true,
 		TLSHandshakeTimeout: timeout,
 		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS12},
 		DialContext: func(ctx context.Context, _, authority string) (net.Conn, error) {
-			return opener.OpenTunnel(authority)
+			t0 := time.Now()
+			c, err := opener.OpenTunnel(authority)
+			if err == nil {
+				streamLatency = time.Since(t0).Milliseconds()
+			}
+			return c, err
 		},
 	}
 	defer transport.CloseIdleConnections()
@@ -969,10 +974,14 @@ func VerifyExit(opener tunnelOpener, timeout time.Duration) (ExitProbeResult, er
 			}
 		}
 		if ip != "" {
+			lat := streamLatency
+			if lat <= 0 {
+				lat = 1
+			}
 			return ExitProbeResult{
 				IP:          ip,
 				CountryCode: country,
-				LatencyMs:   time.Since(start).Milliseconds(),
+				LatencyMs:   lat,
 			}, true
 		}
 		return ExitProbeResult{}, false
@@ -993,10 +1002,14 @@ func VerifyExit(opener tunnelOpener, timeout time.Duration) (ExitProbeResult, er
 		if rErr == nil {
 			ip := strings.TrimSpace(string(body))
 			if ip != "" {
+				lat := streamLatency
+				if lat <= 0 {
+					lat = 1
+				}
 				return ExitProbeResult{
 					IP:          ip,
 					CountryCode: "",
-					LatencyMs:   time.Since(start).Milliseconds(),
+					LatencyMs:   lat,
 				}, nil
 			}
 		}

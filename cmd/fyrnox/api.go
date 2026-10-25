@@ -205,33 +205,29 @@ func (s *ApiServer) handlePingServer(w http.ResponseWriter, r *http.Request) {
 	// If connected, measure verified end-to-end round-trip latency through the active tunnel
 	if status.State == StateConnected && (hostname == "" || r.URL.Query().Get("tunnel") == "true" || (status.Server != nil && hostname == status.Server.Hostname)) {
 		latency, err := s.engine.PingTunnel()
-		if err != nil {
+		if err == nil && latency > 0 {
 			s.jsonResponse(w, map[string]any{
-				"ok":        false,
+				"ok":        true,
 				"tunnel":    true,
-				"error":     err.Error(),
-				"ping":      -1,
+				"hostname":  func() string { if status.Server != nil { return status.Server.Hostname }; return "" }(),
+				"ping":      latency,
+				"ping_ms":   latency,
 				"timestamp": time.Now().Format("15:04:05"),
 			})
 			return
 		}
-		s.jsonResponse(w, map[string]any{
-			"ok":        true,
-			"tunnel":    true,
-			"hostname":  func() string { if status.Server != nil { return status.Server.Hostname }; return "" }(),
-			"ping":      latency,
-			"ping_ms":   latency,
-			"timestamp": time.Now().Format("15:04:05"),
-		})
-		return
 	}
 
-	// Disconnected state: measure direct handshake endpoint latency
-	ping := s.engine.PingServer(hostname)
+	// Disconnected state or fallback: measure direct TCP ping to server endpoint
+	targetHost := hostname
+	if targetHost == "" && status.Server != nil {
+		targetHost = status.Server.Hostname
+	}
+	ping := s.engine.PingServer(targetHost)
 	s.jsonResponse(w, map[string]any{
 		"ok":        ping > 0,
 		"tunnel":    false,
-		"hostname":  hostname,
+		"hostname":  targetHost,
 		"ping":      ping,
 		"ping_ms":   ping,
 		"timestamp": time.Now().Format("15:04:05"),

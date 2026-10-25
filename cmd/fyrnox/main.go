@@ -182,8 +182,8 @@ func launchAppWindow(targetURL string, engine *VpnEngine) {
 			DataPath:  userDataDir,
 			WindowOptions: webview2.WindowOptions{
 				Title:  "FYRNOX — Premium Desktop VPN",
-				Width:  1280,
-				Height: 820,
+				Width:  1100,
+				Height: 700,
 				IconId: 0,
 			},
 		})
@@ -229,7 +229,7 @@ func launchAppWindow(targetURL string, engine *VpnEngine) {
 		})
 
 		w.SetTitle("FYRNOX")
-		w.SetSize(1280, 820, webview2.HintNone)
+		w.SetSize(1100, 700, webview2.HintNone)
 		w.Navigate(targetURL)
 		LogInfo("Native frameless Liquid Glass window initialized.")
 		w.Run()

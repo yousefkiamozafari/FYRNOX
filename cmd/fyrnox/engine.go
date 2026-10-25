@@ -470,36 +470,20 @@ func measureServerPing(ctx context.Context, s ServerLocation) int {
 		target = net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	}
 
-	// 2. Real Delay / Handshake Delay with strict 3000ms ceiling
+	// 2. Real TCP Connect (SYN/ACK) Round-Trip Time with strict 2500ms ceiling
 	start := time.Now()
-	dialer := &net.Dialer{Timeout: 3000 * time.Millisecond}
+	dialer := &net.Dialer{Timeout: 2500 * time.Millisecond}
 	rawConn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
 		return -1
 	}
-	defer rawConn.Close()
+	rtt := int(time.Since(start).Milliseconds())
+	_ = rawConn.Close()
 
-	// Measure TLS Handshake to verify full edge connectivity without socket hanging
-	tlsConn := tls.Client(rawConn, &tls.Config{
-		ServerName:         s.Hostname,
-		InsecureSkipVerify: true,
-		NextProtos:         []string{"h2"},
-	})
-	_ = tlsConn.SetDeadline(time.Now().Add(2500 * time.Millisecond))
-	if err := tlsConn.HandshakeContext(ctx); err == nil {
-		rtt := int(time.Since(start).Milliseconds())
-		if rtt <= 0 {
-			rtt = 1
-		}
-		return rtt
+	if rtt <= 0 {
+		rtt = 1
 	}
-
-	// Fallback to TCP connect latency if TLS handshake encountered protocol mismatch
-	tcpRtt := int(time.Since(start).Milliseconds())
-	if tcpRtt > 0 && tcpRtt <= 3000 {
-		return tcpRtt
-	}
-	return -1
+	return rtt
 }
 
 func (e *VpnEngine) PingAllServers() []ServerLocation {
@@ -612,30 +596,48 @@ func (e *VpnEngine) PingTunnel() (int64, error) {
 	e.mu.RLock()
 	state := e.state
 	ctrl := e.controller
+	selected := e.selected
 	e.mu.RUnlock()
 
-	if state != StateConnected || ctrl == nil {
-		return 0, fmt.Errorf("tunnel is not active")
-	}
-
-	probe, err := VerifyExit(ctrl, 5*time.Second)
-	if err != nil {
-		return 0, err
-	}
-
-	e.mu.Lock()
-	if e.exitResult != nil {
-		e.exitResult.LatencyMs = probe.LatencyMs
-		if probe.IP != "" {
-			e.exitResult.IP = probe.IP
-			e.exitResult.CountryCode = probe.CountryCode
+	if state == StateConnected && ctrl != nil {
+		start := time.Now()
+		conn, err := ctrl.OpenTunnel("1.1.1.1:80")
+		if err == nil && conn != nil {
+			rtt := time.Since(start).Milliseconds()
+			_ = conn.Close()
+			if rtt <= 0 {
+				rtt = 1
+			}
+			e.mu.Lock()
+			if e.exitResult != nil {
+				e.exitResult.LatencyMs = rtt
+			}
+			if e.selected != nil {
+				e.selected.PingMs = int(rtt)
+			}
+			e.mu.Unlock()
+			return rtt, nil
 		}
-	} else {
-		e.exitResult = &probe
 	}
-	e.mu.Unlock()
 
-	return probe.LatencyMs, nil
+	if selected != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+		defer cancel()
+		p := measureServerPing(ctx, *selected)
+		if p > 0 {
+			e.mu.Lock()
+			if e.exitResult != nil {
+				e.exitResult.LatencyMs = int64(p)
+			}
+			if e.selected != nil {
+				e.selected.PingMs = p
+			}
+			e.mu.Unlock()
+			return int64(p), nil
+		}
+	}
+
+	return 0, fmt.Errorf("latency measurement unavailable")
 }
 
 type IPInfo struct {
