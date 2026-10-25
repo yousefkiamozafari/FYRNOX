@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FYRNOX v1.0.0 — Cinematic 3D Showreel</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,500;0,700;0,800;0,900;1,900&family=JetBrains+Mono:wght@400;600;700;800&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      background: #000000;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000000;
+      overflow: hidden;
+      box-shadow: 0 0 50px rgba(0, 240, 255, 0.15), 0 0 100px rgba(255, 113, 57, 0.1);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .crt-vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 60%, rgba(0,0,0,0.85) 100%);
+    }
+
+    .scanline {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
+      background-size: 100% 4px;
+      opacity: 0.3;
+    }
+  </style>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-2 sm:p-6">
+
+  <div class="w-full max-w-5xl bg-[#030508] border border-neutral-800 rounded-2xl overflow-hidden shadow-2xl">
+    
+    <!-- Top Deck -->
+    <div class="px-5 py-3 bg-[#080b11] border-b border-neutral-800 flex items-center justify-between text-xs font-mono">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+        <span class="font-bold tracking-widest text-white uppercase">FYRNOX // CLUVEX-STYLE SHOWREEL</span>
+        <span class="text-neutral-500 hidden sm:inline">|</span>
+        <span class="text-neutral-400 hidden sm:inline">20.0s 60FPS 3D ENGINE</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="soundToggleBtn" onclick="toggleAudio()" class="px-3 py-1 rounded-md bg-neutral-900 border border-neutral-700 hover:border-cyan-400 text-cyan-400 transition flex items-center gap-1.5 text-xs">
+          <span id="soundIcon">🔊</span>
+          <span id="soundText">AUDIO ON</span>
+        </button>
+
+        <button id="recordBtn" onclick="toggleRecordExport()" class="px-3 py-1 rounded-md bg-red-950/80 hover:bg-red-900 border border-red-500 text-red-300 transition flex items-center gap-1.5 text-xs font-bold">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+          <span id="recordText">EXPORT VIDEO</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 16:9 3D Render Viewport -->
+    <div class="canvas-container relative cursor-pointer" onclick="togglePlayPause()">
+      <canvas id="cinemaCanvas"></canvas>
+      <div class="crt-vignette"></div>
+      <div class="scanline"></div>
+
+      <!-- Play Overlay (When Paused) -->
+      <div id="playPrompt" class="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-300 z-30">
+        <div class="w-20 h-20 rounded-full border border-cyan-400/50 bg-cyan-950/40 flex items-center justify-center text-cyan-300 text-3xl shadow-2xl shadow-cyan-500/20 transform hover:scale-110 active:scale-95 transition">
+          ▶
+        </div>
+        <div class="mt-4 font-mono text-sm tracking-widest text-white font-bold uppercase">
+          Play 20s Showreel (Cluvex Aesthetic)
+        </div>
+        <div class="mt-1 font-mono text-xs text-neutral-400">
+          Click anywhere to start • Sound effects enabled
+        </div>
+      </div>
+
+      <!-- Timecode & Status HUD -->
+      <div class="absolute top-4 left-5 font-mono text-[11px] text-cyan-400 z-20 flex items-center gap-3">
+        <span class="px-2 py-0.5 rounded bg-black/80 border border-neutral-800" id="timecodeDisplay">00:00.0</span>
+        <span class="text-neutral-500 font-bold" id="sceneBadgeDisplay">PHASE 01: GENESIS</span>
+      </div>
+
+      <div class="absolute top-4 right-5 font-mono text-[11px] text-neutral-500 z-20 hidden sm:block">
+        RENDER: 1920x1080@60Hz
+      </div>
+    </div>
+
+    <!-- Timeline & Navigation Scrubber -->
+    <div class="p-4 bg-[#05070a] border-t border-neutral-800">
+      
+      <!-- Progress Bar -->
+      <div class="relative w-full h-2.5 bg-neutral-900 rounded-full mb-3 cursor-pointer overflow-hidden border border-neutral-800" id="timelineBar" onclick="seekTimeline(event)">
+        <div id="progressBar" class="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-400 via-orange-500 to-white rounded-full transition-all duration-75" style="width: 0%;"></div>
+        <!-- Scene Tick Points -->
+        <div class="absolute top-0 left-[16%] w-0.5 h-full bg-white/20"></div>
+        <div class="absolute top-0 left-[37.5%] w-0.5 h-full bg-white/20"></div>
+        <div class="absolute top-0 left-[60%] w-0.5 h-full bg-white/20"></div>
+        <div class="absolute top-0 left-[80%] w-0.5 h-full bg-white/20"></div>
+      </div>
+
+      <!-- Control Buttons -->
+      <div class="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+        <div class="flex items-center gap-2">
+          <button id="mainPlayBtn" onclick="togglePlayPause()" class="px-5 py-2 rounded-lg bg-white text-black font-black hover:bg-neutral-200 transition flex items-center gap-2 shadow-lg">
+            <span id="mainPlayIcon">▶</span>
+            <span id="mainPlayLabel">PLAY</span>
+          </button>
+          <button onclick="restartTeaser()" class="px-3.5 py-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-700 transition">
+            RESTART
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <button onclick="jumpTo(0)" class="px-2.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-cyan-400 border border-neutral-800 transition">01: INTRO</button>
+          <button onclick="jumpTo(3.2)" class="px-2.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-cyan-400 border border-neutral-800 transition">02: CODE & NODES</button>
+          <button onclick="jumpTo(7.5)" class="px-2.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-cyan-400 border border-neutral-800 transition">03: DPI GRID</button>
+          <button onclick="jumpTo(12.0)" class="px-2.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-cyan-400 border border-neutral-800 transition">04: WARP & TUN</button>
+          <button onclick="jumpTo(16.0)" class="px-2.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-cyan-400 border border-neutral-800 transition">05: OUTRO LOCKUP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DURATION = 20.0;
+    let currentTime = 0;
+    let isPlaying = false;
+    let lastTimestamp = null;
+    let soundEnabled = true;
+
+    // Web Audio Synthesizer (Cluvex-style Electronic Soundtrack & Laser FX)
+    let audioCtx = null;
+    let audioDest = null; // For MediaRecorder export
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioDest = audioCtx.createMediaStreamDestination();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function routeAudio(node) {
+      if (!soundEnabled) return;
+      const ctx = getAudioCtx();
+      node.connect(ctx.destination);
+      if (audioDest) node.connect(audioDest);
+    }
+
+    function sfxKick() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.setValueAtTime(140, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        routeAudio(gain);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.35);
+      } catch(e) {}
+    }
+
+    function sfxSubBoom() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(28, ctx.currentTime + 1.6);
+        gain.gain.setValueAtTime(0.45, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.6);
+        osc.connect(gain);
+        routeAudio(gain);
+        osc.start();
+        osc.stop(ctx.currentTime + 1.6);
+      } catch(e) {}
+    }
+
+    function sfxLaserZap(freq = 1200) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+        osc.connect(gain);
+        routeAudio(gain);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+      } catch(e) {}
+    }
+
+    function sfxSonarPing(freq = 1400) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+        osc.connect(gain);
+        routeAudio(gain);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+      } catch(e) {}
+    }
+
+    function sfxRiser(dur = 1.0) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + dur);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + dur);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur + 0.05);
+        osc.connect(gain);
+        routeAudio(gain);
+        osc.start();
+        osc.stop(ctx.currentTime + dur + 0.05);
+      } catch(e) {}
+    }
+
+    // Canvas Engine Setup (1920x1080 native resolution)
+    const canvas = document.getElementById('cinemaCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = 1920;
+    const H = 1080;
+    canvas.width = W;
+    canvas.height = H;
+
+    // 3D Point Cloud Generator (Constellation Galaxy)
+    const NUM_PARTICLES = 160;
+    const particles = [];
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+      particles.push({
+        x: (Math.random() - 0.5) * 2400,
+        y: (Math.random() - 0.5) * 1600,
+        z: (Math.random() - 0.5) * 2000,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: (Math.random() - 0.5) * 0.8,
+        vz: (Math.random() - 0.5) * 0.8,
+        size: Math.random() * 2.5 + 1.0,
+        color: i % 4 === 0 ? '#00f0ff' : (i % 6 === 0 ? '#ff7139' : '#ffffff')
+      });
+    }
+
+    // 3D Camera Projection Math
+    function project3D(x, y, z, camX, camY, camZ, fov = 850) {
+      const rx = x - camX;
+      const ry = y - camY;
+      const rz = z - camZ;
+      if (rz <= 20) return null;
+      const scale = fov / rz;
+      return {
+        px: W / 2 + rx * scale,
+        py: H / 2 + ry * scale,
+        scale: scale,
+        depth: rz
+      };
+    }
+
+    // Sound cue scheduler
+    let lastAudioBeat = -1;
+    function checkAudioTimeline(t) {
+      const beat = Math.floor(t * 2); // 120 BPM beat
+      if (beat !== lastAudioBeat) {
+        lastAudioBeat = beat;
+        if (t >= 0.5 && t < 19.0) {
+          sfxKick();
+        }
+      }
+
+      // Special sound moments
+      if (Math.abs(t - 0.05) < 0.05) sfxSubBoom();
+      if (Math.abs(t - 1.8) < 0.05) sfxRiser(1.2);
+      if (Math.abs(t - 3.2) < 0.05) { sfxSubBoom(); sfxLaserZap(1600); }
+      if (Math.abs(t - 5.5) < 0.05) sfxLaserZap(900);
+      if (Math.abs(t - 7.5) < 0.05) { sfxSubBoom(); sfxLaserZap(2200); }
+      if (Math.abs(t - 9.5) < 0.05) sfxSonarPing(1800);
+      if (Math.abs(t - 12.0) < 0.05) { sfxSubBoom(); sfxRiser(0.8); }
+      if (Math.abs(t - 14.5) < 0.05) sfxSonarPing(1200);
+      if (Math.abs(t - 16.0) < 0.05) { sfxSubBoom(); sfxSonarPing(1600); }
+    }
+
+    // Render Scenes Function
+    function renderFrame(t) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+
+      checkAudioTimeline(t);
+
+      // ==========================================
+      // SCENE 1: 00:00 - 00:03.2 (MINIMALIST LOGO -> GLITCH EXPLOSION)
+      // ==========================================
+      if (t < 3.2) {
+        document.getElementById('sceneBadgeDisplay').textContent = "PHASE 01: GENESIS";
+        
+        // 0 to 1.5s: lowercase clean 'FYRNOX' in center
+        if (t < 1.6) {
+          const alpha = Math.min(1, t * 1.5);
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+          ctx.font = '600 36px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.letterSpacing = '12px';
+          ctx.fillText('FYRNOX', W / 2, H / 2);
+        } else {
+          // 1.6 to 3.2s: Glitch explosion into massive 'FYRNOX' with horizontal lens flare
+          const progress = (t - 1.6) / 1.6;
+          const shakeX = (Math.random() - 0.5) * (1 - progress) * 15;
+          const shakeY = (Math.random() - 0.5) * (1 - progress) * 15;
+
+          // Anamorphic horizontal lens flare line
+          const grad = ctx.createLinearGradient(0, H / 2, W, H / 2);
+          grad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+          grad.addColorStop(0.3, 'rgba(0, 240, 255, 0.4)');
+          grad.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
+          grad.addColorStop(0.7, 'rgba(255, 113, 57, 0.4)');
+          grad.addColorStop(1, 'rgba(255, 113, 57, 0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, H / 2 - 2, W, 4);
+
+          // Massive FYRNOX title
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '900 130px "Montserrat", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.letterSpacing = '18px';
+          ctx.fillText('FYRNOX', W / 2 + shakeX, H / 2 + shakeY);
+
+          // Horizontal anamorphic flare glow
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+          ctx.fillText('FYRNOX', W / 2 + shakeX + 4, H / 2 + shakeY);
+          ctx.fillStyle = 'rgba(255, 113, 57, 0.2)';
+          ctx.fillText('FYRNOX', W / 2 + shakeX - 4, H / 2 + shakeY);
+        }
+      }
+
+      // ==========================================
+      // SCENE 2: 00:03.2 - 00:07.5 (CODE ON LEFT + 3D NETWORK GALAXY & PACKET RAIL)
+      // ==========================================
+      else if (t >= 3.2 && t < 7.5) {
+        document.getElementById('sceneBadgeDisplay').textContent = "PHASE 02: CODE & NETWORK CONSTELLATION";
+        const st = t - 3.2;
+
+        // Left Side: Code Editor
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.font = '600 20px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const codeLines = [
+          "// FYRNOX/src/tunnel.go",
+          "func EstablishTunnel(cfg *Config) (*Tunnel, error) {",
+          "    gw := scan.DiscoverFastlyNodes(cfg.Scan).Await()",
+          "    session := masque.Connect(gw, h3.Config{",
+          "        AntiDPI: true, // Split ClientHello",
+          "        UDPZeroRTT: true,",
+          "    })",
+          "    wininet.SetSystemProxy(session.HttpPort, session.SocksPort)",
+          "    return session.Tunnel(), nil",
+          "}"
+        ];
+
+        let startY = 320;
+        codeLines.forEach((line, idx) => {
+          ctx.fillStyle = '#4a5568';
+          ctx.fillText(String(42 + idx).padStart(2, '0'), 120, startY + idx * 36);
+
+          if (line.startsWith("//")) ctx.fillStyle = '#718096';
+          else if (line.includes("func") || line.includes("return")) ctx.fillStyle = '#ff7139';
+          else if (line.includes("masque") || line.includes("scan")) ctx.fillStyle = '#00f0ff';
+          else ctx.fillStyle = '#e2e8f0';
+
+          ctx.fillText(line, 170, startY + idx * 36);
+        });
+
+        // Right Side: 3D Constellation & Rotating Laser Rail
+        const camX = Math.sin(st * 0.8) * 300;
+        const camY = Math.cos(st * 0.5) * 150;
+        const camZ = -600 + st * 120;
+
+        // Draw 3D point cloud
+        particles.forEach(p => {
+          const proj = project3D(p.x, p.y, p.z, camX, camY, camZ);
+          if (proj && proj.px > 800 && proj.px < W && proj.py > 0 && proj.py < H) {
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(proj.px, proj.py, p.size * proj.scale, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+
+        // 3D Laser Rail between nodes: socks5::serve <-> masque::connect
+        const nodeA = { x: 350, y: 150, z: 200 };
+        const nodeB = { x: 750, y: -200, z: 600 };
+        const projA = project3D(nodeA.x, nodeA.y, nodeA.z, camX, camY, camZ);
+        const projB = project3D(nodeB.x, nodeB.y, nodeB.z, camX, camY, camZ);
+
+        if (projA && projB) {
+          // Connecting laser line
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(projA.px, projA.py);
+          ctx.lineTo(projB.px, projB.py);
+          ctx.stroke();
+
+          // Node A badge
+          ctx.fillStyle = '#00f0ff';
+          ctx.font = '700 16px "JetBrains Mono", monospace';
+          ctx.fillText("socks5::serve (127.0.0.1:20808)", projA.px + 15, projA.py);
+
+          // Node B badge
+          ctx.fillStyle = '#ff7139';
+          ctx.fillText("masque::connect (Fastly Edge)", projB.px + 15, projB.py);
+
+          // Moving packet chevrons along laser
+          const packetProgress = (st * 1.5) % 1.0;
+          const packetX = projA.px + (projB.px - projA.px) * packetProgress;
+          const packetY = projA.py + (projB.py - projA.py) * packetProgress;
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(packetX, packetY, 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // ==========================================
+      // SCENE 3: 00:07.5 - 00:12.0 (THE ICONIC RED DPI INSPECTION GRID & TLS FRAGMENTATION)
+      // ==========================================
+      else if (t >= 7.5 && t < 12.0) {
+        document.getElementById('sceneBadgeDisplay').textContent = "PHASE 03: DEEP PACKET INSPECTION BYPASS";
+        const st = t - 7.5;
+
+        // Top Header
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 64px "Montserrat", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('DPI', 140, 200);
+
+        ctx.font = '600 20px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#a0aec0';
+        ctx.fillText('deep packet inspection', 140, 240);
+
+        // 3D Perspective Red Inspection Grid Plane
+        const gridCenterX = 1100;
+        const gridCenterY = 540;
+        const gridCols = 14;
+        const gridRows = 14;
+        const cellSize = 50;
+
+        ctx.strokeStyle = 'rgba(255, 30, 64, 0.35)';
+        ctx.lineWidth = 1;
+
+        // Draw tilted 3D perspective grid
+        for (let i = -gridCols / 2; i <= gridCols / 2; i++) {
+          ctx.beginPath();
+          ctx.moveTo(gridCenterX + i * cellSize, gridCenterY - 240 + Math.abs(i) * 5);
+          ctx.lineTo(gridCenterX + i * (cellSize * 1.3), gridCenterY + 280 + Math.abs(i) * 8);
+          ctx.stroke();
+        }
+        for (let j = -gridRows / 2; j <= gridRows / 2; j++) {
+          ctx.beginPath();
+          ctx.moveTo(gridCenterX - 350 + j * 5, gridCenterY + j * 38);
+          ctx.lineTo(gridCenterX + 350 - j * 5, gridCenterY + j * 38);
+          ctx.stroke();
+        }
+
+        // Active Red Scanner Center Crosshair
+        ctx.strokeStyle = '#ff1e40';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(gridCenterX, gridCenterY, 80 + Math.sin(st * 8) * 10, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ff1e40';
+        ctx.fillRect(gridCenterX - 120, gridCenterY - 2, 240, 4);
+
+        // Packet Inspection HUD Box
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = '#ff1e40';
+        ctx.lineWidth = 2;
+        ctx.fillRect(gridCenterX + 120, gridCenterY - 140, 320, 90);
+        ctx.strokeRect(gridCenterX + 120, gridCenterY - 140, 320, 90);
+
+        ctx.fillStyle = '#ff1e40';
+        ctx.font = '700 12px "JetBrains Mono", monospace';
+        ctx.fillText("DPI INSPECT", gridCenterX + 140, gridCenterY - 115);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 15px "JetBrains Mono", monospace';
+        ctx.fillText("TLS ClientHello: SPLIT", gridCenterX + 140, gridCenterY - 90);
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillText("ordinary HTTPS -> PASS", gridCenterX + 140, gridCenterY - 68);
+
+        // Traveling Packet Line Through the Grid
+        const railStartX = 200;
+        const railEndX = 1750;
+        const railY = 620;
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(railStartX, railY);
+        ctx.lineTo(railEndX, railY);
+        ctx.stroke();
+
+        // 3 Fragmented Packets gliding safely through the red barrier
+        const pktPos = ((st * 0.45) % 1.0) * (railEndX - railStartX) + railStartX;
+
+        const subPackets = [
+          { offset: 0, label: "1/3" },
+          { offset: -70, label: "2/3" },
+          { offset: -140, label: "3/3" }
+        ];
+
+        subPackets.forEach(sp => {
+          const currentX = pktPos + sp.offset;
+          if (currentX > railStartX && currentX < railEndX) {
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(currentX - 25, railY - 18, 50, 36, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 12px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(sp.label, currentX, railY + 5);
+          }
+        });
+
+        // Feature Text in Foreground
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 48px "Montserrat", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('MASQUE HTTP/3', 140, 850);
+        ctx.font = '600 20px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillText('QUIC • UDP/443 • Anti-DPI TLS Fragmentation', 140, 895);
+      }
+
+      // ==========================================
+      // SCENE 4: 00:12.0 - 00:16.0 (HYPERSPACE WARP & CIRCULAR TUN RADAR)
+      // ==========================================
+      else if (t >= 12.0 && t < 16.0) {
+        document.getElementById('sceneBadgeDisplay').textContent = "PHASE 04: SYSTEM TUN & 240 MBPS THROUGHPUT";
+        const st = t - 12.0;
+
+        // Radial Hyperspace Warp Lines
+        const centerX = W / 2;
+        const centerY = H / 2;
+        const numLines = 80;
+
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+        for (let i = 0; i < numLines; i++) {
+          const angle = (i / numLines) * Math.PI * 2 + st * 0.2;
+          const dist1 = 120 + ((st * 600 + i * 20) % 800);
+          const dist2 = dist1 + 60;
+          ctx.lineWidth = (dist1 / 800) * 3;
+          ctx.beginPath();
+          ctx.moveTo(centerX + Math.cos(angle) * dist1, centerY + Math.sin(angle) * dist1);
+          ctx.lineTo(centerX + Math.cos(angle) * dist2, centerY + Math.sin(angle) * dist2);
+          ctx.stroke();
+        }
+
+        // Floating Hexadecimal Bytes Stream
+        const hexSamples = ["b0 e0 55 3b 81 7c", "fa 10 9c 40 e1 a2", "7d 22 10 ff 00 3c", "38 ms 0-RTT"];
+        ctx.font = '700 16px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(255, 113, 57, 0.7)';
+        hexSamples.forEach((hex, idx) => {
+          const hAngle = (idx * 1.5) + st * 0.4;
+          const hDist = 380 + Math.sin(st * 3 + idx) * 40;
+          ctx.fillText(hex, centerX + Math.cos(hAngle) * hDist, centerY + Math.sin(hAngle) * hDist);
+        });
+
+        // Center High-Tech Radar HUD
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 130, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(0, 255, 136, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 170, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Connected Status
+        ctx.fillStyle = '#00ff88';
+        ctx.font = '700 16px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText("● CONNECTED", centerX, centerY - 45);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 64px "Montserrat", sans-serif';
+        ctx.fillText("38 ms", centerX, centerY + 20);
+
+        ctx.fillStyle = '#a0aec0';
+        ctx.font = '700 15px "JetBrains Mono", monospace';
+        ctx.fillText("LAYER-3 FULL SYSTEM TUN", centerX, centerY + 60);
+
+        // Subtitle Left & Right
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 50px "Montserrat", sans-serif';
+        ctx.fillText("248.6 Mbps", 160, H / 2);
+        ctx.font = '600 18px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillText("THROUGHPUT SPEED", 160, H / 2 + 40);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 50px "Montserrat", sans-serif';
+        ctx.fillText("100% ROUTED", W - 160, H / 2);
+        ctx.font = '600 18px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ff7139';
+        ctx.fillText("WINDOWS OS INTEGRATION", W - 160, H / 2 + 40);
+      }
+
+      // ==========================================
+      // SCENE 5: 00:16.0 - 00:20.0 (THE CLUVEX-STYLE MASTER OUTRO LOCKUP & DEVELOPER SIGNATURE)
+      // ==========================================
+      else {
+        document.getElementById('sceneBadgeDisplay').textContent = "PHASE 05: MASTER OUTRO & SIGNATURE";
+        const st = t - 16.0;
+
+        // Big Main Title Lockup
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 120px "Montserrat", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.letterSpacing = '24px';
+        ctx.fillText('FYRNOX', W / 2, H / 2 - 120);
+
+        // Sharp Horizontal Laser Separator
+        const laserW = Math.min(W * 0.7, st * (W * 0.7) * 2.5);
+        const lGrad = ctx.createLinearGradient(W / 2 - laserW / 2, H / 2 - 40, W / 2 + laserW / 2, H / 2 - 40);
+        lGrad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+        lGrad.addColorStop(0.5, '#00f0ff');
+        lGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+        ctx.fillStyle = lGrad;
+        ctx.fillRect(W / 2 - laserW / 2, H / 2 - 41, laserW, 2.5);
+
+        // Subtitle Underline
+        ctx.fillStyle = '#a0aec0';
+        ctx.font = '700 22px "Montserrat", sans-serif';
+        ctx.letterSpacing = '14px';
+        ctx.fillText('NETWORK  •  PRIVACY  •  WINDOWS', W / 2, H / 2);
+
+        // THE DEVELOPER SIGNATURE (PROMINENT & GLOWING)
+        const sigAlpha = Math.min(1, Math.max(0, (st - 0.5) * 2));
+        ctx.fillStyle = `rgba(255, 113, 57, ${sigAlpha})`;
+        ctx.font = '900 36px "Montserrat", sans-serif';
+        ctx.letterSpacing = '4px';
+        ctx.fillText('Powered by Yousef Kia', W / 2, H / 2 + 95);
+
+        // Terminal GitHub Link with Typing Cursor
+        const fullUrl = "github.com/yousefkiamozafari";
+        const charsToShow = Math.min(fullUrl.length, Math.floor((st - 0.8) * 22));
+        const currentUrl = fullUrl.substring(0, Math.max(0, charsToShow));
+        const cursor = (Math.floor(t * 3) % 2 === 0) ? "█" : "";
+
+        ctx.fillStyle = `rgba(0, 240, 255, ${sigAlpha})`;
+        ctx.font = '600 20px "JetBrains Mono", monospace';
+        ctx.letterSpacing = '2px';
+        ctx.fillText(currentUrl + cursor, W / 2, H / 2 + 155);
+
+        // Build Architectures pill
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = '600 13px "JetBrains Mono", monospace';
+        ctx.letterSpacing = '3px';
+        ctx.fillText("x64  •  x86  •  PORTABLE  •  WIN 11/10/8.1/7", W / 2, H / 2 + 210);
+      }
+    }
+
+    // Animation Loop Controller
+    function tick(timestamp) {
+      if (!isPlaying) return;
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000.0;
+      lastTimestamp = timestamp;
+
+      currentTime += delta;
+      if (currentTime >= DURATION) {
+        currentTime = DURATION;
+        renderFrame(DURATION);
+        pauseTeaser();
+        return;
+      }
+
+      renderFrame(currentTime);
+      updateHUD(currentTime);
+
+      if (isPlaying) {
+        requestAnimationFrame(tick);
+      }
+    }
+
+    function updateHUD(t) {
+      const pct = (t / DURATION) * 100;
+      document.getElementById('progressBar').style.width = pct + '%';
+
+      const mins = Math.floor(t / 60);
+      const secs = Math.floor(t % 60);
+      const ms = Math.floor((t % 1) * 10);
+      document.getElementById('timecodeDisplay').textContent = 
+        String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0') + '.' + ms;
+    }
+
+    function togglePlayPause() {
+      if (isPlaying) pauseTeaser();
+      else playTeaser();
+    }
+
+    function playTeaser() {
+      getAudioCtx();
+      if (currentTime >= DURATION) {
+        currentTime = 0;
+        lastAudioBeat = -1;
+      }
+      isPlaying = true;
+      lastTimestamp = null;
+      document.getElementById('playPrompt').classList.add('opacity-0', 'pointer-events-none');
+      document.getElementById('mainPlayIcon').textContent = '⏸';
+      document.getElementById('mainPlayLabel').textContent = 'PAUSE';
+      requestAnimationFrame(tick);
+    }
+
+    function pauseTeaser() {
+      isPlaying = false;
+      document.getElementById('playPrompt').classList.remove('opacity-0', 'pointer-events-none');
+      document.getElementById('mainPlayIcon').textContent = '▶';
+      document.getElementById('mainPlayLabel').textContent = 'PLAY';
+    }
+
+    function restartTeaser() {
+      currentTime = 0;
+      lastAudioBeat = -1;
+      updateHUD(0);
+      renderFrame(0);
+      playTeaser();
+    }
+
+    function jumpTo(sec) {
+      currentTime = sec;
+      updateHUD(sec);
+      renderFrame(sec);
+    }
+
+    function seekTimeline(e) {
+      const rect = document.getElementById('timelineBar').getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      jumpTo(pct * DURATION);
+    }
+
+    function toggleAudio() {
+      soundEnabled = !soundEnabled;
+      const icon = document.getElementById('soundIcon');
+      const text = document.getElementById('soundText');
+      if (soundEnabled) {
+        icon.textContent = '🔊';
+        text.textContent = 'AUDIO ON';
+        sfxSonarPing(1200);
+      } else {
+        icon.textContent = '🔇';
+        text.textContent = 'AUDIO OFF';
+      }
+    }
+
+    // MediaRecorder Direct Video Export Feature
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+
+    function toggleRecordExport() {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }
+
+    function startRecording() {
+      getAudioCtx();
+      isRecording = true;
+      recordedChunks = [];
+      document.getElementById('recordText').textContent = "RECORDING (0-20s)...";
+
+      const canvasStream = canvas.captureStream(60);
+      if (audioDest && audioDest.stream.getAudioTracks().length > 0) {
+        audioDest.stream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
+      }
+
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      mediaRecorder = new MediaRecorder(canvasStream, { mimeType: mimeType, videoBitsPerSecond: 12000000 });
+
+      mediaRecorder.ondataavailable = function(e) {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = function() {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'FYRNOX-Showreel-20s-Powered-by-Yousef-Kia.webm';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        document.getElementById('recordText').textContent = "EXPORT VIDEO";
+        isRecording = false;
+      };
+
+      mediaRecorder.start();
+      restartTeaser();
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }
+
+    // Initial Frame
+    renderFrame(0);
+  </script>
+</body>
+</html>

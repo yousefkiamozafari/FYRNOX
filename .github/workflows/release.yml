@@ -1,0 +1,93 @@
+name: Release Fyrnox for Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build 64-bit and 32-bit executables
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build\dist, build\portable\Fyrnox-Portable, cmd\installer\payload
+          
+          # Build 64-bit
+          $env:GOARCH = "amd64"
+          go build -ldflags="-H windowsgui -s -w" -o build\Fyrnox-x64.exe .\cmd\fyrnox
+          
+          # Build 32-bit
+          $env:GOARCH = "386"
+          go build -ldflags="-H windowsgui -s -w" -o build\Fyrnox-x86.exe .\cmd\fyrnox
+          
+          # Build Uninstaller
+          go build -ldflags="-H windowsgui -s -w" -o build\Uninstall.exe .\cmd\uninstaller
+
+      - name: Build Native Windows Installers
+        shell: pwsh
+        run: |
+          # 64-bit Installer
+          Copy-Item "build\Fyrnox-x64.exe" "cmd\installer\payload\Fyrnox.exe" -Force
+          Copy-Item "build\Uninstall.exe" "cmd\installer\payload\Uninstall.exe" -Force
+          Copy-Item "icon.ico" "cmd\installer\payload\icon.ico" -Force
+          Copy-Item "README.md" "cmd\installer\payload\README.md" -Force
+          $env:GOARCH = "amd64"
+          go build -ldflags="-H windowsgui -s -w" -o build\dist\Fyrnox-Setup-v1.0.0.exe .\cmd\installer
+          Copy-Item "build\dist\Fyrnox-Setup-v1.0.0.exe" "build\dist\Fyrnox-Setup-x64-v1.0.0.exe" -Force
+
+          # 32-bit Installer
+          $env:GOARCH = "386"
+          go build -ldflags="-H windowsgui -s -w" -o build\Uninstall-x86.exe .\cmd\uninstaller
+          Copy-Item "build\Fyrnox-x86.exe" "cmd\installer\payload\Fyrnox.exe" -Force
+          Copy-Item "build\Uninstall-x86.exe" "cmd\installer\payload\Uninstall.exe" -Force
+          go build -ldflags="-H windowsgui -s -w" -o build\dist\Fyrnox-Setup-x86-v1.0.0.exe .\cmd\installer
+
+      - name: Create Portable Zip Packages
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+
+          # 64-bit Portable
+          Copy-Item "build\Fyrnox-x64.exe" "build\portable\Fyrnox-Portable\Fyrnox.exe" -Force
+          Copy-Item "icon.ico" "build\portable\Fyrnox-Portable\" -Force
+          Copy-Item "README.md" "build\portable\Fyrnox-Portable\" -Force
+          Compress-Archive -Path "build\portable\Fyrnox-Portable\*" -DestinationPath "build\dist\Fyrnox-v1.0.0-Windows-Portable.zip" -Force
+          Copy-Item "build\dist\Fyrnox-v1.0.0-Windows-Portable.zip" "build\dist\Fyrnox-v1.0.0-Windows-x64-Portable.zip" -Force
+
+          # 32-bit Portable
+          New-Item -ItemType Directory -Force -Path build\portable-x86\Fyrnox-Portable
+          Copy-Item "build\Fyrnox-x86.exe" "build\portable-x86\Fyrnox-Portable\Fyrnox.exe" -Force
+          Copy-Item "icon.ico" "build\portable-x86\Fyrnox-Portable\" -Force
+          Copy-Item "README.md" "build\portable-x86\Fyrnox-Portable\" -Force
+          Compress-Archive -Path "build\portable-x86\Fyrnox-Portable\*" -DestinationPath "build\dist\Fyrnox-v1.0.0-Windows-x86-Portable.zip" -Force
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            build/dist/Fyrnox-Setup-v1.0.0.exe
+            build/dist/Fyrnox-Setup-x64-v1.0.0.exe
+            build/dist/Fyrnox-Setup-x86-v1.0.0.exe
+            build/dist/Fyrnox-v1.0.0-Windows-Portable.zip
+            build/dist/Fyrnox-v1.0.0-Windows-x64-Portable.zip
+            build/dist/Fyrnox-v1.0.0-Windows-x86-Portable.zip
+            build/Fyrnox-x64.exe
+            build/Fyrnox-x86.exe
