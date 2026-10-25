@@ -406,6 +406,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start duration counter
   startDurationTimer();
+
+  // Initialize 3D Globe & Real-Time Waveform
+  try {
+    if (typeof FyrnoxGlobe === 'function' && document.getElementById('globe-3d-wrap')) {
+      window.fyrnoxGlobe = new FyrnoxGlobe('globe-3d-wrap');
+    }
+    if (typeof FyrnoxTrafficGraph === 'function' && document.getElementById('traffic-curve-canvas')) {
+      window.fyrnoxTrafficGraph = new FyrnoxTrafficGraph('traffic-curve-canvas');
+    }
+  } catch (e) {
+    console.error('[FYRNOX] Failed to initialize 3D Globe or Traffic Graph:', e);
+  }
   initDraggableHUD();
 });
 
@@ -439,6 +451,15 @@ function switchNav(tab) {
   const targetPanel = document.getElementById(`view-${tab}`);
   if (targetPanel) {
     targetPanel.classList.add('active');
+  }
+
+  if (tab === 'dashboard') {
+    if (window.fyrnoxGlobe && typeof window.fyrnoxGlobe.handleResize === 'function') {
+      setTimeout(() => window.fyrnoxGlobe.handleResize(), 50);
+    }
+    if (window.fyrnoxTrafficGraph && typeof window.fyrnoxTrafficGraph.handleResize === 'function') {
+      setTimeout(() => window.fyrnoxTrafficGraph.handleResize(), 50);
+    }
   }
 
   // Update topbar title
@@ -711,14 +732,49 @@ function updateUI(status) {
     uacNotice.style.display = (isTun && !status.is_admin) ? 'flex' : 'none';
   }
 
-  // 8. Quick Stats Card (Download, Upload, Session)
+  // 8. Quick Stats Card & Bottom Traffic Bar (Download, Upload, Session)
   const statDown = document.getElementById('stat-download-val');
   const statUp = document.getElementById('stat-upload-val');
-  if (statDown && status.traffic) {
-    statDown.textContent = isConnected && status.traffic.down_speed_human ? status.traffic.down_speed_human : '0 B/s';
+  const bDown = document.getElementById('bottom-down-speed');
+  const bUp = document.getElementById('bottom-up-speed');
+
+  const formattedDown = isConnected && status.traffic && status.traffic.down_speed_human ? status.traffic.down_speed_human : '0 B/s';
+  const formattedUp = isConnected && status.traffic && status.traffic.up_speed_human ? status.traffic.up_speed_human : '0 B/s';
+
+  if (statDown) statDown.textContent = formattedDown;
+  if (bDown) bDown.textContent = formattedDown;
+  if (statUp) statUp.textContent = formattedUp;
+  if (bUp) bUp.textContent = formattedUp;
+
+  // Status Indicator Dot
+  const statusDot = document.getElementById('dash-status-dot');
+  if (statusDot) {
+    statusDot.className = isConnected ? 'status-indicator-dot connected' : 'status-indicator-dot';
   }
-  if (statUp && status.traffic) {
-    statUp.textContent = isConnected && status.traffic.up_speed_human ? status.traffic.up_speed_human : '0 B/s';
+
+  // Selected Server City & Routing Tag
+  if (status.server) {
+    const targetCity = document.getElementById('dash-target-city');
+    const routingLabel = document.getElementById('dash-routing-label');
+    if (targetCity) targetCity.textContent = status.server.city || status.server.city_code || 'Frankfurt am Main';
+    if (routingLabel) routingLabel.textContent = status.server.is_anycast ? 'Anycast - BGP' : (status.server.city_code || 'Anycast - BGP');
+  }
+
+  // 3D Globe & Traffic Waveform Sync
+  if (window.fyrnoxGlobe && typeof window.fyrnoxGlobe.updateState === 'function') {
+    window.fyrnoxGlobe.updateState(status);
+  }
+  if (window.fyrnoxTrafficGraph && typeof window.fyrnoxTrafficGraph.update === 'function') {
+    const downSpeed = status.traffic ? (status.traffic.speed_down || 0) : 0;
+    const upSpeed = status.traffic ? (status.traffic.speed_up || 0) : 0;
+    window.fyrnoxTrafficGraph.update(downSpeed, upSpeed, isConnected);
+  }
+
+  // Floating Exit Location Badge Latency
+  const badgeLat = document.getElementById('badge-latency');
+  if (badgeLat) {
+    const ms = isConnected ? (status.exit_latency > 0 ? status.exit_latency : (status.server ? status.server.ping_ms : 42)) : 42;
+    badgeLat.textContent = `${ms} ms`;
   }
 
   // 9. Network Telemetry Card (Exit IP, Location, Latency)
@@ -1889,9 +1945,11 @@ function startDurationTimer() {
     const badgeEl = document.getElementById('telem-duration-badge');
     const sessionEl = document.getElementById('stat-session-val');
 
+    const bSession = document.getElementById('bottom-session-duration');
     if (!connectionStartTime || (currentStatus && currentStatus.state !== 'connected')) {
       if (durationEl) durationEl.textContent = '00:00:00';
       if (sessionEl) sessionEl.textContent = '00:00:00';
+      if (bSession) bSession.textContent = '00:00:00';
       if (badgeEl) {
         badgeEl.textContent = 'Idle';
         badgeEl.className = 'telemetry-badge neutral';
@@ -1908,6 +1966,7 @@ function startDurationTimer() {
     const formatted = `${hrs}:${mins}:${secs}`;
     if (durationEl) durationEl.textContent = formatted;
     if (sessionEl) sessionEl.textContent = formatted;
+    if (bSession) bSession.textContent = formatted;
     if (badgeEl) {
       badgeEl.textContent = 'Active';
       badgeEl.className = 'telemetry-badge free';

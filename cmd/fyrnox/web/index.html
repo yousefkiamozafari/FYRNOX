@@ -169,19 +169,21 @@
             <button class="error-dismiss-btn" onclick="dismissError()">✕</button>
           </div>
 
-          <!-- Main Modern Glass Dashboard Container -->
+          <!-- Main Modern Glass Dashboard Container matching Reference Image -->
           <div class="modern-dashboard-frame">
             
-            <!-- LEFT WORKSPACE: Hero Connect, Stats, and Network Span -->
-            <div class="dashboard-left-workspace">
+            <!-- TOP WORKSPACE: Left Controls + Right 3D Interactive Earth -->
+            <div class="dash-hero-grid">
               
-              <div class="dash-top-columns">
-                <!-- Sub-Column 1: Hero Connect & Mode Selector -->
-                <div class="hero-connect-column">
+              <!-- LEFT COLUMN: Hero Connect Card & Selected Server Card -->
+              <div class="dash-left-column">
+                
+                <!-- CARD 1: Hero Connect Card -->
+                <div class="reference-card hero-connect-card">
                   
                   <div class="connection-status-header">
                     <div class="status-title-row">
-                      <span class="status-flame-icon">🔥</span>
+                      <span class="status-indicator-dot" id="dash-status-dot"></span>
                       <h2 class="status-title-text" id="hero-status-title">Disconnected</h2>
                     </div>
                     <p class="status-subtitle-text" id="hero-status-sub">Your traffic is not protected</p>
@@ -210,7 +212,7 @@
                     <button type="button" class="mode-pill-btn" id="mode-dropdown-trigger" onclick="toggleModeDropdown(event)" title="Select Routing Engine">
                       <span class="mode-pill-icon" id="mode-pill-icon">🌐</span>
                       <span class="mode-pill-label" id="mode-pill-label">System Proxy</span>
-                      <span class="mode-pill-chevron">⌄</span>
+                      <span class="mode-pill-chevron">⌵</span>
                     </button>
                     
                     <div class="mode-dropdown-panel" id="mode-dropdown-panel" style="display: none;">
@@ -247,114 +249,106 @@
 
                 </div>
 
-                <!-- Sub-Column 2: Selected Server & Quick Stats -->
-                <div class="hero-stats-column">
-                  
-                  <!-- Selected Server Card -->
-                  <div class="reference-card selected-server-card">
-                    <div class="card-caption">Selected Server</div>
-                    <div class="server-info-row">
-                      <div class="server-flag" id="dash-target-flag">🇺🇸</div>
-                      <div class="server-text-wrap">
-                        <div class="server-name" id="dash-target-name">United States</div>
-                        <div class="server-tag" id="dash-target-sub">Anycast - BGP</div>
-                      </div>
-                      <button type="button" class="card-action-btn" onclick="switchNav('servers')">Change</button>
+                <!-- CARD 2: Selected Server Card -->
+                <div class="reference-card selected-server-card">
+                  <div class="card-caption">Selected Server</div>
+                  <div class="server-info-row">
+                    <div class="server-flag" id="dash-target-flag">🇩🇪</div>
+                    <div class="server-text-wrap">
+                      <div class="server-name" id="dash-target-name">Germany</div>
+                      <div class="server-city" id="dash-target-city">Frankfurt am Main</div>
+                      <div class="server-tag" id="dash-target-sub" style="display: none;">Anycast - BGP</div>
                     </div>
+                    <button type="button" class="card-action-btn" onclick="switchNav('servers')">Change</button>
                   </div>
-
-                  <!-- Quick Stats Card -->
-                  <div class="reference-card quick-stats-card">
-                    <div class="card-caption">Quick Stats</div>
-                    <div class="stats-rows">
-                      <div class="stat-item-row">
-                        <span class="stat-label">Download</span>
-                        <span class="stat-val font-mono" id="stat-download-val">0 B/s</span>
-                      </div>
-                      <div class="stat-item-row">
-                        <span class="stat-label">Upload</span>
-                        <span class="stat-val font-mono" id="stat-upload-val">0 B/s</span>
-                      </div>
-                      <div class="stat-item-row">
-                        <span class="stat-label">Session</span>
-                        <span class="stat-val font-mono" id="stat-session-val">00:00:00</span>
-                      </div>
-                    </div>
+                  <div class="server-routing-row">
+                    <span class="routing-dot">●</span>
+                    <span class="routing-label" id="dash-routing-label">Anycast - BGP</span>
                   </div>
-
                 </div>
+
               </div>
 
-              <!-- Bottom Spanning Row: Network Card -->
-              <div class="dash-network-span">
-                <div class="reference-card network-card">
-                  <div class="network-header-row">
-                    <span class="network-title">Network</span>
-                    <button type="button" class="network-config-btn" onclick="switchNav('settings')">Configure ›</button>
-                  </div>
-                  <div class="network-columns-row">
-                    <div class="net-col">
-                      <span class="net-label">Exit IP</span>
-                      <span class="net-val font-mono" id="net-exit-ip">—</span>
-                    </div>
-                    <div class="net-col">
-                      <span class="net-label">Location</span>
-                      <span class="net-val" id="net-location">—</span>
-                    </div>
-                    <div class="net-col clickable" id="dash-ping-card" onclick="interactivePingTest()" title="Click to test live latency">
-                      <span class="net-label">Latency</span>
-                      <div class="net-latency-row">
-                        <span class="net-val font-mono" id="net-latency">—</span>
-                        <span class="net-badge" id="telem-ping-badge" style="display: none;">RTT</span>
+              <!-- RIGHT COLUMN: 3D Interactive Earth Hero -->
+              <div class="dash-right-column">
+                <div class="globe-hero-panel" id="globe-hero-panel">
+                  <div id="globe-3d-wrap" class="globe-3d-wrap">
+                    <!-- Three.js Canvas injected dynamically here -->
+                    
+                    <!-- Floating Glass Exit Location Badge matching Reference Image -->
+                    <div class="globe-floating-badge" id="globe-exit-badge">
+                      <div class="badge-status-row">
+                        <span class="badge-status-dot">●</span>
+                        <span class="badge-status-title">EXIT LOCATION</span>
+                      </div>
+                      <div class="badge-location-row">
+                        <span class="badge-country-flag" id="badge-flag">🇩🇪</span>
+                        <span class="badge-city-text" id="badge-city">FRANKFURT, DE</span>
+                      </div>
+                      <div class="badge-metric-row">
+                        <span class="badge-metric-label">
+                          <svg class="badge-bolt-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                          </svg>
+                          Latency
+                        </span>
+                        <span class="badge-metric-val font-mono" id="badge-latency">42 ms</span>
                       </div>
                     </div>
-                  </div>
-                  <div class="network-waveform-wrap">
-                    <svg class="waveform-svg" viewBox="0 0 500 24" preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stop-color="#FF6A00" stop-opacity="0.1" />
-                          <stop offset="45%" stop-color="#FF8533" stop-opacity="0.9" />
-                          <stop offset="60%" stop-color="#FFB000" stop-opacity="0.95" />
-                          <stop offset="100%" stop-color="#FF6A00" stop-opacity="0.1" />
-                        </linearGradient>
-                      </defs>
-                      <path class="waveform-path" d="M0 16 Q 60 14, 120 18 T 240 10 T 360 18 T 440 12 T 500 16" fill="none" stroke="url(#waveGrad)" stroke-width="1.8" />
-                    </svg>
                   </div>
                 </div>
               </div>
 
             </div>
 
-            <!-- RIGHT WORKSPACE: Recommended Servers Panel -->
-            <div class="dashboard-right-workspace">
-              <div class="recommended-card">
-                <div class="rec-header">
-                  <div class="rec-title-wrap">
-                    <span class="rec-bolt-icon">⚡</span>
-                    <span class="rec-title-text">Recommended Servers</span>
+            <!-- BOTTOM SPANNING ROW: Live Network Statistics & Throughput Waveform -->
+            <div class="home-bottom-traffic-bar">
+              <!-- Metric 1: Download Speed -->
+              <div class="bottom-metric-item">
+                <div class="bottom-metric-header">
+                  <span class="metric-arrow down-arrow">↓</span>
+                  <span class="metric-title">Download</span>
+                </div>
+                <div class="bottom-metric-value-row">
+                  <span class="metric-status-dot green">●</span>
+                  <span class="metric-val font-mono" id="bottom-down-speed">0 B/s</span>
+                </div>
+              </div>
+
+              <!-- Metric 2: Upload Speed -->
+              <div class="bottom-metric-item">
+                <div class="bottom-metric-header">
+                  <span class="metric-arrow up-arrow">↑</span>
+                  <span class="metric-title">Upload</span>
+                </div>
+                <div class="bottom-metric-value-row">
+                  <span class="metric-val font-mono" id="bottom-up-speed">0 B/s</span>
+                </div>
+              </div>
+
+              <!-- Metric 3: Session Duration -->
+              <div class="bottom-metric-item">
+                <div class="bottom-metric-header">
+                  <span class="metric-clock-icon">⏱</span>
+                  <span class="metric-title">Session</span>
+                </div>
+                <div class="bottom-metric-value-row">
+                  <span class="metric-val font-mono" id="bottom-session-duration">00:00:00</span>
+                </div>
+              </div>
+
+              <!-- Real-Time Dual-Series Spline Canvas & Legend -->
+              <div class="bottom-graph-wrapper">
+                <canvas id="traffic-curve-canvas" class="traffic-curve-canvas"></canvas>
+                <div class="bottom-graph-legend">
+                  <div class="legend-row">
+                    <span class="legend-dot orange">●</span>
+                    <span class="legend-text font-mono" id="graph-legend-down">0 B/s</span>
                   </div>
-                  <button type="button" class="rec-sort-btn" onclick="pingAllServersInteractive()" title="Sort & Test Latency">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="16 3 21 3 21 8" />
-                      <line x1="4" y1="20" x2="21" y2="3" />
-                      <polyline points="21 16 21 21 16 21" />
-                      <line x1="15" y1="15" x2="21" y2="21" />
-                      <line x1="4" y1="4" x2="9" y2="9" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div class="recommended-servers-list" id="recommended-servers-list">
-                  <!-- Dynamically populated with 5 low-latency recommended servers -->
-                </div>
-
-                <div class="rec-footer-btn-wrap">
-                  <button type="button" class="ping-all-btn" id="btn-ping-all-servers" onclick="pingAllServersInteractive()">
-                    <span class="ping-signal-icon">📶</span>
-                    <span>Ping All Servers</span>
-                  </button>
+                  <div class="legend-row">
+                    <span class="legend-dot cyan">●</span>
+                    <span class="legend-text font-mono" id="graph-legend-up">0 B/s</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -363,6 +357,14 @@
 
           <!-- Hidden legacy containers for background telemetry & compatibility -->
           <div style="display: none;" aria-hidden="true">
+            <span id="stat-download-val">0 B/s</span>
+            <span id="stat-upload-val">0 B/s</span>
+            <span id="stat-session-val">00:00:00</span>
+            <span id="net-exit-ip">—</span>
+            <span id="net-location">—</span>
+            <span id="net-latency">—</span>
+            <div id="dash-ping-card" onclick="interactivePingTest()"></div>
+            <span id="telem-ping-badge"></span>
             <span id="telem-ping-value">-- ms</span>
             <span id="telem-duration-value">00:00:00</span>
             <span id="telem-traffic-value">↓ 0 B / ↑ 0 B</span>
@@ -372,9 +374,11 @@
             <span id="egress-observed-country">--</span>
             <span id="egress-target-country">--</span>
             <span id="dash-mode-tag">Web & App Proxy</span>
+            <div id="recommended-servers-list"></div>
+            <button id="btn-ping-all-servers" onclick="pingAllServersInteractive()"></button>
           </div>
-
-          <!-- Gaming Mode Live Telemetry Card (When active) -->
+          
+<!-- Gaming Mode Live Telemetry Card (When active) -->
           <div id="dash-gaming-card" class="gaming-telemetry-hud" style="display: none;">
             <div class="gaming-hud-left">
               <div class="gaming-pulse-indicator"><span class="gaming-pulse-dot"></span></div>
@@ -893,6 +897,9 @@
   </aside>
 
   <script src="flags.js"></script>
+  <script src="three.min.js"></script>
+  <script src="globe.js"></script>
+  <script src="traffic_graph.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
