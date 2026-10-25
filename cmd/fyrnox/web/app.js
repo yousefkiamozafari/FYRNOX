@@ -1534,27 +1534,89 @@ function renderLogs(logs) {
   if (!consoleEl) return;
 
   if (!logs || logs.length === 0) {
-    consoleEl.textContent = 'No logs available.';
+    consoleEl.innerHTML = '<div class="log-empty">No logs recorded yet.</div>';
     if (countEl) countEl.textContent = '0 lines';
     return;
   }
 
   if (countEl) countEl.textContent = `${logs.length} lines`;
-  consoleEl.textContent = logs.join('\n');
+
+  const fragment = document.createDocumentFragment();
+  logs.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'log-entry';
+
+    let time = '';
+    let level = 'INFO';
+    let msg = '';
+
+    if (typeof entry === 'string') {
+      msg = entry;
+    } else if (entry && typeof entry === 'object') {
+      time = entry.timestamp || '';
+      level = (entry.level || 'INFO').toUpperCase();
+      msg = entry.message || '';
+    }
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'log-timestamp';
+    timeSpan.textContent = `[${time}]`;
+
+    const badgeSpan = document.createElement('span');
+    const lvlLower = level.toLowerCase();
+    badgeSpan.className = `log-badge ${lvlLower}`;
+    badgeSpan.textContent = level;
+
+    const msgSpan = document.createElement('span');
+    msgSpan.className = 'log-msg';
+    msgSpan.textContent = msg;
+
+    row.appendChild(timeSpan);
+    row.appendChild(badgeSpan);
+    row.appendChild(msgSpan);
+    fragment.appendChild(row);
+  });
+
+  consoleEl.innerHTML = '';
+  consoleEl.appendChild(fragment);
   consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 function copyLogs() {
   const consoleEl = document.getElementById('diag-logs-console');
-  if (consoleEl && consoleEl.textContent) {
-    navigator.clipboard.writeText(consoleEl.textContent);
+  if (!consoleEl) return;
+  const entries = consoleEl.querySelectorAll('.log-entry');
+  if (entries.length === 0) {
+    if (consoleEl.textContent) {
+      navigator.clipboard.writeText(consoleEl.textContent.trim());
+    }
+    return;
+  }
+  const plainText = Array.from(entries).map(row => {
+    const time = row.querySelector('.log-timestamp')?.textContent || '';
+    const badge = row.querySelector('.log-badge')?.textContent || '';
+    const msg = row.querySelector('.log-msg')?.textContent || '';
+    return `${time} [${badge}] ${msg}`.trim();
+  }).join('\n');
+
+  if (plainText) {
+    navigator.clipboard.writeText(plainText);
     alert((I18N[currentLang] && I18N[currentLang].logs_copied) || 'Logs copied to clipboard!');
   }
 }
 
-function clearLogs() {
+async function clearLogs() {
   const consoleEl = document.getElementById('diag-logs-console');
-  if (consoleEl) consoleEl.textContent = '';
+  const countEl = document.getElementById('logs-line-count');
+  if (consoleEl) {
+    consoleEl.innerHTML = '<div class="log-empty">Logs cleared.</div>';
+  }
+  if (countEl) countEl.textContent = '0 lines';
+  try {
+    await fetch('/api/logs/clear', { method: 'POST' });
+  } catch (err) {
+    console.error('Failed to clear logs on server:', err);
+  }
 }
 
 function copyIPToClipboard() {
