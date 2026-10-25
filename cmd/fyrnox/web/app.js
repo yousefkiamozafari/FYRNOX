@@ -1,0 +1,2118 @@
+// FYRNOX for Windows — Desktop Controller & Real-Time Engine
+
+const I18N = {
+  en: {
+    brand_badge: 'DESKTOP VPN',
+    nav_dashboard: 'Dashboard',
+    nav_locations: 'Servers',
+    nav_diagnostics: 'Diagnostics',
+    nav_settings: 'Settings',
+    page_dashboard: 'Network Dashboard',
+    page_servers: 'Server Locations',
+    page_diagnostics: 'System Diagnostics',
+    page_settings: 'Preferences & Settings',
+    account_firefox: 'Firefox Account',
+    sign_in: 'Sign In',
+    sign_out: 'Sign Out',
+    detecting: 'Detecting...',
+    not_logged_in: 'Not logged in',
+    quota_desc: '50.0 GB/month high-speed Mozilla VPN quota',
+    disconnected: 'DISCONNECTED',
+    connecting: 'CONNECTING...',
+    connected: 'CONNECTED SECURELY',
+    disconnecting: 'DISCONNECTING...',
+    error: 'CONNECTION ERROR',
+    btn_connect: 'CONNECT NOW',
+    btn_disconnect: 'DISCONNECT',
+    btn_connecting: 'CONNECTING...',
+    btn_disconnecting: 'DISCONNECTING...',
+    btn_sign_in: 'Sign In',
+    traffic_unprotected: 'Traffic is currently unprotected',
+    dash_error_title: 'Connection Warning',
+    dash_error_msg: 'Failed to establish secure tunnel.',
+    step_authorizing: 'Authorizing session with Firefox account...',
+    step_connecting_upstream: 'Connecting to upstream edge server...',
+    step_starting_proxies: 'Initializing local routing streams...',
+    step_verifying_exit: 'Verifying tunnel egress connectivity...',
+    step_configuring_routes: 'Configuring system routing...',
+    step_default: 'Establishing secure MASQUE stream...',
+    sub_protected_tun: 'Protected via Wintun Layer-3 TUN',
+    sub_protected_proxy: 'Protected via Fastly MASQUE Proxy',
+    sub_disconnecting: 'Restoring network routes and proxy settings...',
+    rec_tag: 'SMART RECOMMENDATION',
+    rec_fastest_edge: 'Fastest verified edge',
+    btn_use_rec: 'Use Recommended',
+    lbl_target_location: 'Selected Server Location',
+    btn_change_server: 'Change Server',
+    lbl_routing_engine: 'Traffic Routing Engine',
+    mode_tag_proxy: 'Web & App Proxy',
+    mode_tag_tun: 'Full System TUN',
+    mode_system_proxy: 'System Proxy',
+    mode_wintun_tun: 'Wintun L3 TUN',
+    uac_admin_required: 'Administrator rights required for kernel TUN',
+    btn_elevate: 'Elevate ⚡',
+    lbl_egress_title: 'Exit Verification & Geolocation Transparency',
+    lbl_direct_verification: 'Direct Verification',
+    lbl_target_server: 'Target Server',
+    lbl_public_ip: 'Observed Public IP',
+    lbl_direct_conn: 'Direct Connection',
+    lbl_exit_country: 'Observed Exit Country',
+    lbl_anycast_title: 'Anycast Routing:',
+    lbl_anycast_desc: 'Traffic terminates at nearest Fastly regional edge node to minimize latency.',
+    type_anycast: 'Anycast Edge',
+    lbl_telemetry_latency: 'Network Latency (RTT)',
+    lbl_telemetry_duration: 'Connection Duration',
+    lbl_idle: 'Idle',
+    lbl_live: 'Live',
+    lbl_telemetry_traffic: 'Session Data Transferred',
+    lbl_live_meter: 'Live Meter',
+    lbl_telemetry_allowance: 'Monthly Mozilla Allowance',
+    lbl_quota_left: '100% Left',
+    search_placeholder: 'Search by country, city, POP code (e.g. MUC, FRA, LON), or hostname...',
+    filter_all: 'All',
+    filter_pop: 'Dedicated POPs',
+    filter_anycast: 'Anycast Edge',
+    filter_europe: 'Europe',
+    filter_americas: 'Americas',
+    filter_asia: 'Asia & Pacific',
+    btn_ping_all: 'Ping All Servers',
+    ping_measuring: 'Measuring Global POP Latencies...',
+    btn_cancel: 'Cancel',
+    col_location: 'Location & Server',
+    col_arch: 'Network Architecture',
+    col_ping: 'Round-Trip Ping',
+    col_action: 'Action',
+    badge_recommended: 'RECOMMENDED',
+    btn_card_selected: 'Selected ✓',
+    btn_card_connect: 'Connect',
+    btn_card_connected: 'Connected ✓',
+    diag_socks_desc: 'Local SOCKS5 proxy engine forwarding TCP connections into Fastly MASQUE tunnel.',
+    diag_http_desc: 'WinINet-compatible HTTP CONNECT proxy bridge for Windows system proxy routing.',
+    diag_tun_name: 'Wintun Layer-3 Virtual Adapter',
+    diag_tun_desc: 'Kernel-level virtual network adapter (Wintun) capturing and routing 100% of all IP packets.',
+    diag_tls_name: 'TLS Anti-DPI Fragmentation',
+    diag_tls_desc: 'ClientHello TCP fragmentation actively bypasses SNI inspection and deep packet inspection.',
+    diag_dns_name: 'DNS Leak & Hijack Protection',
+    diag_dns_desc: 'Routes DNS requests directly through secure resolvers (1.1.1.1 & 8.8.8.8) to prevent ISP hijacking.',
+    diag_uac_name: 'Windows Elevation (UAC)',
+    diag_uac_desc: 'Process privilege level. Required for Wintun Layer-3 routing table modifications.',
+    lbl_live_logs: 'Live System Logs',
+    btn_copy_logs: '📋 Copy Logs',
+    btn_clear_logs: '🗑️ Clear',
+    logs_copied: 'Logs copied to clipboard!',
+    ip_copied: 'Public IP copied to clipboard!',
+    set_heading_routing: 'Routing Modes & Tunnel Protocol',
+    set_tun_title: 'Wintun Layer-3 TUN Mode',
+    set_tun_sub: 'Route 100% of all Windows traffic, games, command line tools, and UDP packets',
+    set_h3_title: 'HTTP/3 (QUIC / UDP) Transport',
+    set_h3_sub: 'Ultra-low latency UDP transport when edge nodes support QUIC (fallback to HTTP/2)',
+    set_tls_title: 'TLS ClientHello Fragmentation',
+    set_tls_sub: 'Evade SNI filtering by fragmenting TLS packets across TCP boundaries (Anti-Censorship)',
+    set_api_proxy_title: 'Auxiliary Proxy for Authentication',
+    set_api_proxy_sub: 'Upstream proxy if Mozilla FxA login is blocked by local censorship (e.g. 127.0.0.1:10808)',
+    set_bypass_title: 'System Proxy Direct Bypass Rules',
+    set_bypass_sub: 'Semicolon- or comma-separated domains/IPs that connect directly without proxying (e.g. *.ir; *.local; 192.168.*)',
+    set_heading_appearance: 'Appearance & Interface Language',
+    set_lang_title: 'Interface Language',
+    set_lang_sub: 'Switch between English and Persian (فارسی)',
+    set_theme_title: 'Dashboard Theme',
+    set_theme_sub: 'Switch between Dark Obsidian Fire and Light Clean',
+    set_heading_account: 'Mozilla Account & Subscription',
+    set_heading_about: 'About FYRNOX for Windows',
+    about_desc: 'High-performance subscription-free desktop VPN client powered by Fastly MASQUE and Mozilla Guardian.',
+    login_title: 'Sign In with Firefox Account',
+    login_desc: 'Sign in with your Firefox Account to access Mozilla\'s 50 GB monthly free VPN quota.',
+    login_email_label: 'Email',
+    login_password_label: 'Password',
+    login_proxy_label: 'Upstream Proxy (Optional)',
+    twofa_prompt: 'Verification code sent to your email. Please enter below:',
+    twofa_code_label: '6-Digit Code',
+    btn_verify_code: 'Verify Code',
+    uac_modal_title: 'Administrator Privileges Required',
+    uac_modal_desc: 'To enable Wintun Layer-3 TUN Mode and route 100% of all system traffic, Windows requires Administrator privileges to create the virtual network interface and modify routing tables.',
+    uac_cancel: 'Cancel (Stay in Proxy Mode)',
+    uac_confirm: 'Restart as Administrator ⚡',
+    nav_split_tunnel: 'Split Tunnel',
+    page_split_tunnel: 'App Split Tunneling',
+    split_desc: 'Route or bypass traffic for specific desktop applications and binaries.',
+    split_mode_label: 'Tunnel Behavior:',
+    split_mode_bypass: 'Bypass Selected Apps (Direct)',
+    split_mode_proxy: 'Tunnel Selected Apps Only (Proxy)',
+    split_presets_caption: 'Quick Presets:',
+    split_preset_browsers: 'Browsers',
+    split_preset_messaging: 'Telegram & Chat',
+    split_preset_games: 'Game Launchers',
+    split_btn_clear: 'Clear All',
+    split_search_placeholder: 'Search running or installed apps...',
+    split_btn_add: '+ Add Binary',
+    split_active_rules: 'Configured Routing Rules',
+    split_running_processes: 'Detected System Applications & Processes',
+    split_table_name: 'Application',
+    split_table_path: 'Process Binary',
+    split_table_status: 'Status',
+    split_table_action: 'Rule',
+    split_no_apps: 'No applications configured for split tunneling.',
+    gaming_mode_btn: 'Gaming Mode',
+    gaming_active: '⚡ Gaming Mode Active',
+    gaming_sub_info: 'Zero-MUX Direct UDP • Anti-Fragmentation • Low Variance',
+    gaming_jitter: 'Jitter',
+    gaming_loss: 'Packet Loss',
+    btn_disable: 'Turn Off',
+    set_iran_bypass_title: 'Direct Routing for Iran Domestic Traffic (Zero-Config)',
+    set_iran_bypass_sub: 'Bypass domestic banking networks, Shetab gateways, and .ir domains directly without consuming VPN quota',
+    set_gaming_title: 'Dedicated Low-Latency Gaming Accelerator',
+    set_gaming_sub: 'Prioritizes raw UDP packets, enforces MTU 1420 (no fragmentation), and eliminates head-of-line blocking'
+  },
+  fa: {
+    brand_badge: 'نسخه دسکتاپ',
+    nav_dashboard: 'داشبورد',
+    nav_locations: 'سرورها',
+    nav_diagnostics: 'عیب‌یابی',
+    nav_settings: 'تنظیمات',
+    page_dashboard: 'داشبورد شبکه',
+    page_servers: 'لیست سرورها',
+    page_diagnostics: 'عیب‌یابی سیستم',
+    page_settings: 'تنظیمات و پیکربندی',
+    account_firefox: 'حساب فایرفاکس',
+    sign_in: 'ورود به حساب',
+    sign_out: 'خروج از حساب',
+    detecting: 'در حال شناسایی...',
+    not_logged_in: 'وارد نشده‌اید',
+    quota_desc: '۵۰ گیگابایت حجم ماهانه پرسرعت موزیلا',
+    disconnected: 'قطع شده',
+    connecting: 'در حال اتصال...',
+    connected: 'متصل شد (امن)',
+    disconnecting: 'در حال قطع...',
+    error: 'خطا در اتصال',
+    btn_connect: 'اتصال به شبکه',
+    btn_disconnect: 'قطع اتصال',
+    btn_connecting: 'در حال اتصال...',
+    btn_disconnecting: 'در حال قطع...',
+    btn_sign_in: 'ورود',
+    traffic_unprotected: 'ترافیک اینترنت شما بدون حفاظت است',
+    dash_error_title: 'هشدار اتصال',
+    dash_error_msg: 'برقراری تونل امن با خطا مواجه شد.',
+    step_authorizing: 'در حال احراز هویت با حساب فایرفاکس...',
+    step_connecting_upstream: 'در حال اتصال به سرور لبه شبکه...',
+    step_starting_proxies: 'راه‌اندازی سرویس‌های محلی مسیریابی...',
+    step_verifying_exit: 'در حال بررسی نهایی ترافیک خروجی...',
+    step_configuring_routes: 'پیکربندی جدول مسیریابی سیستم...',
+    step_default: 'برقراری جریان امن MASQUE...',
+    sub_protected_tun: 'محافظت شده از طریق Wintun Layer-3 TUN',
+    sub_protected_proxy: 'محافظت شده از طریق پراکسی Fastly MASQUE',
+    sub_disconnecting: 'در حال بازیابی تنظیمات شبکه و پراکسی...',
+    rec_tag: 'پیشنهاد هوشمند',
+    rec_fastest_edge: 'سریع‌ترین سرور تایید شده',
+    btn_use_rec: 'اتصال به سرور پیشنهادی',
+    lbl_target_location: 'سرور انتخابی',
+    btn_change_server: 'تغییر سرور',
+    lbl_routing_engine: 'موتور هدایت ترافیک',
+    mode_tag_proxy: 'پراکسی برنامه‌ها',
+    mode_tag_tun: 'مسیریابی سراسری سیستم',
+    mode_system_proxy: 'پراکسی سیستمی',
+    mode_wintun_tun: 'مسیریابی Wintun L3',
+    uac_admin_required: 'دسترسی ادمین برای Wintun TUN الزامی است',
+    btn_elevate: 'ارتقای دسترسی ⚡',
+    lbl_egress_title: 'بررسی شفافیت آدرس آی‌پی خروجی',
+    lbl_direct_verification: 'بررسی زنده ترافیک',
+    lbl_target_server: 'سرور مقصد',
+    lbl_public_ip: 'آدرس آی‌پی عمومی مشاهده‌شده',
+    lbl_direct_conn: 'اتصال مستقیم',
+    lbl_exit_country: 'کشور خروجی مشاهده‌شده',
+    lbl_anycast_title: 'مسیریابی انیکست:',
+    lbl_anycast_desc: 'ترافیک برای کاهش تاخیر به نزدیک‌ترین نود منطقه‌ای Fastly متصل می‌شود.',
+    type_anycast: 'لبه انیکست',
+    lbl_telemetry_latency: 'تاخیر رفت و برگشت (RTT)',
+    lbl_telemetry_duration: 'مدت زمان اتصال',
+    lbl_idle: 'غیرفعال',
+    lbl_live: 'فعال',
+    lbl_telemetry_traffic: 'حجم مصرفی جلسه',
+    lbl_live_meter: 'شمارش زنده',
+    lbl_telemetry_allowance: 'سهمیه ماهانه موزیلا',
+    lbl_quota_left: 'باقی‌مانده',
+    search_placeholder: 'جستجوی کشور، شهر، کد فرودگاهی یا نام سرور...',
+    filter_all: 'همه',
+    filter_pop: 'نودهای اختصاصی',
+    filter_anycast: 'لبه‌های انیکست',
+    filter_europe: 'اروپا',
+    filter_americas: 'آمریکا',
+    filter_asia: 'آسیا و اقیانوسیه',
+    btn_ping_all: 'تست پینگ همه سرورها',
+    ping_measuring: 'در حال سنجش پینگ سرورها...',
+    btn_cancel: 'لغو',
+    col_location: 'موقعیت و سرور',
+    col_arch: 'معماری شبکه',
+    col_ping: 'زمان پاسخ پینگ',
+    col_action: 'عملیات',
+    badge_recommended: 'پیشنهادی',
+    btn_card_selected: 'انتخاب شده ✓',
+    btn_card_connect: 'اتصال',
+    btn_card_connected: 'متصل شد ✓',
+    diag_socks_desc: 'موتور پراکسی محلی SOCKS5 هدایت‌کننده بسته‌ها به تونل Fastly MASQUE.',
+    diag_http_desc: 'پل ارتباطی HTTP CONNECT سازگار با WinINet برای پراکسی سیستمی ویندوز.',
+    diag_tun_name: 'آداپتور مجازی لایه ۳ Wintun',
+    diag_tun_desc: 'آداپتور درایور هسته ویندوز برای هدایت ۱۰۰٪ تمام ترافیک و بسته‌ها.',
+    diag_tls_name: 'تکه‌تکه سازی TLS ضد فیلترینگ',
+    diag_tls_desc: 'تکه‌تکه‌سازی بسته معرفی ClientHello جهت عبور از سانسور و فیلترینگ عمیق SNI.',
+    diag_dns_name: 'محافظت در برابر نشت و جعل DNS',
+    diag_dns_desc: 'هدایت درخواست‌های نام دامنه به سرورهای ۱.۱.۱.۱ و ۸.۸.۸.۸ برای جلوگیری از دستکاری ISP.',
+    diag_uac_name: 'سطح دسترسی ویندوز (UAC)',
+    diag_uac_desc: 'سطح دسترسی برنامه. برای تغییر جدول مسیریابی Wintun به ادمین نیاز است.',
+    lbl_live_logs: 'گزارش‌های زنده سیستم',
+    btn_copy_logs: '📋 کپی گزارش‌ها',
+    btn_clear_logs: '🗑️ پاک کردن',
+    logs_copied: 'گزارش‌ها در کلیپ‌بورد کپی شد!',
+    ip_copied: 'آدرس آی‌پی در کلیپ‌بورد کپی شد!',
+    set_heading_routing: 'حالت‌های مسیریابی و پروتکل تونل',
+    set_tun_title: 'حالت مسیریابی سراسری Wintun L3 TUN',
+    set_tun_sub: 'هدایت ۱۰۰٪ ترافیک ویندوز، بازی‌ها، دستورات ترمینال و بسته‌های UDP',
+    set_h3_title: 'پروتکل انتقالی HTTP/3 (QUIC / UDP)',
+    set_h3_sub: 'ارتباط فوق سریع UDP هنگام پشتیبانی سرور لبه (بازگشت خودکار به HTTP/2)',
+    set_tls_title: 'تکه‌تکه‌سازی ClientHello در TLS',
+    set_tls_sub: 'دور زدن فیلترینگ با شکستن پکت‌های TLS بر روی مرزهای TCP (ضد سانسور)',
+    set_api_proxy_title: 'پراکسی کمکی جهت احراز هویت',
+    set_api_proxy_sub: 'پراکسی بالادستی در صورتی که ورود به موزیلا توسط فیلترینگ مسدود است',
+    set_bypass_title: 'قوانین دور زدن مستقیم در پراکسی سیستمی',
+    set_bypass_sub: 'دامنه‌ها یا آی‌پی‌هایی که بدون پراکسی و مستقیم وصل می‌شوند (مانند ir.* یا لوکال)',
+    set_heading_appearance: 'ظاهر و زبان برنامه',
+    set_lang_title: 'زبان برنامه',
+    set_lang_sub: 'تغییر زبان بین انگلیسی و فارسی',
+    set_theme_title: 'تم ظاهری',
+    set_theme_sub: 'تغییر بین تم تاریک آتشی و تم روشن',
+    set_heading_account: 'حساب کاربری موزیلا و سهمیه',
+    set_heading_about: 'درباره FYRNOX برای ویندوز',
+    about_desc: 'کلاینت VPN دسکتاپ پرسرعت و رایگان بر پایه Fastly MASQUE و موزیلا گاردین.',
+    login_title: 'ورود با حساب کاربری فایرفاکس',
+    login_desc: 'برای دسترسی به ۵۰ گیگابایت حجم رایگان ماهانه موزیلا با حساب فایرفاکس خود وارد شوید.',
+    login_email_label: 'ایمیل',
+    login_password_label: 'رمز عبور',
+    login_proxy_label: 'پراکسی بالادستی (اختیاری)',
+    twofa_prompt: 'کد تایید به ایمیل شما ارسال شد. لطفاً آن را وارد کنید:',
+    twofa_code_label: 'کد ۶ رقمی',
+    btn_verify_code: 'تایید و ورود',
+    uac_modal_title: 'نیاز به دسترسی مدیر (Administrator)',
+    uac_modal_desc: 'جهت فعال‌سازی Wintun TUN و هدایت تمام ترافیک ویندوز، ایجاد کارت شبکه مجازی و جدول مسیریابی نیازمند دسترسی ادمین است.',
+    uac_cancel: 'انصراف (ماندن در حالت پراکسی)',
+    uac_confirm: 'راه‌اندازی مجدد با دسترسی ادمین ⚡',
+    nav_split_tunnel: 'تونلینگ تفکیکی',
+    page_split_tunnel: 'مسیریابی تفکیکی برنامه‌ها (Split Tunneling)',
+    split_desc: 'هدایت یا دور زدن ترافیک برای برنامه‌ها و فایل‌های اجرایی دلخواه در ویندوز.',
+    split_mode_label: 'رفتار تونل:',
+    split_mode_bypass: 'عبور مستقیم برنامه‌های انتخابی (Bypass)',
+    split_mode_proxy: 'فقط عبور برنامه‌های انتخابی از فیلترشکن (Proxy)',
+    split_presets_caption: 'دسته‌های آماده:',
+    split_preset_browsers: 'مرورگرها',
+    split_preset_messaging: 'تلگرام و چت',
+    split_preset_games: 'لانچرهای بازی',
+    split_btn_clear: 'پاک‌سازی همه',
+    split_search_placeholder: 'جستجوی برنامه‌های در حال اجرا یا نصب‌شده...',
+    split_btn_add: '+ افزودن فایل',
+    split_active_rules: 'قوانین مسیریابی فعال',
+    split_running_processes: 'برنامه‌ها و پردازش‌های فعال ویندوز',
+    split_table_name: 'نام برنامه',
+    split_table_path: 'فایل اجرایی پردازش',
+    split_table_status: 'وضعیت',
+    split_table_action: 'تنظیم قانون',
+    split_no_apps: 'هیچ برنامه‌ای برای تونلینگ تفکیکی تنظیم نشده است.',
+    gaming_mode_btn: 'حالت گیمینگ',
+    gaming_active: '⚡ شتاب‌دهنده گیمینگ فعال است',
+    gaming_sub_info: 'اولویت UDP خام • بدون سربار MUX • ضد تکه‌تکه‌شدن MTU 1420',
+    gaming_jitter: 'نوسان (Jitter)',
+    gaming_loss: 'افت بسته',
+    btn_disable: 'غیرفعال‌سازی',
+    set_iran_bypass_title: 'مسیریابی مستقیم ترافیک داخلی ایران (Zero-Config Bypass)',
+    set_iran_bypass_sub: 'هدایت مستقیم بانک‌ها، درگاه‌های شاپرک و دامنه‌های ir. از اینترنت عادی بدون کسر حجم و افت سرعت',
+    set_gaming_title: 'شتاب‌دهنده اختصاصی گیمینگ (پینگ پایین)',
+    set_gaming_sub: 'اولویت‌دهی به پکت‌های UDP خام، تنظیم خودکار MTU 1420 برای جلوگیری از تکه‌تکه شدن و حذف MUX'
+  }
+};
+
+let currentStatus = null;
+let allServers = [];
+let activeNav = 'dashboard';
+let currentLang = localStorage.getItem('fyrnox_lang') || 'en';
+let currentTheme = localStorage.getItem('fyrnox_theme') || 'dark';
+let currentFilter = 'all';
+
+let connectionStartTime = null;
+let durationInterval = null;
+let isPinging = false;
+let pingAbortController = null;
+let pingProgressTimer = null;
+let previousState = 'disconnected';
+
+const EUROPE_CODES = ['DE', 'GB', 'FR', 'NL', 'SE', 'FI', 'NO', 'DK', 'BE', 'AT', 'ES', 'PT', 'IT', 'IE', 'BG', 'CH'];
+const AMERICAS_CODES = ['US', 'CA', 'BR', 'AR', 'CL', 'CO', 'PE', 'MX'];
+const ASIA_CODES = ['JP', 'SG', 'KR', 'TH', 'MY', 'PH', 'AU', 'NZ'];
+
+// Flag emoji map with robust fallback
+const FLAG_MAP = {
+  US: '🇺🇸', DE: '🇩🇪', NL: '🇳🇱', GB: '🇬🇧', FR: '🇫🇷',
+  SE: '🇸🇪', FI: '🇫🇮', NO: '🇳🇴', DK: '🇩🇰', BE: '🇧🇪',
+  AT: '🇦🇹', ES: '🇪🇸', PT: '🇵🇹', IT: '🇮🇹', IE: '🇮🇪',
+  BG: '🇧🇬', CA: '🇨🇦', BR: '🇧🇷', AR: '🇦🇷', CL: '🇨🇱',
+  CO: '🇨🇴', PE: '🇵🇪', MX: '🇲🇽', JP: '🇯🇵', SG: '🇸🇬',
+  KR: '🇰🇷', TH: '🇹🇭', MY: '🇲🇾', PH: '🇵🇭', AU: '🇦🇺',
+  NZ: '🇳🇿', ZA: '🇿🇦', GH: '🇬🇭', IR: '🇮🇷'
+};
+
+function getFlag(code) {
+  if (typeof getFlagSVG === 'function') {
+    return getFlagSVG(code);
+  }
+  if (!code) return '🌐';
+  const c = code.toUpperCase().trim();
+  return FLAG_MAP[c] || '🌐';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyTheme(currentTheme);
+  applyLanguage(currentLang);
+  initWindowControls();
+
+  // Initialize Real-Time SSE
+  initSSE();
+
+  // Load initial dataset
+  fetchServers();
+  fetchStatus();
+  fetchLogs();
+
+  // Background log poller if diagnostics is active
+  setInterval(() => {
+    if (activeNav === 'diagnostics') {
+      fetchLogs();
+    }
+  }, 2000);
+
+  // Start duration counter
+  startDurationTimer();
+  initDraggableHUD();
+});
+
+// ==========================================================================
+// Navigation & Views
+// ==========================================================================
+function switchNav(tab) {
+  activeNav = tab;
+  
+  // Update sidebar active buttons
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    if (btn.dataset.tab === tab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // Update view panes
+  document.querySelectorAll('.view-panel').forEach(panel => {
+    panel.classList.remove('active');
+  });
+
+  const targetPanel = document.getElementById(`view-${tab}`);
+  if (targetPanel) {
+    targetPanel.classList.add('active');
+  }
+
+  // Update topbar title
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) {
+    const key = `page_${tab}`;
+    titleEl.textContent = (I18N[currentLang] && I18N[currentLang][key]) || 'FYRNOX Desktop';
+  }
+
+  if (tab === 'diagnostics') {
+    fetchLogs();
+  } else if (tab === 'split-tunnel') {
+    loadSplitTunnelView();
+  }
+}
+
+// ==========================================================================
+// Server-Sent Events (SSE) & Status Poller
+// ==========================================================================
+function initSSE() {
+  const handleStatusData = (data) => {
+    if (data) {
+      updateUI(data);
+    }
+  };
+
+  if (!window.EventSource) {
+    setInterval(fetchStatus, 1500);
+    return;
+  }
+
+  try {
+    const es = new EventSource('/api/events');
+    es.onmessage = (event) => {
+      try {
+        handleStatusData(JSON.parse(event.data));
+      } catch (err) {}
+    };
+    es.addEventListener('status', (event) => {
+      try {
+        handleStatusData(JSON.parse(event.data));
+      } catch (err) {}
+    });
+    es.onerror = () => {
+      setTimeout(fetchStatus, 1500);
+    };
+  } catch (err) {
+    console.warn('SSE initialization failed; using polling:', err);
+    setInterval(fetchStatus, 1500);
+  }
+
+  // Active status poller: Polls every 1s while connecting/disconnecting to prevent any UI freezing
+  setInterval(() => {
+    if (currentStatus && (currentStatus.state === 'connecting' || currentStatus.state === 'disconnecting')) {
+      fetchStatus();
+    }
+  }, 1000);
+  setInterval(fetchStatus, 4000);
+}
+
+async function fetchStatus() {
+  try {
+    const res = await fetch('/api/status');
+    if (res.ok) {
+      const data = await res.json();
+      updateUI(data);
+    }
+  } catch (err) {
+    console.error('Failed to fetch status:', err);
+  }
+}
+
+// ==========================================================================
+// Update UI State
+// ==========================================================================
+function updateUI(status) {
+  if (!status) return;
+  currentStatus = status;
+
+  const state = status.state || 'disconnected';
+  const isConnected = state === 'connected';
+  const isConnecting = state === 'connecting';
+  const isDisconnecting = state === 'disconnecting';
+
+  // 1. Session Duration tracking
+  if (isConnected && previousState !== 'connected') {
+    connectionStartTime = Date.now();
+  } else if (!isConnected && !isConnecting && !isDisconnecting) {
+    connectionStartTime = null;
+  }
+  previousState = state;
+
+  // 2. Topbar Status Indicator
+  const topbarPill = document.getElementById('topbar-status-pill');
+  const topbarText = document.getElementById('topbar-status-text');
+  if (topbarPill && topbarText) {
+    topbarPill.className = `status-indicator-pill ${state}`;
+    topbarText.textContent = (I18N[currentLang] && I18N[currentLang][state]) || state.toUpperCase();
+  }
+
+  // Titlebar Status Text
+  const titlebarStatus = document.getElementById('titlebar-status-text');
+  if (titlebarStatus) {
+    titlebarStatus.textContent = state.toUpperCase();
+    titlebarStatus.className = `titlebar-status-text ${state}`;
+  }
+
+  // 3. Topbar Route
+  const originEl = document.getElementById('topbar-origin-country');
+  const targetEl = document.getElementById('topbar-target-country');
+  if (originEl && status.current_country) {
+    originEl.innerHTML = `${getFlag(status.current_country)} <span>${escapeHtml(status.current_country)}</span>`;
+  }
+  if (targetEl && status.server) {
+    targetEl.innerHTML = `${getFlag(status.server.country_code)} <span>${escapeHtml(status.server.country_name)}</span>`;
+  }
+
+  // 4. Hero Shield Button
+  const heroBtn = document.getElementById('hero-connect-btn');
+  const heroLabel = document.getElementById('hero-status-label');
+  const heroSub = document.getElementById('hero-status-sub');
+  const heroAction = document.getElementById('hero-action-btn');
+  const heroActionLabel = document.getElementById('hero-action-label');
+  const heroSpinner = document.getElementById('hero-spinner');
+  const shieldCheck = document.getElementById('shield-check-path');
+
+  if (heroBtn && heroLabel) {
+    heroBtn.className = `shield-connect-button ${state}`;
+    heroLabel.className = `hero-status-badge ${state}`;
+    heroLabel.textContent = (I18N[currentLang] && I18N[currentLang][state]) || state.toUpperCase();
+
+    if (isConnected) {
+      if (heroSub) {
+        heroSub.textContent = status.wintun_active
+          ? ((I18N[currentLang] && I18N[currentLang].sub_protected_tun) || 'Protected via Wintun Layer-3 TUN')
+          : ((I18N[currentLang] && I18N[currentLang].sub_protected_proxy) || 'Protected via Fastly MASQUE Proxy');
+      }
+      if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
+      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnect) || 'DISCONNECT';
+      if (heroSpinner) heroSpinner.style.display = 'none';
+      if (shieldCheck) shieldCheck.style.display = 'block';
+    } else if (isConnecting) {
+      const stepKey = `step_${status.connect_step}`;
+      const defaultStep = (I18N[currentLang] && I18N[currentLang].step_default) || 'Establishing secure MASQUE stream...';
+      const stepText = (I18N[currentLang] && I18N[currentLang][stepKey]) || defaultStep;
+      if (heroSub) heroSub.textContent = stepText;
+      if (heroAction) heroAction.className = 'hero-action-button btn-connect';
+      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'CONNECTING...';
+      if (heroSpinner) heroSpinner.style.display = 'block';
+      if (shieldCheck) shieldCheck.style.display = 'none';
+    } else if (isDisconnecting) {
+      if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].sub_disconnecting) || 'Restoring network routes and proxy settings...';
+      if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
+      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnecting) || 'DISCONNECTING...';
+      if (heroSpinner) heroSpinner.style.display = 'block';
+      if (shieldCheck) shieldCheck.style.display = 'none';
+    } else {
+      if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].traffic_unprotected) || 'Traffic is currently unprotected';
+      if (heroAction) heroAction.className = 'hero-action-button btn-connect';
+      if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connect) || 'CONNECT NOW';
+      if (heroSpinner) heroSpinner.style.display = 'none';
+      if (shieldCheck) shieldCheck.style.display = 'none';
+    }
+  }
+
+  // 5. Error Banner
+  const errBanner = document.getElementById('dash-error-banner');
+  const errMsg = document.getElementById('dash-error-msg');
+  if (errBanner && errMsg) {
+    if (state === 'error' && status.error_message) {
+      errBanner.style.display = 'flex';
+      errMsg.textContent = status.error_message;
+    } else {
+      errBanner.style.display = 'none';
+    }
+  }
+
+  // 6. Selected Server Card
+  if (status.server) {
+    const flagEl = document.getElementById('dash-target-flag');
+    const nameEl = document.getElementById('dash-target-name');
+    const subEl = document.getElementById('dash-target-sub');
+    if (flagEl) flagEl.innerHTML = getFlag(status.server.country_code);
+    if (nameEl) {
+      const typeStr = status.server.is_anycast ? 'Anycast Edge' : `POP: ${status.server.city_code || 'DIRECT'}`;
+      nameEl.textContent = `${status.server.country_name} • ${typeStr}`;
+    }
+    if (subEl) subEl.textContent = `${status.server.hostname} (${status.server.port || 2499})`;
+  }
+
+  // 6b. Smart Recommendation Banner
+  const recCard = document.getElementById('dash-recommendation-card');
+  const rec = status.recommended_server;
+  if (recCard) {
+    if (rec && (!status.server || status.server.hostname !== rec.hostname) && state !== 'connected') {
+      recCard.style.display = 'flex';
+      const flagEl = document.getElementById('rec-server-flag');
+      const nameEl = document.getElementById('rec-server-name');
+      const pingEl = document.getElementById('rec-server-ping');
+      const reasonEl = document.getElementById('rec-server-reason');
+
+      if (flagEl) flagEl.innerHTML = getFlag(rec.country_code);
+      if (nameEl) nameEl.textContent = `${rec.country_name} • ${rec.city_name || 'Edge'}`;
+      if (pingEl) pingEl.textContent = `${rec.ping_ms} ms`;
+      if (reasonEl) reasonEl.textContent = rec.recommend_reason || 'Fastest verified edge';
+    } else {
+      recCard.style.display = 'none';
+    }
+  }
+
+  // 7. Routing Mode Card
+  const modeTag = document.getElementById('dash-mode-tag');
+  const topbarMode = document.getElementById('topbar-mode-text');
+  const btnProxy = document.getElementById('btn-mode-proxy');
+  const btnTun = document.getElementById('btn-mode-tun');
+  const uacNotice = document.getElementById('dash-uac-notice');
+
+  const isTun = status.tun_active || (status.settings && status.settings.enable_tun_mode);
+  const isActualWintun = status.wintun_active;
+
+  if (modeTag) {
+    modeTag.textContent = isActualWintun 
+      ? ((I18N[currentLang] && I18N[currentLang].mode_tag_tun) || 'Wintun Layer-3 TUN')
+      : (isTun ? 'TUN (Admin Needed)' : ((I18N[currentLang] && I18N[currentLang].mode_tag_proxy) || 'Web & App Proxy'));
+  }
+  if (topbarMode) {
+    topbarMode.textContent = isActualWintun 
+      ? ('🛡️ ' + ((I18N[currentLang] && I18N[currentLang].mode_wintun_tun) || 'Wintun TUN'))
+      : ('🌐 ' + ((I18N[currentLang] && I18N[currentLang].mode_system_proxy) || 'System Proxy'));
+  }
+
+  if (btnProxy && btnTun) {
+    if (isTun) {
+      btnTun.classList.add('active');
+      btnProxy.classList.remove('active');
+    } else {
+      btnProxy.classList.add('active');
+      btnTun.classList.remove('active');
+    }
+  }
+
+  if (uacNotice) {
+    if (isTun && !status.is_admin) {
+      uacNotice.style.display = 'flex';
+    } else {
+      uacNotice.style.display = 'none';
+    }
+  }
+
+  // 8. Egress Transparency Card
+  const egressTarget = document.getElementById('egress-target-country');
+  const egressType = document.getElementById('egress-target-type');
+  const egressIP = document.getElementById('egress-public-ip');
+  const egressIPStatus = document.getElementById('egress-ip-status');
+  const egressObserved = document.getElementById('egress-observed-country');
+  const egressISP = document.getElementById('egress-isp-name');
+  const anycastCallout = document.getElementById('dash-anycast-callout');
+  const anycastText = document.getElementById('dash-anycast-text');
+
+  if (status.server) {
+    if (egressTarget) egressTarget.innerHTML = `${getFlag(status.server.country_code)} <span>${escapeHtml(status.server.country_name)}</span>`;
+    if (egressType) egressType.textContent = status.server.is_anycast ? 'Anycast Edge BGP' : `Dedicated POP (${status.server.city_code})`;
+  }
+
+  if (isConnected) {
+    const verifiedIP = status.exit_ip || status.current_ip || '--';
+    const verifiedCountry = status.exit_country || status.current_country || 'Verified';
+    if (egressIP) egressIP.textContent = verifiedIP;
+    if (egressIPStatus) egressIPStatus.textContent = 'Secured via Fastly MASQUE';
+    if (egressObserved) egressObserved.innerHTML = `${getFlag(verifiedCountry)} <span>${escapeHtml(verifiedCountry)}</span>`;
+    if (egressISP) egressISP.textContent = 'Verified Egress Point';
+
+    // Show Anycast Explanation if target country != observed exit country
+    if (status.server && status.exit_country && status.server.country_code !== status.exit_country) {
+      if (anycastCallout) anycastCallout.style.display = 'flex';
+      if (anycastText) {
+        anycastText.innerHTML = `<strong>Anycast BGP Egress:</strong> Fastly routed connection to nearest edge node in <strong>${escapeHtml(verifiedCountry)}</strong> to provide the lowest latency and highest throughput.`;
+      }
+    } else {
+      if (anycastCallout) anycastCallout.style.display = 'none';
+    }
+  } else {
+    if (egressIP) egressIP.textContent = status.current_ip || '--';
+    if (egressIPStatus) egressIPStatus.textContent = 'Direct Physical Network';
+    if (egressObserved) egressObserved.innerHTML = status.current_country ? `${getFlag(status.current_country)} <span>${escapeHtml(status.current_country)}</span>` : 'Not Connected';
+    if (egressISP) egressISP.textContent = 'Direct Provider';
+    if (anycastCallout) anycastCallout.style.display = 'none';
+  }
+
+  // 9. Telemetry Cards (Ping, Traffic, Quota)
+  const telemPing = document.getElementById('telem-ping-value');
+  const telemPingBadge = document.getElementById('telem-ping-badge');
+  if (telemPing) {
+    if (isConnected && status.exit_latency > 0) {
+      telemPing.textContent = `${status.exit_latency} ms`;
+      if (telemPingBadge) telemPingBadge.textContent = 'Tunnel RTT';
+    } else if (status.server && status.server.ping_ms > 0) {
+      telemPing.textContent = `${status.server.ping_ms} ms`;
+      if (telemPingBadge) telemPingBadge.textContent = 'TCP SYN';
+    } else {
+      telemPing.textContent = '-- ms';
+      if (telemPingBadge) telemPingBadge.textContent = 'Idle';
+    }
+  }
+
+  const telemTraffic = document.getElementById('telem-traffic-value');
+  if (telemTraffic && status.traffic) {
+    const down = status.traffic.total_down_human || status.traffic.bytes_read_human || '0 B';
+    const up = status.traffic.total_up_human || status.traffic.bytes_written_human || '0 B';
+    telemTraffic.textContent = `↓ ${down} / ↑ ${up}`;
+  }
+
+  const telemQuota = document.getElementById('telem-quota-value');
+  const telemQuotaBadge = document.getElementById('telem-quota-badge');
+  if (telemQuota && status.quota) {
+    telemQuota.textContent = status.quota.quota_left || '50.0 GB';
+    if (telemQuotaBadge) telemQuotaBadge.textContent = `${Math.round(status.quota.quota_percent || 100)}% Left`;
+  }
+
+  // 10. Diagnostics Service Badges
+  const diagTun = document.getElementById('diag-tun-status');
+  const diagAdmin = document.getElementById('diag-admin-status');
+  if (diagTun) {
+    if (status.wintun_active) {
+      diagTun.className = 'diag-status-badge pass';
+      diagTun.textContent = 'ACTIVE (L3 TUN)';
+    } else if (status.tun_active) {
+      diagTun.className = 'diag-status-badge standby';
+      diagTun.textContent = 'ELEVATION REQUIRED';
+    } else {
+      diagTun.className = 'diag-status-badge neutral';
+      diagTun.textContent = 'STANDBY';
+    }
+  }
+  if (diagAdmin) {
+    diagAdmin.className = status.is_admin ? 'diag-status-badge pass' : 'diag-status-badge neutral';
+    diagAdmin.textContent = status.is_admin ? 'ADMINISTRATOR' : 'STANDARD USER';
+  }
+
+  // 11. Sidebar User Account Pill
+  const userStatus = document.getElementById('sidebar-user-status');
+  const userName = document.getElementById('sidebar-user-name');
+  if (userStatus && userName) {
+    if (status.is_logged_in) {
+      userName.textContent = status.user_email || 'Firefox Account';
+      userStatus.textContent = 'Active (50 GB)';
+    } else {
+      userName.textContent = 'Firefox Account';
+      userStatus.textContent = 'Sign In';
+    }
+  }
+
+  // 12. Settings inputs
+  const setTun = document.getElementById('setting-tun-mode');
+  const setH3 = document.getElementById('setting-h3');
+  const setTls = document.getElementById('setting-tls-frag');
+  const setApiProxy = document.getElementById('setting-api-proxy');
+  const setBypassRules = document.getElementById('setting-bypass-rules');
+  const setUserEmail = document.getElementById('settings-user-email');
+  const setAuthBtn = document.getElementById('settings-auth-btn');
+
+  if (status.settings) {
+    if (setTun) setTun.checked = status.settings.enable_tun_mode;
+    if (setH3) setH3.checked = status.settings.use_h3;
+    if (setTls) setTls.checked = status.settings.tls_fragmentation;
+    if (setApiProxy && !setApiProxy.matches(':focus')) {
+      setApiProxy.value = status.settings.api_proxy || '';
+    }
+    if (setBypassRules && !setBypassRules.matches(':focus')) {
+      setBypassRules.value = status.settings.bypass_rules || '';
+    }
+  }
+
+  if (setUserEmail && setAuthBtn) {
+    if (status.is_logged_in) {
+      setUserEmail.textContent = status.user_email || 'Firefox Account (Signed In)';
+      setAuthBtn.textContent = 'Sign Out';
+    } else {
+      setUserEmail.textContent = 'Not logged in';
+      setAuthBtn.textContent = 'Sign In';
+    }
+  }
+
+  // 13. Gaming Mode Telemetry & Topbar Pill
+  const gamingPill = document.getElementById('topbar-gaming-pill');
+  const gamingText = document.getElementById('topbar-gaming-text');
+  const gamingCard = document.getElementById('dash-gaming-card');
+  const gamingJitter = document.getElementById('gaming-jitter-val');
+  const gamingLoss = document.getElementById('gaming-loss-val');
+  const setGaming = document.getElementById('setting-gaming-mode');
+
+  const gamingActive = status.gaming_stats && status.gaming_stats.active;
+  if (gamingPill) {
+    if (gamingActive) {
+      gamingPill.classList.add('active');
+      if (gamingText) gamingText.textContent = (I18N[currentLang] && I18N[currentLang].gaming_active) || '⚡ Gaming Active';
+    } else {
+      gamingPill.classList.remove('active');
+      if (gamingText) gamingText.textContent = (I18N[currentLang] && I18N[currentLang].gaming_mode_btn) || 'Gaming Off';
+    }
+  }
+
+  if (gamingCard) {
+    gamingCard.style.display = gamingActive ? 'flex' : 'none';
+    if (gamingActive && status.gaming_stats) {
+      if (gamingJitter) gamingJitter.textContent = `${status.gaming_stats.jitter_ms || 0} ms`;
+      if (gamingLoss) gamingLoss.textContent = `${status.gaming_stats.packet_loss || 0.0}%`;
+    }
+  }
+  if (setGaming) {
+    setGaming.checked = !!gamingActive;
+  }
+
+  // 14. Settings: Smart Iran Domestic Direct Traffic Sync
+  const setIranBypass = document.getElementById('setting-iran-bypass');
+  if (setIranBypass && status.settings) {
+    setIranBypass.checked = status.settings.direct_iran_traffic !== false;
+  }
+
+  // 15. Split Tunnel Settings & Mode
+  const splitMasterToggle = document.getElementById('split-master-toggle');
+  const splitStatusLabel = document.getElementById('split-status-label');
+  const btnSplitBypass = document.getElementById('btn-split-bypass');
+  const btnSplitProxy = document.getElementById('btn-split-proxy');
+
+  if (status.settings) {
+    const isSplit = !!status.settings.split_tunnel_enabled;
+    if (splitMasterToggle) splitMasterToggle.checked = isSplit;
+    if (splitStatusLabel) splitStatusLabel.textContent = isSplit ? 'Enabled' : 'Disabled';
+
+    const mode = (status.settings.split_tunnel_mode || 'bypass').toLowerCase();
+    if (btnSplitBypass && btnSplitProxy) {
+      if (mode === 'proxy_only' || mode === 'whitelist') {
+        btnSplitProxy.classList.add('active');
+        btnSplitBypass.classList.remove('active');
+      } else {
+        btnSplitBypass.classList.add('active');
+        btnSplitProxy.classList.remove('active');
+      }
+    }
+  }
+
+  // 16. Floating Mini-Widget HUD
+  const hud = document.getElementById('floating-mini-hud');
+  if (hud && hud.style.display !== 'none') {
+    const hudDot = document.getElementById('hud-status-dot');
+    const hudDown = document.getElementById('hud-speed-down');
+    const hudUp = document.getElementById('hud-speed-up');
+    const hudPing = document.getElementById('hud-ping-val');
+    const hudAction = document.getElementById('hud-action-btn');
+
+    if (hudDot) hudDot.className = `hud-status-indicator ${state}`;
+    if (hudAction) {
+      hudAction.textContent = isConnected ? '✕' : '⚡';
+      hudAction.title = isConnected ? 'Disconnect' : 'Connect';
+    }
+    if (status.traffic) {
+      if (hudDown) hudDown.textContent = `↓ ${status.traffic.down_speed_human || '0 KB/s'}`;
+      if (hudUp) hudUp.textContent = `↑ ${status.traffic.up_speed_human || '0 KB/s'}`;
+    }
+    if (hudPing) {
+      if (isConnected && status.exit_latency > 0) {
+        hudPing.textContent = `${status.exit_latency} ms (Tunnel)`;
+      } else if (status.server && status.server.ping_ms > 0) {
+        hudPing.textContent = `${status.server.ping_ms} ms`;
+      } else {
+        hudPing.textContent = '-- ms';
+      }
+    }
+  }
+}
+
+// ==========================================================================
+// Connect & Disconnect Actions
+// ==========================================================================
+async function toggleConnect() {
+  if (!currentStatus) return;
+
+  if (currentStatus.state === 'connected' || currentStatus.state === 'connecting') {
+    try {
+      currentStatus.state = 'disconnecting';
+      updateUI(currentStatus);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const res = await fetch('/api/disconnect', { 
+        method: 'POST',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const data = await res.json();
+      if (data && data.status) {
+        updateUI(data.status);
+      }
+    } catch (err) {
+      console.warn('Disconnect request handled:', err);
+      // Double check status or force disconnected state
+      try {
+        const checkRes = await fetch('/api/status');
+        const checkData = await checkRes.json();
+        if (checkData) {
+          updateUI(checkData);
+          return;
+        }
+      } catch (e) {}
+      currentStatus.state = 'disconnected';
+      currentStatus.connect_step = '';
+      updateUI(currentStatus);
+    }
+  } else {
+    if (!currentStatus.is_logged_in) {
+      openModal('login-modal');
+      return;
+    }
+    try {
+      // Optimistic connecting state
+      currentStatus.state = 'connecting';
+      updateUI(currentStatus);
+
+      const res = await fetch('/api/connect', { method: 'POST' });
+      const data = await res.json();
+      if (data && data.error) {
+        currentStatus.state = 'error';
+        currentStatus.error_message = data.error;
+        updateUI(currentStatus);
+      } else if (data && data.status) {
+        updateUI(data.status);
+      }
+    } catch (err) {
+      console.error('Failed to initiate connection:', err);
+    }
+  }
+}
+
+function dismissError() {
+  const errBanner = document.getElementById('dash-error-banner');
+  if (errBanner) errBanner.style.display = 'none';
+  if (currentStatus) currentStatus.state = 'disconnected';
+  updateUI(currentStatus);
+}
+
+function showUACNotice(msg) {
+  const errBanner = document.getElementById('dash-error-banner');
+  const errTitle = document.getElementById('dash-error-title');
+  const errMsg = document.getElementById('dash-error-msg');
+  if (errBanner && errMsg) {
+    if (errTitle) errTitle.textContent = 'Elevation Notice';
+    errMsg.textContent = msg;
+    errBanner.style.display = 'flex';
+  }
+}
+
+// ==========================================================================
+// Routing Mode & UAC Elevation
+// ==========================================================================
+function selectRoutingMode(enableTun) {
+  if (!currentStatus) return;
+
+  if (enableTun) {
+    if (!currentStatus.is_admin) {
+      // Directly trigger native Windows UAC prompt without intermediate web modal
+      restartAsAdmin();
+      return;
+    }
+  }
+
+  // Update settings
+  const settings = currentStatus.settings || {};
+  settings.enable_tun_mode = enableTun;
+  settings.use_system_proxy = true;
+  saveSettingsPayload(settings);
+}
+
+function toggleTunMode(checked) {
+  selectRoutingMode(checked);
+}
+
+async function restartAsAdmin() {
+  const currentHost = currentStatus && currentStatus.server ? currentStatus.server.hostname : '';
+  try {
+    const res = await fetch('/api/elevate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ server: currentHost, mode: 'tun' })
+    });
+    const data = await res.json();
+    if (data && data.cancelled) {
+      console.log('UAC cancelled by user');
+      // Revert UI toggle and keep System Proxy active
+      const setTun = document.getElementById('setting-tun-mode');
+      if (setTun) setTun.checked = false;
+      if (currentStatus && currentStatus.settings) {
+        currentStatus.settings.enable_tun_mode = false;
+        currentStatus.settings.use_system_proxy = true;
+      }
+      updateUI(currentStatus);
+      showUACNotice('UAC elevation was cancelled. Continuing in System Proxy mode.');
+      return;
+    }
+    if (data && data.ok) {
+      console.log('Elevated process spawned; parent exiting...');
+    } else if (data && data.error) {
+      showErrorBanner('Elevation failed: ' + data.error);
+    }
+  } catch (err) {
+    console.error('Failed to elevate:', err);
+    showErrorBanner('Failed to trigger Windows UAC elevation: ' + err.message);
+  }
+}
+
+function confirmUACElevation() {
+  restartAsAdmin();
+}
+
+function cancelUACElevation() {
+  const setTun = document.getElementById('setting-tun-mode');
+  if (setTun) setTun.checked = false;
+  selectRoutingMode(false);
+}
+
+// ==========================================================================
+// Server Browser View & Search
+// ==========================================================================
+async function fetchServers() {
+  try {
+    const res = await fetch('/api/servers');
+    if (res.ok) {
+      allServers = await res.json();
+      renderServerList(allServers);
+    }
+  } catch (err) {
+    console.error('Failed to fetch servers:', err);
+  }
+}
+
+function setLocFilter(filter) {
+  currentFilter = filter;
+  ['all', 'pop', 'anycast', 'europe', 'americas', 'asia'].forEach(f => {
+    const chip = document.getElementById(`chip-${f}`);
+    if (chip) {
+      if (f === filter) chip.classList.add('active');
+      else chip.classList.remove('active');
+    }
+  });
+  filterServers(document.getElementById('server-search-input')?.value || '');
+}
+
+function filterServers(query) {
+  const q = (query || '').toLowerCase().trim();
+  const clearBtn = document.getElementById('btn-clear-search');
+  if (clearBtn) {
+    clearBtn.style.display = q ? 'block' : 'none';
+  }
+
+  let list = allServers || [];
+
+  // Filter chips
+  if (currentFilter === 'pop') {
+    list = list.filter(s => !s.is_anycast);
+  } else if (currentFilter === 'anycast') {
+    list = list.filter(s => s.is_anycast);
+  } else if (currentFilter === 'europe') {
+    list = list.filter(s => EUROPE_CODES.includes(s.country_code));
+  } else if (currentFilter === 'americas') {
+    list = list.filter(s => AMERICAS_CODES.includes(s.country_code));
+  } else if (currentFilter === 'asia') {
+    list = list.filter(s => ASIA_CODES.includes(s.country_code));
+  }
+
+  // Text search
+  if (q) {
+    list = list.filter(s =>
+      (s.country_name && s.country_name.toLowerCase().includes(q)) ||
+      (s.city_name && s.city_name.toLowerCase().includes(q)) ||
+      (s.hostname && s.hostname.toLowerCase().includes(q)) ||
+      (s.country_code && s.country_code.toLowerCase().includes(q)) ||
+      (s.city_code && s.city_code.toLowerCase().includes(q))
+    );
+  }
+
+  renderServerList(list);
+}
+
+function clearSearch() {
+  const input = document.getElementById('server-search-input');
+  if (input) {
+    input.value = '';
+    filterServers('');
+  }
+}
+
+function renderServerList(servers) {
+  const container = document.getElementById('server-list-container');
+  if (!container) return;
+
+  if (!servers || servers.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 0.9rem;">
+        No server locations match your search criteria.
+      </div>
+    `;
+    return;
+  }
+
+  // Sort lowest latency first, then unmeasured
+  const sorted = [...servers].sort((a, b) => {
+    if (a.ping_ms > 0 && b.ping_ms > 0) return a.ping_ms - b.ping_ms;
+    if (a.ping_ms > 0) return -1;
+    if (b.ping_ms > 0) return 1;
+    return 0;
+  });
+
+  const selectedHost = currentStatus && currentStatus.server ? currentStatus.server.hostname : '';
+  const fastestHost = sorted.length > 0 && sorted[0].ping_ms > 0 ? sorted[0].hostname : null;
+
+  container.innerHTML = sorted.map(srv => {
+    const isSelected = srv.hostname === selectedHost;
+    const isFastest = srv.hostname === fastestHost;
+    const flag = getFlag(srv.country_code);
+
+    let pingPillClass = 'unavailable';
+    let pingText = '-- ms';
+    if (srv.ping_ms > 0) {
+      pingText = `${srv.ping_ms} ms`;
+      if (srv.ping_ms <= 200) pingPillClass = 'fast';
+      else if (srv.ping_ms <= 500) pingPillClass = 'medium';
+      else pingPillClass = 'slow';
+    } else if (srv.ping_ms === -1) {
+      pingText = 'Timeout';
+      pingPillClass = 'slow';
+    }
+
+    const typeBadge = srv.is_anycast
+      ? `<span class="badge-anycast-pill">${(I18N[currentLang] && I18N[currentLang].type_anycast) || 'ANYCAST EDGE'}</span>`
+      : `<span class="badge-pop-pill">POP: ${escapeHtml(srv.city_code || 'DIRECT')}</span>`;
+
+    const isRec = srv.is_recommended || isFastest;
+    const recLabel = (I18N[currentLang] && I18N[currentLang].badge_recommended) || 'RECOMMENDED';
+    const fastestBadge = isRec ? `<span class="badge-fastest-pill">⚡ ${recLabel}</span>` : '';
+
+    const isConn = currentStatus && (currentStatus.state === 'connected');
+    const isConnPending = currentStatus && (currentStatus.state === 'connecting');
+    let btnText = (I18N[currentLang] && I18N[currentLang].btn_card_connect) || 'Connect';
+    if (isSelected) {
+      if (isConnPending) {
+        btnText = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting...';
+      } else if (isConn) {
+        btnText = (I18N[currentLang] && I18N[currentLang].btn_card_connected) || 'Connected ✓';
+      } else {
+        btnText = (I18N[currentLang] && I18N[currentLang].btn_card_selected) || 'Selected ✓';
+      }
+    }
+
+    return `
+      <div class="server-row-card ${isSelected ? 'selected' : ''}" onclick="selectServer('${srv.hostname}')">
+        
+        <div class="server-cell-location">
+          <span class="server-row-flag">${flag}</span>
+          <div class="server-loc-names">
+            <span class="server-country-name">${escapeHtml(srv.country_name)} • ${escapeHtml(srv.city_name || srv.country_name)}</span>
+            <span class="server-hostname-text">${escapeHtml(srv.hostname)}</span>
+          </div>
+        </div>
+
+        <div class="server-cell-type">
+          ${typeBadge}
+          ${fastestBadge}
+        </div>
+
+        <div class="server-cell-ping">
+          <span class="ping-latency-pill ${pingPillClass}" data-host="${escapeHtml(srv.hostname)}">${pingText}</span>
+        </div>
+
+        <div class="server-cell-action">
+          <button class="server-select-btn ${isSelected ? 'active' : ''}">
+            ${btnText}
+          </button>
+        </div>
+
+      </div>
+    `;
+  }).join('');
+}
+
+async function selectServer(hostname) {
+  // If we are currently connected or connecting, provide immediate visual feedback of the seamless switch
+  const isConn = currentStatus && (currentStatus.state === 'connected' || currentStatus.state === 'connecting');
+  if (isConn) {
+    const cardBtn = document.querySelector(`.server-row-card[onclick*="${hostname}"] .server-select-btn`);
+    if (cardBtn) {
+      cardBtn.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting...';
+      cardBtn.classList.add('active');
+    }
+    const heroLabel = document.getElementById('hero-status-label');
+    if (heroLabel) {
+      heroLabel.textContent = (I18N[currentLang] && I18N[currentLang].connecting) || 'CONNECTING...';
+      heroLabel.className = 'hero-status-badge connecting';
+    }
+    const heroActionLabel = document.getElementById('hero-action-label');
+    if (heroActionLabel) {
+      heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'CONNECTING...';
+    }
+    const heroSpinner = document.getElementById('hero-spinner');
+    if (heroSpinner) heroSpinner.style.display = 'block';
+  }
+  try {
+    const res = await fetch('/api/select-server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostname })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status) {
+        updateUI(data.status);
+      }
+      // Re-render server list to show selected checkmark
+      renderServerList(allServers);
+    }
+  } catch (err) {
+    console.error('Failed to select server:', err);
+  }
+}
+
+function updateServerPingBadge(hostname, pingMs) {
+  const pill = document.querySelector(`.ping-latency-pill[data-host="${hostname}"]`);
+  if (!pill) return;
+  pill.className = 'ping-latency-pill';
+  if (pingMs === 0) {
+    pill.classList.add('testing');
+    pill.textContent = currentLang === 'fa' ? 'سنجش...' : 'Testing...';
+  } else if (pingMs > 0 && pingMs <= 200) {
+    pill.classList.add('fast');
+    pill.textContent = `${pingMs} ms`;
+  } else if (pingMs > 200 && pingMs <= 500) {
+    pill.classList.add('medium');
+    pill.textContent = `${pingMs} ms`;
+  } else if (pingMs > 500) {
+    pill.classList.add('slow');
+    pill.textContent = `${pingMs} ms`;
+  } else {
+    pill.classList.add('slow');
+    pill.textContent = 'Timeout';
+  }
+}
+
+async function pingAllServers() {
+  if (isPinging) return;
+  isPinging = true;
+
+  const btn = document.getElementById('btn-ping-all');
+  if (btn) {
+    btn.innerHTML = `<span class="bolt">⚡</span><span>${currentLang === 'fa' ? 'در حال پینگ...' : 'Pinging...'}</span>`;
+    btn.style.opacity = '0.7';
+    btn.disabled = true;
+  }
+
+  const panel = document.getElementById('ping-progress-panel');
+  const fill = document.getElementById('ping-progress-bar-fill');
+  const statusText = document.getElementById('ping-progress-status-text');
+  const countText = document.getElementById('ping-progress-count');
+
+  const serverList = (allServers && allServers.length > 0) ? allServers : [];
+  const total = serverList.length;
+
+  if (panel) panel.style.display = 'block';
+  if (fill) fill.style.width = '0%';
+  if (statusText) {
+    statusText.textContent = currentLang === 'fa' ? 'اندازه‌گیری لحظه‌ای تأخیر سرورها (Worker Pool)...' : 'Measuring Real-Time Server Latencies...';
+  }
+  if (countText) countText.textContent = `0 / ${total} Verified`;
+
+  // Immediately mark all visible server badges as "Testing..."
+  serverList.forEach(s => {
+    updateServerPingBadge(s.hostname, 0);
+  });
+
+  pingAbortController = new AbortController();
+  const signal = pingAbortController.signal;
+
+  let completedCount = 0;
+  const concurrency = 6;
+  let queueIndex = 0;
+
+  async function worker() {
+    while (queueIndex < serverList.length) {
+      if (signal.aborted) break;
+      const index = queueIndex++;
+      const srv = serverList[index];
+
+      try {
+        const res = await fetch(`/api/ping?hostname=${encodeURIComponent(srv.hostname)}`, { signal });
+        if (res.ok) {
+          const data = await res.json();
+          const ms = (typeof data.ping_ms === 'number') ? data.ping_ms : (typeof data.ping === 'number' ? data.ping : -1);
+          srv.ping_ms = ms;
+          updateServerPingBadge(srv.hostname, ms);
+        } else {
+          srv.ping_ms = -1;
+          updateServerPingBadge(srv.hostname, -1);
+        }
+      } catch (err) {
+        if (signal.aborted) break;
+        srv.ping_ms = -1;
+        updateServerPingBadge(srv.hostname, -1);
+      }
+
+      completedCount++;
+      const pct = Math.min(100, Math.round((completedCount / total) * 100));
+      if (fill) fill.style.width = `${pct}%`;
+      if (countText) countText.textContent = `${completedCount} / ${total} Verified`;
+    }
+  }
+
+  try {
+    const workers = [];
+    for (let w = 0; w < Math.min(concurrency, total); w++) {
+      workers.push(worker());
+    }
+    await Promise.all(workers);
+
+    if (!signal.aborted) {
+      if (fill) fill.style.width = '100%';
+      if (countText) countText.textContent = `${total} / ${total} Verified`;
+
+      const responsive = serverList.filter(s => s.ping_ms > 0).map(s => s.ping_ms).sort((a, b) => a - b);
+      const median = responsive.length > 0 ? responsive[Math.floor(responsive.length / 2)] : 0;
+      const best = [...serverList].filter(s => s.ping_ms > 0).sort((a, b) => a.ping_ms - b.ping_ms)[0];
+
+      if (statusText) {
+        if (best) {
+          const loc = best.city_name || best.country_name || 'Edge POP';
+          statusText.textContent = currentLang === 'fa'
+            ? `پایان سنجش — بهترین: ${loc} (${best.ping_ms}ms) | میانه: ${median}ms`
+            : `Optimization Complete — Best: ${loc} (${best.ping_ms} ms) | Median: ${median} ms`;
+        } else {
+          statusText.textContent = currentLang === 'fa' ? 'سنجش پینگ سرورها تکمیل شد' : 'Server Ping Sweep Completed';
+        }
+      }
+
+      // Re-render sorted list with lowest latency first
+      renderServerList(allServers);
+
+      setTimeout(() => {
+        if (!isPinging && panel) panel.style.display = 'none';
+      }, 5000);
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error('Failed to ping all servers:', err);
+      if (statusText) {
+        statusText.textContent = currentLang === 'fa' ? 'خطا در ارزیابی پینگ سرورها' : 'Failed to measure server latency';
+      }
+    }
+  } finally {
+    isPinging = false;
+    pingAbortController = null;
+    if (btn) {
+      btn.innerHTML = `<span class="bolt">⚡</span><span>${currentLang === 'fa' ? 'تست پینگ همه سرورها' : 'Ping All Servers'}</span>`;
+      btn.style.opacity = '1';
+      btn.disabled = false;
+    }
+  }
+}
+
+function cancelPingAll() {
+  if (pingAbortController) {
+    pingAbortController.abort();
+    pingAbortController = null;
+  }
+  isPinging = false;
+
+  const panel = document.getElementById('ping-progress-panel');
+  if (panel) panel.style.display = 'none';
+
+  const btn = document.getElementById('btn-ping-all');
+  if (btn) {
+    btn.innerHTML = `<span class="bolt">⚡</span><span>${currentLang === 'fa' ? 'تست پینگ همه سرورها' : 'Ping All Servers'}</span>`;
+    btn.style.opacity = '1';
+    btn.disabled = false;
+  }
+}
+
+async function interactivePingTest() {
+  if (!currentStatus || !currentStatus.server) return;
+  const pingVal = document.getElementById('telem-ping-value');
+  if (pingVal) pingVal.textContent = 'Measuring...';
+
+  try {
+    const res = await fetch('/api/ping');
+    if (res.ok) {
+      const data = await res.json();
+      if (pingVal && data.ping_ms) {
+        pingVal.textContent = `${data.ping_ms} ms`;
+      }
+    }
+  } catch (err) {
+    console.error('Ping test failed:', err);
+  }
+}
+
+// ==========================================================================
+// Diagnostics & Logs Console
+// ==========================================================================
+async function fetchLogs() {
+  try {
+    const res = await fetch('/api/logs');
+    if (res.ok) {
+      const logs = await res.json();
+      renderLogs(logs);
+    }
+  } catch (err) {
+    console.error('Failed to fetch logs:', err);
+  }
+}
+
+function renderLogs(logs) {
+  const consoleEl = document.getElementById('diag-logs-console');
+  const countEl = document.getElementById('logs-line-count');
+  if (!consoleEl) return;
+
+  if (!logs || logs.length === 0) {
+    consoleEl.textContent = 'No logs available.';
+    if (countEl) countEl.textContent = '0 lines';
+    return;
+  }
+
+  if (countEl) countEl.textContent = `${logs.length} lines`;
+  consoleEl.textContent = logs.join('\n');
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function copyLogs() {
+  const consoleEl = document.getElementById('diag-logs-console');
+  if (consoleEl && consoleEl.textContent) {
+    navigator.clipboard.writeText(consoleEl.textContent);
+    alert((I18N[currentLang] && I18N[currentLang].logs_copied) || 'Logs copied to clipboard!');
+  }
+}
+
+function clearLogs() {
+  const consoleEl = document.getElementById('diag-logs-console');
+  if (consoleEl) consoleEl.textContent = '';
+}
+
+function copyIPToClipboard() {
+  const ipEl = document.getElementById('egress-public-ip');
+  if (ipEl && ipEl.textContent && ipEl.textContent !== '--') {
+    navigator.clipboard.writeText(ipEl.textContent.trim());
+    alert((I18N[currentLang] && I18N[currentLang].ip_copied) || 'IP copied to clipboard!');
+  }
+}
+
+// ==========================================================================
+// Settings API Persistence
+// ==========================================================================
+async function saveSettingsPayload(payload) {
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      if (currentStatus) currentStatus.settings = updated;
+      updateUI(currentStatus);
+    }
+  } catch (err) {
+    console.error('Failed to save settings:', err);
+  }
+}
+
+function saveSettings() {
+  const setH3 = document.getElementById('setting-h3');
+  const setTls = document.getElementById('setting-tls-frag');
+  const setApiProxy = document.getElementById('setting-api-proxy');
+  const setBypassRules = document.getElementById('setting-bypass-rules');
+  const setTun = document.getElementById('setting-tun-mode');
+  const setIran = document.getElementById('setting-iran-bypass');
+  const setGaming = document.getElementById('setting-gaming-mode');
+
+  const cur = (currentStatus && currentStatus.settings) || {};
+
+  const payload = {
+    enable_tun_mode: setTun ? setTun.checked : (cur.enable_tun_mode || false),
+    use_system_proxy: setTun ? !setTun.checked : (cur.use_system_proxy !== false),
+    use_h3: setH3 ? setH3.checked : (cur.use_h3 || false),
+    tls_fragmentation: setTls ? setTls.checked : (cur.tls_fragmentation !== false),
+    api_proxy: setApiProxy ? setApiProxy.value.trim() : (cur.api_proxy || ''),
+    bypass_rules: setBypassRules ? setBypassRules.value.trim() : (cur.bypass_rules || ''),
+    direct_iran_traffic: setIran ? setIran.checked : (cur.direct_iran_traffic !== false),
+    gaming_mode: setGaming ? setGaming.checked : (cur.gaming_mode || false),
+    split_tunnel_enabled: cur.split_tunnel_enabled || false,
+    split_tunnel_mode: cur.split_tunnel_mode || 'bypass',
+    split_tunnel_apps: cur.split_tunnel_apps || ['telegram.exe', 'discord.exe']
+  };
+
+  saveSettingsPayload(payload);
+}
+
+// ==========================================================================
+// Session Duration Counter
+// ==========================================================================
+function startDurationTimer() {
+  if (durationInterval) clearInterval(durationInterval);
+  durationInterval = setInterval(() => {
+    const durationEl = document.getElementById('telem-duration-value');
+    const badgeEl = document.getElementById('telem-duration-badge');
+    if (!durationEl) return;
+
+    if (!connectionStartTime || (currentStatus && currentStatus.state !== 'connected')) {
+      durationEl.textContent = '00:00:00';
+      if (badgeEl) {
+        badgeEl.textContent = 'Idle';
+        badgeEl.className = 'telemetry-badge neutral';
+      }
+      return;
+    }
+
+    const elapsedMs = Date.now() - connectionStartTime;
+    const totalSecs = Math.floor(elapsedMs / 1000);
+    const hrs = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
+    const mins = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+    const secs = String(totalSecs % 60).padStart(2, '0');
+
+    durationEl.textContent = `${hrs}:${mins}:${secs}`;
+    if (badgeEl) {
+      badgeEl.textContent = 'Active';
+      badgeEl.className = 'telemetry-badge free';
+    }
+  }, 1000);
+}
+
+// ==========================================================================
+// Authentication (Firefox Account Login / Logout)
+// ==========================================================================
+function handleAuthClick() {
+  if (currentStatus && currentStatus.is_logged_in) {
+    if (confirm('Sign out from your Firefox Account?')) {
+      doLogout();
+    }
+  } else {
+    openModal('login-modal');
+  }
+}
+
+async function doLogin() {
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  const proxyInput = document.getElementById('login-proxy');
+  const errEl = document.getElementById('login-error');
+  const submitBtn = document.getElementById('btn-do-login');
+
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = passInput ? passInput.value : '';
+  const proxy = proxyInput ? proxyInput.value.trim() : '';
+
+  if (!email || !password) {
+    if (errEl) {
+      errEl.textContent = 'Please enter both email and password.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = 'Signing in (solving challenge, ~20-30s)...';
+    submitBtn.disabled = true;
+  }
+  if (errEl) errEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, proxy })
+    });
+    const data = await res.json();
+    if (data && data.error) {
+      if (errEl) {
+        errEl.textContent = data.error;
+        errEl.style.display = 'block';
+      }
+    } else if (data && data.need_2fa) {
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('twofa-form').style.display = 'flex';
+    } else {
+      closeModal('login-modal');
+      fetchStatus();
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = 'Network request failed: ' + err.message;
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.textContent = 'Sign In';
+      submitBtn.disabled = false;
+    }
+  }
+}
+
+async function doVerify() {
+  const codeInput = document.getElementById('twofa-code');
+  const errEl = document.getElementById('twofa-error');
+  const submitBtn = document.getElementById('btn-do-verify');
+
+  const code = codeInput ? codeInput.value.trim() : '';
+  if (!code) {
+    if (errEl) {
+      errEl.textContent = 'Please enter the 6-digit code.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = 'Verifying...';
+    submitBtn.disabled = true;
+  }
+
+  try {
+    const res = await fetch('/api/verify-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (data && data.error) {
+      if (errEl) {
+        errEl.textContent = data.error;
+        errEl.style.display = 'block';
+      }
+    } else {
+      closeModal('login-modal');
+      fetchStatus();
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = 'Verification error: ' + err.message;
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.textContent = 'Verify Code';
+      submitBtn.disabled = false;
+    }
+  }
+}
+
+async function doLogout() {
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+    fetchStatus();
+  } catch (err) {
+    console.error('Logout failed:', err);
+  }
+}
+
+// ==========================================================================
+// Modals
+// ==========================================================================
+function openModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.style.display = 'flex';
+}
+
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.style.display = 'none';
+}
+
+// ==========================================================================
+// Theme & Language
+// ==========================================================================
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('fyrnox_theme', theme);
+
+  const sel = document.getElementById('setting-theme');
+  if (sel) sel.value = theme;
+}
+
+function changeTheme(theme) {
+  applyTheme(theme);
+}
+
+function applyLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('fyrnox_lang', lang);
+
+  document.documentElement.setAttribute('lang', lang);
+  if (lang === 'fa') {
+    document.documentElement.setAttribute('dir', 'rtl');
+  } else {
+    document.documentElement.setAttribute('dir', 'ltr');
+  }
+
+  const curLabel = document.getElementById('lang-current-label');
+  const altLabel = document.getElementById('lang-alt-label');
+  if (curLabel && altLabel) {
+    if (lang === 'fa') {
+      curLabel.textContent = 'فارسی';
+      altLabel.textContent = 'EN';
+    } else {
+      curLabel.textContent = 'EN';
+      altLabel.textContent = 'FA';
+    }
+  }
+
+  const langSelect = document.getElementById('setting-language');
+  if (langSelect) langSelect.value = lang;
+
+  // Localize text tags
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (I18N[lang] && I18N[lang][key]) {
+      el.textContent = I18N[lang][key];
+    }
+  });
+
+  // Localize placeholder tags
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (I18N[lang] && I18N[lang][key]) {
+      el.placeholder = I18N[lang][key];
+    }
+  });
+
+  // Re-render server list to refresh localized labels
+  if (allServers && allServers.length > 0) {
+    renderServerList(allServers);
+  }
+
+  // Refresh dynamic UI elements
+  if (currentStatus) {
+    updateUI(currentStatus);
+  }
+
+  // Update topbar title
+  switchNav(activeNav);
+}
+
+function toggleLanguage() {
+  const next = currentLang === 'fa' ? 'en' : 'fa';
+  applyLanguage(next);
+}
+
+function changeLanguage(lang) {
+  applyLanguage(lang);
+}
+
+// ==========================================================================
+// Win32 Frameless Window Management
+// ==========================================================================
+function initWindowControls() {
+  const dragRegion = document.getElementById('titlebar-drag-region');
+  if (dragRegion) {
+    dragRegion.addEventListener('mousedown', (e) => {
+      // Left mouse button only
+      if (e.button === 0) {
+        if (window.nativeWindowDrag) {
+          window.nativeWindowDrag();
+        } else {
+          fetch('/api/window/drag', { method: 'POST' }).catch(() => {});
+        }
+      }
+    });
+  }
+}
+
+function windowMinimize() {
+  if (window.nativeWindowMinimize) {
+    window.nativeWindowMinimize();
+  } else {
+    fetch('/api/window/minimize', { method: 'POST' }).catch(() => {});
+  }
+}
+
+function windowMaximize() {
+  if (window.nativeWindowMaximize) {
+    window.nativeWindowMaximize();
+  } else {
+    fetch('/api/window/maximize', { method: 'POST' }).catch(() => {});
+  }
+}
+
+function toggleWindowMaximize() {
+  windowMaximize();
+}
+
+function windowClose() {
+  if (window.nativeWindowClose) {
+    window.nativeWindowClose();
+  } else {
+    fetch('/api/window/close', { method: 'POST' }).catch(() => {});
+  }
+}
+
+function applyRecommendedServer() {
+  if (currentStatus && currentStatus.recommended_server) {
+    selectServer(currentStatus.recommended_server.hostname);
+    const recCard = document.getElementById('dash-recommendation-card');
+    if (recCard) recCard.style.display = 'none';
+  }
+}
+
+// ==========================================================================
+// Module 1: Windows Per-App Split Tunneling Controller
+// ==========================================================================
+let detectedProcesses = [];
+let configuredSplitApps = [];
+
+async function loadSplitTunnelView() {
+  await fetchConfiguredSplitApps();
+  await refreshProcessList();
+}
+
+async function fetchConfiguredSplitApps() {
+  try {
+    const res = await fetch('/api/settings');
+    if (res.ok) {
+      const settings = await res.json();
+      configuredSplitApps = settings.split_tunnel_apps || [];
+      renderConfiguredSplitChips();
+    }
+  } catch (err) {
+    console.error('Failed to fetch split tunnel settings:', err);
+  }
+}
+
+function renderConfiguredSplitChips() {
+  const container = document.getElementById('split-configured-container');
+  const countEl = document.getElementById('split-configured-count');
+  if (!container) return;
+
+  if (countEl) countEl.textContent = `${configuredSplitApps.length} Apps`;
+
+  if (configuredSplitApps.length === 0) {
+    container.innerHTML = `<div class="split-empty-msg" id="split-empty-msg">${(I18N[currentLang] && I18N[currentLang].split_no_apps) || 'No applications configured for split tunneling.'}</div>`;
+    return;
+  }
+
+  container.innerHTML = configuredSplitApps.map(app => {
+    const name = escapeHtml(app);
+    return `
+      <div class="split-chip-item">
+        <span>${name}</span>
+        <button type="button" class="chip-remove-btn" onclick="removeSplitApp('${name}')" title="Remove">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function refreshProcessList() {
+  const countEl = document.getElementById('split-detected-count');
+  if (countEl) countEl.textContent = 'Scanning...';
+
+  try {
+    const [runningRes, installedRes] = await Promise.all([
+      fetch('/api/apps/running').then(r => r.json()).catch(() => []),
+      fetch('/api/apps/installed').then(r => r.json()).catch(() => [])
+    ]);
+
+    const seen = new Set();
+    const list = [];
+
+    // Prioritize running processes first
+    (runningRes || []).forEach(p => {
+      const lower = p.name.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        list.push({ ...p, is_running: true });
+      }
+    });
+
+    // Append installed processes
+    (installedRes || []).forEach(p => {
+      const lower = p.name.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        list.push({ ...p, is_running: false });
+      }
+    });
+
+    detectedProcesses = list;
+    if (countEl) countEl.textContent = `${list.length} Available`;
+    renderProcessRows(detectedProcesses);
+  } catch (err) {
+    console.error('Failed to load process list:', err);
+    if (countEl) countEl.textContent = 'Error scanning';
+  }
+}
+
+function renderProcessRows(processes) {
+  const container = document.getElementById('split-process-rows');
+  if (!container) return;
+
+  const confSet = new Set(configuredSplitApps.map(a => a.toLowerCase()));
+
+  container.innerHTML = processes.slice(0, 100).map(proc => {
+    const isConfigured = confSet.has(proc.name.toLowerCase());
+    const statusText = proc.is_running
+      ? ((I18N[currentLang] && I18N[currentLang].split_running) || 'Running')
+      : ((I18N[currentLang] && I18N[currentLang].split_not_running) || 'Installed');
+    const badgeClass = proc.is_running ? 'running' : 'installed';
+    const actionLabel = isConfigured ? 'Remove' : '+ Add';
+    const btnClass = isConfigured ? 'configured' : '';
+
+    return `
+      <div class="split-proc-row">
+        <div class="proc-name-col">
+          <div class="proc-icon-box">${proc.is_running ? '⚡' : '📦'}</div>
+          <span>${escapeHtml(proc.description || proc.name)}</span>
+        </div>
+        <div class="proc-path-col font-mono" title="${escapeHtml(proc.path || proc.name)}">${escapeHtml(proc.name)}</div>
+        <div class="proc-status-col">
+          <span class="proc-badge ${badgeClass}">${statusText}</span>
+        </div>
+        <div class="proc-action-col">
+          <button type="button" class="proc-toggle-btn ${btnClass}" onclick="toggleSplitAppRule('${escapeHtml(proc.name)}')">${actionLabel}</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterProcessList(query) {
+  const q = (query || '').toLowerCase().trim();
+  if (!q) {
+    renderProcessRows(detectedProcesses);
+    return;
+  }
+  const filtered = detectedProcesses.filter(p => 
+    p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q))
+  );
+  renderProcessRows(filtered);
+}
+
+function toggleSplitAppRule(appName) {
+  const lower = appName.toLowerCase();
+  const idx = configuredSplitApps.findIndex(a => a.toLowerCase() === lower);
+  if (idx >= 0) {
+    configuredSplitApps.splice(idx, 1);
+  } else {
+    configuredSplitApps.push(appName);
+  }
+  persistSplitTunnelApps();
+}
+
+function removeSplitApp(appName) {
+  const lower = appName.toLowerCase();
+  configuredSplitApps = configuredSplitApps.filter(a => a.toLowerCase() !== lower);
+  persistSplitTunnelApps();
+}
+
+function addCustomSplitApp() {
+  const input = document.getElementById('split-custom-exe-input');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+  const base = val.split(/[\/\\]/).pop();
+  if (base && !configuredSplitApps.some(a => a.toLowerCase() === base.toLowerCase())) {
+    configuredSplitApps.push(base);
+    input.value = '';
+    persistSplitTunnelApps();
+  }
+}
+
+function applySplitPreset(type) {
+  const presets = {
+    browsers: ['chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'opera.exe'],
+    messaging: ['telegram.exe', 'discord.exe', 'whatsapp.exe'],
+    gaming: ['steam.exe', 'epicgameslauncher.exe', 'riotclientservices.exe', 'battlenet.exe']
+  };
+
+  const list = presets[type] || [];
+  list.forEach(app => {
+    if (!configuredSplitApps.some(a => a.toLowerCase() === app)) {
+      configuredSplitApps.push(app);
+    }
+  });
+  persistSplitTunnelApps();
+}
+
+function clearSplitApps() {
+  configuredSplitApps = [];
+  persistSplitTunnelApps();
+}
+
+function toggleSplitTunnel(enabled) {
+  const cur = (currentStatus && currentStatus.settings) || {};
+  saveSettingsPayload({
+    ...cur,
+    split_tunnel_enabled: enabled
+  });
+}
+
+function setSplitMode(mode) {
+  const cur = (currentStatus && currentStatus.settings) || {};
+  saveSettingsPayload({
+    ...cur,
+    split_tunnel_mode: mode
+  });
+}
+
+function persistSplitTunnelApps() {
+  renderConfiguredSplitChips();
+  renderProcessRows(detectedProcesses);
+  const cur = (currentStatus && currentStatus.settings) || {};
+  saveSettingsPayload({
+    ...cur,
+    split_tunnel_apps: configuredSplitApps
+  });
+}
+
+// ==========================================================================
+// Module 2: Dedicated Low-Latency Gaming Mode Toggle
+// ==========================================================================
+async function toggleGamingMode(explicitActive) {
+  try {
+    const body = typeof explicitActive === 'boolean' ? { active: explicitActive } : {};
+    const res = await fetch('/api/gaming-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      const stats = await res.json();
+      if (currentStatus) {
+        currentStatus.gaming_stats = stats;
+        if (currentStatus.settings) currentStatus.settings.gaming_mode = stats.active;
+        updateUI(currentStatus);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to toggle gaming mode:', err);
+  }
+}
+
+// ==========================================================================
+// Module 4: Floating Mini-Widget HUD Controller
+// ==========================================================================
+let hudVisible = false;
+
+function toggleFloatingHUD() {
+  const hud = document.getElementById('floating-mini-hud');
+  if (!hud) return;
+  hudVisible = !hudVisible;
+  hud.style.display = hudVisible ? 'flex' : 'none';
+  if (hudVisible && currentStatus) {
+    updateUI(currentStatus);
+  }
+}
+
+// Draggable HUD functionality
+function initDraggableHUD() {
+  const hud = document.getElementById('floating-mini-hud');
+  if (!hud) return;
+  let isDragging = false;
+  let startX, startY, initLeft, initTop;
+
+  hud.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button')) return;
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = hud.getBoundingClientRect();
+    initLeft = rect.left;
+    initTop = rect.top;
+    hud.style.bottom = 'auto';
+    hud.style.right = 'auto';
+    hud.style.left = `${initLeft}px`;
+    hud.style.top = `${initTop}px`;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    hud.style.left = `${initLeft + dx}px`;
+    hud.style.top = `${initTop + dy}px`;
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+}
