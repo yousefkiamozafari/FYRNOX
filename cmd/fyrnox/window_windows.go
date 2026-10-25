@@ -4,7 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 	"unsafe"
+
+	"github.com/jchv/go-webview2"
+	"github.com/jchv/go-webview2/pkg/edge"
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -23,33 +28,66 @@ var (
 	procGetModuleHandleW                       = kernel32Mod.NewProc("GetModuleHandleW")
 	procLoadImageW                             = user32Mod.NewProc("LoadImageW")
 	procLoadIconW                              = user32Mod.NewProc("LoadIconW")
+	procDwmExtendFrameIntoClientArea           = modDwmapi.NewProc("DwmExtendFrameIntoClientArea")
+	procSetWindowCompositionAttribute          = user32Mod.NewProc("SetWindowCompositionAttribute")
 )
 
 const (
-	gwlStyle           = ^uintptr(15) // -16
-	wsCaption          = 0x00C00000
-	wsThickFrame       = 0x00040000
-	wsMinimizeBox      = 0x00020000
-	wsMaximizeBox      = 0x00010000
-	swpNoMove          = 0x0002
-	swpNoSize          = 0x0001
-	swpNoZOrder        = 0x0004
-	swpFrameChanged    = 0x0020
-	wmNCLButtonDown    = 0x00A1
-	htCaption          = 2
-	swMinimize         = 6
-	swMaximize         = 3
-	swRestore          = 9
-	wmClose            = 0x0010
-	wmSetIcon          = 0x0080
-	iconSmall          = 0
-	iconBig            = 1
-	imageIcon          = 1
-	lrDefaultSize      = 0x0040
-	lrShared           = 0x8000
-	lrLoadFromFile     = 0x0010
-	appUserModelID     = "FYRNOX.Client.App.v1"
+	gwlStyle                = ^uintptr(15) // -16
+	wsCaption               = 0x00C00000
+	wsThickFrame            = 0x00040000
+	wsMinimizeBox           = 0x00020000
+	wsMaximizeBox           = 0x00010000
+	swpNoMove               = 0x0002
+	swpNoSize               = 0x0001
+	swpNoZOrder             = 0x0004
+	swpFrameChanged         = 0x0020
+	wmNCLButtonDown         = 0x00A1
+	htCaption               = 2
+	swMinimize              = 6
+	swMaximize              = 3
+	swRestore               = 9
+	wmClose                 = 0x0010
+	wmSetIcon               = 0x0080
+	iconSmall               = 0
+	iconBig                 = 1
+	imageIcon               = 1
+	lrDefaultSize           = 0x0040
+	lrShared                = 0x8000
+	lrLoadFromFile          = 0x0010
+	appUserModelID          = "FYRNOX.Client.App.v1"
+	dwmwaSystemBackdropType = 38
+	dwmsbtTransientWindow   = 3 // Desktop Acrylic
+	wcaAccentPolicy         = 19
+	accentEnableAcrylic     = 4
+	accentEnableBlurBehind  = 3
 )
+
+type margins struct {
+	cxLeftWidth    int32
+	cxRightWidth   int32
+	cyTopHeight    int32
+	cyBottomHeight int32
+}
+
+type accentPolicy struct {
+	AccentState   uint32
+	AccentFlags   uint32
+	GradientColor uint32
+	AnimationId   uint32
+}
+
+type windowCompositionAttributeData struct {
+	Attrib uint32
+	PvData uintptr
+	CbData uintptr
+}
+
+type iUnknownVtbl struct {
+	QueryInterface uintptr
+	AddRef         uintptr
+	Release        uintptr
+}
 
 var globalHwnd uintptr
 
@@ -185,4 +223,117 @@ func handleWindowClose(hwnd uintptr) {
 		return
 	}
 	procPostMessageW.Call(hwnd, uintptr(wmClose), 0, 0)
+}
+
+// enableDesktopAcrylic enables native Windows Desktop Acrylic blur-behind via DWM
+func enableDesktopAcrylic(hwnd uintptr) {
+	if hwnd == 0 {
+		return
+	}
+
+	// 1. Extend frame into entire client area so glass effect encompasses the whole window
+	m := margins{-1, -1, -1, -1}
+	procDwmExtendFrameIntoClientArea.Call(hwnd, uintptr(unsafe.Pointer(&m)))
+
+	// 2. Windows 11 (22H2+): Set DWMWA_SYSTEMBACKDROP_TYPE to DWMSBT_TRANSIENTWINDOW (Acrylic = 3)
+	var backdropType uint32 = dwmsbtTransientWindow
+	r, _, _ := procDwmSetWindowAttribute.Call(
+		hwnd,
+		uintptr(dwmwaSystemBackdropType),
+		uintptr(unsafe.Pointer(&backdropType)),
+		unsafe.Sizeof(backdropType),
+	)
+
+	// 3. Fallback for Windows 10 & Windows 11 21H2 via SetWindowCompositionAttribute
+	if r != 0 && procSetWindowCompositionAttribute.Find() == nil {
+		policy := accentPolicy{
+			AccentState:   accentEnableAcrylic,
+			AccentFlags:   2,
+			GradientColor: 0x99100D0B, // Translucent dark obsidian tint (ARGB)
+		}
+		data := windowCompositionAttributeData{
+			Attrib: wcaAccentPolicy,
+			PvData: uintptr(unsafe.Pointer(&policy)),
+			CbData: unsafe.Sizeof(policy),
+		}
+		procSetWindowCompositionAttribute.Call(hwnd, uintptr(unsafe.Pointer(&data)))
+	}
+	LogInfo("Native Windows Desktop Acrylic blur-behind activated on HWND 0x%X", hwnd)
+}
+
+// enableWebView2Transparency configures WebView2 controller background to 100% transparent (Alpha=0)
+func enableWebView2Transparency(w webview2.WebView) {
+	if w == nil {
+		return
+	}
+
+	apply := func() bool {
+		defer func() {
+			_ = recover()
+		}()
+
+		ifaceVal := *(*[2]unsafe.Pointer)(unsafe.Pointer(&w))
+		dataPtr := ifaceVal[1]
+		if dataPtr == nil {
+			return false
+		}
+
+		ptrSize := unsafe.Sizeof(uintptr(0))
+		// webview struct: hwnd (0) + mainthread (1) + browser.tab (2) + browser.data (3)
+		browserDataPtr := *(*unsafe.Pointer)(unsafe.Pointer(uintptr(dataPtr) + 3*ptrSize))
+		if browserDataPtr == nil {
+			return false
+		}
+
+		chromium := (*edge.Chromium)(browserDataPtr)
+		controller := chromium.GetController()
+		if controller == nil {
+			return false
+		}
+
+		// IID_ICoreWebView2Controller2 = {c979903e-d57a-4dc4-a638-bf1b3713f04b}
+		iid := windows.GUID{
+			Data1: 0xc979903e,
+			Data2: 0xd57a,
+			Data3: 0x4dc4,
+			Data4: [8]byte{0xa6, 0x38, 0xbf, 0x1b, 0x37, 0x13, 0xf0, 0x4b},
+		}
+
+		vtbl := *(**iUnknownVtbl)(unsafe.Pointer(controller))
+		if vtbl == nil || vtbl.QueryInterface == 0 {
+			return false
+		}
+
+		var controller2 *edge.ICoreWebView2Controller2
+		res, _, _ := syscall.SyscallN(
+			vtbl.QueryInterface,
+			uintptr(unsafe.Pointer(controller)),
+			uintptr(unsafe.Pointer(&iid)),
+			uintptr(unsafe.Pointer(&controller2)),
+		)
+
+		if res == 0 && controller2 != nil {
+			_ = controller2.PutDefaultBackgroundColor(edge.COREWEBVIEW2_COLOR{A: 0, R: 0, G: 0, B: 0})
+			LogInfo("WebView2 controller background set to 100%% transparent (Alpha=0)")
+			return true
+		}
+		return false
+	}
+
+	if !apply() {
+		go func() {
+			for i := 0; i < 25; i++ {
+				time.Sleep(50 * time.Millisecond)
+				success := false
+				w.Dispatch(func() {
+					if apply() {
+						success = true
+					}
+				})
+				if success {
+					break
+				}
+			}
+		}()
+	}
 }

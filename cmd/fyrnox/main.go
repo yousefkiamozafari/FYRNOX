@@ -208,10 +208,12 @@ func launchAppWindow(targetURL string, engine *VpnEngine) {
 		if hwnd != 0 {
 			setGlobalHwnd(hwnd)
 			enableDarkTitleBar(hwnd)
+			enableDesktopAcrylic(hwnd)
 			applyFramelessStyle(hwnd)
 			bindWindowIcon(hwnd)
 			InitSystemTray(hwnd, engine)
 		}
+		enableWebView2Transparency(w)
 
 		_ = w.Bind("nativeWindowDrag", func() {
 			handleWindowDrag(hwnd)

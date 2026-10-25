@@ -77,6 +77,10 @@ const I18N = {
     filter_asia: 'Asia & Pacific',
     btn_ping_all: 'Ping All Servers',
     ping_measuring: 'Measuring Global POP Latencies...',
+    ping_probing: 'Measuring...',
+    ping_timeout: 'Timeout',
+    ping_failed: 'Failed',
+    ping_offline: 'Offline',
     btn_cancel: 'Cancel',
     col_location: 'Location & Server',
     col_arch: 'Network Architecture',
@@ -239,6 +243,10 @@ const I18N = {
     filter_asia: 'آسیا و اقیانوسیه',
     btn_ping_all: 'تست پینگ همه سرورها',
     ping_measuring: 'در حال سنجش پینگ سرورها...',
+    ping_probing: 'در حال سنجش...',
+    ping_timeout: 'پایان مهلت',
+    ping_failed: 'ناموفق',
+    ping_offline: 'آفلاین',
     btn_cancel: 'لغو',
     col_location: 'موقعیت و سرور',
     col_arch: 'معماری شبکه',
@@ -498,6 +506,26 @@ async function fetchStatus() {
 // ==========================================================================
 // Update UI State
 // ==========================================================================
+function applyLatencyStyling(valEl, badgeEl, ms) {
+  if (!valEl) return;
+  valEl.classList.remove('latency-good', 'latency-medium', 'latency-poor');
+  if (badgeEl) badgeEl.classList.remove('latency-good', 'latency-medium', 'latency-poor', 'testing');
+
+  if (ms == null || ms <= 0) {
+    return;
+  }
+  if (ms < 150) {
+    valEl.classList.add('latency-good');
+    if (badgeEl) badgeEl.classList.add('latency-good');
+  } else if (ms <= 350) {
+    valEl.classList.add('latency-medium');
+    if (badgeEl) badgeEl.classList.add('latency-medium');
+  } else {
+    valEl.classList.add('latency-poor');
+    if (badgeEl) badgeEl.classList.add('latency-poor');
+  }
+}
+
 function updateUI(status) {
   if (!status) return;
   currentStatus = status;
@@ -715,16 +743,19 @@ function updateUI(status) {
   // 9. Telemetry Cards (Ping, Traffic, Quota)
   const telemPing = document.getElementById('telem-ping-value');
   const telemPingBadge = document.getElementById('telem-ping-badge');
-  if (telemPing) {
+  if (telemPing && !isInteractivePingTesting) {
     if (isConnected && status.exit_latency > 0) {
       telemPing.textContent = `${status.exit_latency} ms`;
       if (telemPingBadge) telemPingBadge.textContent = 'Tunnel RTT';
+      applyLatencyStyling(telemPing, telemPingBadge, status.exit_latency);
     } else if (status.server && status.server.ping_ms > 0) {
       telemPing.textContent = `${status.server.ping_ms} ms`;
       if (telemPingBadge) telemPingBadge.textContent = 'TCP SYN';
+      applyLatencyStyling(telemPing, telemPingBadge, status.server.ping_ms);
     } else {
       telemPing.textContent = '-- ms';
-      if (telemPingBadge) telemPingBadge.textContent = 'Idle';
+      if (telemPingBadge) telemPingBadge.textContent = isConnected ? 'Tunnel RTT' : 'Idle';
+      applyLatencyStyling(telemPing, telemPingBadge, null);
     }
   }
 
@@ -1408,21 +1439,77 @@ function cancelPingAll() {
   }
 }
 
+let isInteractivePingTesting = false;
+
 async function interactivePingTest() {
-  if (!currentStatus || !currentStatus.server) return;
+  if (isInteractivePingTesting) return;
+  const card = document.getElementById('dash-ping-card');
   const pingVal = document.getElementById('telem-ping-value');
-  if (pingVal) pingVal.textContent = 'Measuring...';
+  const pingBadge = document.getElementById('telem-ping-badge');
+
+  const targetServer = (currentStatus && currentStatus.server) ? currentStatus.server : null;
+  const isConnected = currentStatus && (currentStatus.state || '').toLowerCase() === 'connected';
+
+  isInteractivePingTesting = true;
+  if (card) card.classList.add('testing');
+  if (pingVal) {
+    pingVal.textContent = (I18N[currentLang] && I18N[currentLang].ping_probing) || 'Measuring...';
+    pingVal.classList.remove('latency-good', 'latency-medium', 'latency-poor');
+  }
+  if (pingBadge) {
+    pingBadge.textContent = (I18N[currentLang] && I18N[currentLang].ping_probing) || 'Probing...';
+    pingBadge.classList.remove('latency-good', 'latency-medium', 'latency-poor');
+    pingBadge.classList.add('testing');
+  }
 
   try {
-    const res = await fetch('/api/ping');
+    let url = '/api/ping';
+    if (targetServer && targetServer.hostname) {
+      url += `?hostname=${encodeURIComponent(targetServer.hostname)}`;
+      if (isConnected) url += '&tunnel=true';
+    }
+    const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      if (pingVal && data.ping_ms) {
-        pingVal.textContent = `${data.ping_ms} ms`;
+      const latency = data.ping_ms != null ? data.ping_ms : data.ping;
+      if (data.ok && latency > 0) {
+        if (pingVal) pingVal.textContent = `${latency} ms`;
+        if (pingBadge) {
+          pingBadge.textContent = data.tunnel ? 'Tunnel RTT' : 'TCP SYN';
+        }
+        applyLatencyStyling(pingVal, pingBadge, latency);
+        if (targetServer) {
+          targetServer.ping_ms = latency;
+        }
+      } else {
+        if (pingVal) {
+          pingVal.textContent = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
+          pingVal.classList.add('latency-poor');
+        }
+        if (pingBadge) {
+          pingBadge.textContent = (I18N[currentLang] && I18N[currentLang].ping_failed) || 'Failed';
+          pingBadge.classList.add('latency-poor');
+        }
       }
+    } else {
+      throw new Error(`HTTP ${res.status}`);
     }
   } catch (err) {
-    console.error('Ping test failed:', err);
+    console.error('Interactive ping test failed:', err);
+    if (pingVal) {
+      pingVal.textContent = (I18N[currentLang] && I18N[currentLang].ping_offline) || 'Offline';
+      pingVal.classList.add('latency-poor');
+    }
+    if (pingBadge) {
+      pingBadge.textContent = (I18N[currentLang] && I18N[currentLang].ping_failed) || 'Error';
+      pingBadge.classList.add('latency-poor');
+    }
+  } finally {
+    setTimeout(() => {
+      if (card) card.classList.remove('testing');
+      if (pingBadge) pingBadge.classList.remove('testing');
+      isInteractivePingTesting = false;
+    }, 450);
   }
 }
 

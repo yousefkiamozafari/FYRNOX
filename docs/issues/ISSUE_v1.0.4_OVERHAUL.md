@@ -187,13 +187,65 @@ The FYRNOX Windows desktop client (v1.0.4) has undergone a comprehensive enginee
 
 ---
 
-### ۵. فایل‌های خروجی و نصاب‌های کامپایل‌شده (Production Artifacts)
+---
 
-| نام فایل | نوع بسته | حجم | مسیر دسترسی |
-| :--- | :--- | :--- | :--- |
-| **Fyrnox.exe** | فایل اجرایی اصلی ریشه | 14.5 MB | [`Fyrnox.exe`](file:///C:/Users/LouiNoor/.gemini/antigravity/scratch/FoxyVPN-Windows/Fyrnox.exe) |
-| **Fyrnox-Setup-v1.0.4.exe** | نصاب رسمی ویندوز (x64) | 19.8 MB | [`build/installer/Fyrnox-Setup-v1.0.4.exe`](file:///C:/Users/LouiNoor/.gemini/antigravity/scratch/FoxyVPN-Windows/build/installer/Fyrnox-Setup-v1.0.4.exe) |
-| **Fyrnox-Setup-Windows-11-10-x64.exe** | نصاب توزیعی نسخه ۶۴ بیتی | 19.8 MB | [`build/dist/Fyrnox-Setup-Windows-11-10-x64.exe`](file:///C:/Users/LouiNoor/.gemini/antigravity/scratch/FoxyVPN-Windows/build/dist/Fyrnox-Setup-Windows-11-10-x64.exe) |
-| **Fyrnox-Setup-Windows-7-8-10-x86.exe** | نصاب توزیعی نسخه ۳۲ بیتی | 18.8 MB | [`build/dist/Fyrnox-Setup-Windows-7-8-10-x86.exe`](file:///C:/Users/LouiNoor/.gemini/antigravity/scratch/FoxyVPN-Windows/build/dist/Fyrnox-Setup-Windows-7-8-10-x86.exe) |
-| **Fyrnox-v1.0.4-Windows-x64-Portable.zip** | نسخه پرتابل ۶۴ بیتی | 7.4 MB | [`build/dist/Fyrnox-v1.0.4-Windows-x64-Portable.zip`](file:///C:/Users/LouiNoor/.gemini/antigravity/scratch/FoxyVPN-Windows/build/dist/Fyrnox-v1.0.4-Windows-x64-Portable.zip) |
-| **Fyrnox-v1.0.4-Windows-x86-Portable.zip** | نسخه پرتابل ۳۲ بیتی | 7.4 MB | [`build/dist/Fyrnox-v1.0.4-Windows-x86-Portable.zip`](file:///C:/Users/LouiNoor/.gemini/antigravity/scratch/FoxyVPN-Windows/build/dist/Fyrnox-v1.0.4-Windows-x86-Portable.zip) |
+### 6. Full Desktop Acrylic Glassmorphism & Interactive Latency Probe (v1.0.4 Phase 3)
+
+#### A. Native Windows Desktop Acrylic & Transparent Canvas Overhaul
+* **Win32 DWM Backdrop Integration (`window_windows.go`):**
+  * Invokes `DwmExtendFrameIntoClientArea` with negative margins (`-1, -1, -1, -1`) to extend the desktop window manager blur surface across the entire client canvas.
+  * Sets `DWMWA_SYSTEMBACKDROP_TYPE = 3` (`DWMSBT_TRANSIENTWINDOW` / Desktop Acrylic) via `DwmSetWindowAttribute` for true Gaussian desktop blur-behind on Windows 11 and Windows 10 (22H2+). Includes automatic fallback to `SetWindowCompositionAttribute` (`ACCENT_ENABLE_ACRYLICBLURBEHIND`).
+  * Queries `ICoreWebView2Controller2` via COM interface pointer inspection and calls `PutDefaultBackgroundColor(COREWEBVIEW2_COLOR{A: 0, R: 0, G: 0, B: 0})`. This turns the Chromium WebView2 canvas completely transparent, allowing the native Windows Acrylic frosted background to visibly shine through.
+* **Liquid Glass CSS Design System (`style.css`):**
+  * Configured `html, body { background: transparent !important; }` and translucent container tints (`rgba(11, 13, 18, 0.40)` to `rgba(18, 22, 32, 0.45)`).
+  * Upgraded backdrop blur to `blur(30px) saturate(160%)` for deep, fluid optical distortion.
+  * Translucent borders (`1px solid rgba(255, 255, 255, 0.12)`) and ambient soft shadows (`0 8px 32px 0 rgba(0, 0, 0, 0.37)`).
+
+#### B. Interactive Ping Badge & Live Latency Re-Test
+* **Interactive Trigger & Real-Time Animation (`index.html`, `style.css`, `app.js`):**
+  * Dashboard latency card (`#dash-ping-card`) and refresh icon (`#telem-ping-refresh`) are directly clickable to initiate immediate latency measurements.
+  * Displays active testing animations: card pulse glow (`pulseCardGlow`), refresh button 360° spin (`spinRefresh`), and icon scaling (`pulseIconScale`).
+  * In active tunnel mode, queries `/api/ping?tunnel=true` to measure live round-trip layer-3 latency through Fastly MASQUE. In disconnected mode, measures direct TCP/TLS handshake latency to the selected server.
+* **Dynamic Visual Latency Classification:**
+  * `< 150ms`: Fast / Optimal (Green `#22C55E`, `.latency-good`)
+  * `150ms - 350ms`: Moderate (Amber `#EAB308`, `.latency-medium`)
+  * `> 350ms` or Timeout / Offline: Poor (Red `#EF4444`, `.latency-poor`)
+  * Fully localized state labels across English and Persian (`Measuring...` / `در حال سنجش...`, `Timeout` / `پایان مهلت`, `Failed` / `ناموفق`, `Offline` / `آفلاین`).
+
+---
+
+### ۶. افکت شیشه‌ای آکریلیک بومی ویندوز و تست تعاملی تاخیر پینگ (فاز ۳ آپدیت v1.0.4)
+
+#### الف) پیاده‌سازی افکت Desktop Acrylic و ترنسپرنت‌سازی بوم WebView2
+* **اتصال به DWM در سطح Win32 (`window_windows.go`):**
+  * گسترش فریم پنجره به تمام فضای کلاینت از طریق تابع `DwmExtendFrameIntoClientArea` با مارجین منفی (`-1, -1, -1, -1`).
+  * فعال‌سازی افکت اکریلیک بومی ویندوز ۱۱ و ۱۰ با فراخوانی `DwmSetWindowAttribute` و فلگ `DWMWA_SYSTEMBACKDROP_TYPE = 3` (حالت Acrylic بلور پشت پنجره) به همراه فال‌بک خودکار به `SetWindowCompositionAttribute`.
+  * ارتباط مستقیم با اینترفیس COM مربوط به `ICoreWebView2Controller2` و تنظیم آلفای پس‌زمینه وب‌ویو به عدد ۰ (`PutDefaultBackgroundColor` با رنگ کاملاً شفاف)، که باعث می‌شود بلور دسکتاپ بومی ویندوز به صورت بلادرنگ از پشت المنت‌های رابط کاربری نمایان شود.
+* **طراحی Glassmorphism شیشه‌ای (`style.css`):**
+  * شفاف‌سازی کامل زمینه (`background: transparent !important`) با رنگ مایع شیشه‌ای ملایم (`rgba(11, 13, 18, 0.40)`).
+  * اعمال شکست نور عمیق ۳۰ پیکسلی (`backdrop-filter: blur(30px) saturate(160%)`)، حاشیه‌های درخشان کریستالی (`1px solid rgba(255, 255, 255, 0.12)`) و سایه‌های نرم و عمیق.
+
+#### ب) نشانگر تعاملی پینگ و تست مجدد آنی روی داشبورد اصلی
+* **تریگر تعاملی و انیمیشن‌های پویا (`index.html`, `style.css`, `app.js`):**
+  * کارت پینگ داشبورد (`#dash-ping-card`) و دکمه بازخوانی (`#telem-ping-refresh`) با یک کلیک تست زنده تاخیر را اجرا می‌کنند.
+  * اعمال انیمیشن‌های چرخش ۳۶۰ درجه آیکون رفرش (`spinRefresh`)، تپش نوری کارت (`pulseCardGlow`) و بزرگ‌نمایی ملایم آیکون رعد (`pulseIconScale`).
+  * ارسال درخواست به اندپوینت `/api/ping`؛ در حالت اتصال فعال، تاخیر واقعی رفت‌وبرگشت تونل (Tunnel RTT) و در حالت قطع، تاخیر هندشیک TCP/TLS به سرور انتخاب‌شده اندازه‌گیری می‌شود.
+* **رنگ‌بندی هوشمند کیفیت تاخیر:**
+  * کمتر از ۱۵۰ میلی‌ثانیه: عالی و سریع (رنگ سبز `#22C55E`)
+  * ۱۵۰ تا ۳۵۰ میلی‌ثانیه: متوسط و قابل قبول (رنگ کهربایی `#EAB308`)
+  * بیش از ۳۵۰ میلی‌ثانیه یا تایم‌اوت: ضعیف یا خطا (رنگ قرمز `#EF4444`)
+  * ترجمه کامل و دوزبانه وضعیت‌ها به زبان‌های فارسی و انگلیسی.
+
+---
+
+### ۷. فایل‌های خروجی نهایی و پکیج‌های کامپایل‌شده (Final Verified Distribution Artifacts)
+
+| نام فایل | نوع بسته | پلتفرم | حجم | وضعیت تست |
+| :--- | :--- | :--- | :--- | :---: |
+| **Fyrnox.exe** | باینری ریشه برنامه | Windows x64 | 14.5 MB | **تایید شده (PASS)** |
+| **Fyrnox-Setup-v1.0.4.exe** | نصاب رسمی ویندوز | Windows x64 | 19.8 MB | **تایید شده (PASS)** |
+| **Fyrnox-Setup-Windows-11-10-x64.exe** | نصاب آماده توزیع | Windows x64 | 19.8 MB | **تایید شده (PASS)** |
+| **Fyrnox-Setup-Windows-7-8-10-x86.exe** | نصاب آماده توزیع | Windows x86 | 18.8 MB | **تایید شده (PASS)** |
+| **Fyrnox-v1.0.4-Windows-x64-Portable.zip** | نسخه پرتابل فشرده | Windows x64 | 7.4 MB | **تایید شده (PASS)** |
+| **Fyrnox-v1.0.4-Windows-x86-Portable.zip** | نسخه پرتابل فشرده | Windows x86 | 7.4 MB | **تایید شده (PASS)** |
+

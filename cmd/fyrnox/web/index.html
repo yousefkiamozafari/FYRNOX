@@ -348,8 +348,8 @@
           <!-- Real-Time Telemetry Row (Ping, Uptime, Traffic, Quota) -->
           <div class="telemetry-grid">
             
-            <div class="telemetry-card clickable" onclick="interactivePingTest()" title="Click to measure live round-trip latency">
-              <div class="telemetry-icon ping">⚡</div>
+            <div class="telemetry-card clickable" id="dash-ping-card" onclick="interactivePingTest()" title="Click to measure live round-trip latency">
+              <div class="telemetry-icon ping" id="dash-ping-icon">⚡</div>
               <div class="telemetry-info">
                 <span class="telemetry-label" data-i18n="lbl_telemetry_latency">Network Latency (RTT)</span>
                 <div class="telemetry-value-row">
@@ -357,7 +357,7 @@
                   <span class="telemetry-badge" id="telem-ping-badge">TCP SYN</span>
                 </div>
               </div>
-              <button class="telemetry-refresh-btn" title="Refresh Ping">↻</button>
+              <button type="button" class="telemetry-refresh-btn" id="telem-ping-refresh" title="Refresh Ping" onclick="event.stopPropagation(); interactivePingTest();">↻</button>
             </div>
 
             <div class="telemetry-card">
