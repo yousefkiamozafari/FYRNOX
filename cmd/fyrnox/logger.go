@@ -1,6 +1,8 @@
 package main
 
 import (
+	"path/filepath"
+	"os"
 	"fmt"
 	"sync"
 	"time"
@@ -48,6 +50,12 @@ func Log(level LogLevel, format string, args ...any) {
 	globalLogBuffer.mu.Unlock()
 
 	fmt.Printf("[%s] [%s] %s\n", entry.Timestamp, level, msg)
+	logDir := filepath.Join(os.Getenv("LOCALAPPDATA"), "Fyrnox")
+	_ = os.MkdirAll(logDir, 0755)
+	if f, err := os.OpenFile(filepath.Join(logDir, "fyrnox.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+		_, _ = fmt.Fprintf(f, "[%s] [%s] %s\n", entry.Timestamp, level, msg)
+		_ = f.Close()
+	}
 }
 
 func LogInfo(format string, args ...any) {

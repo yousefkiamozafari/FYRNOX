@@ -11,7 +11,7 @@
 <body>
   <!-- CUSTOM LIQUID GLASS WINDOW TITLE BAR (Win32 Frameless) -->
   <header class="liquid-titlebar" id="app-titlebar">
-    <div class="titlebar-drag-region" id="titlebar-drag-region" ondblclick="toggleWindowMaximize()">
+    <div class="titlebar-drag-region" id="titlebar-drag-region" onmousedown="windowDrag(event)" ondblclick="toggleWindowMaximize()">
       <div class="titlebar-brand">
         <img src="favicon.png" alt="FYRNOX" class="titlebar-icon">
         <span class="titlebar-title">FYRNOX</span>

@@ -384,6 +384,7 @@ function escapeHtml(str) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.add('is-dashboard');
   applyTheme(currentTheme);
   applyLanguage(currentLang);
   initWindowControls();
@@ -414,6 +415,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function switchNav(tab) {
   activeNav = tab;
   
+  // Update dashboard class for topbar visibility
+  document.body.classList.toggle('is-dashboard', tab === 'dashboard');
+  const appShell = document.querySelector('.app-shell');
+  if (appShell) {
+    appShell.classList.toggle('view-is-dashboard', tab === 'dashboard');
+  }
+
   // Update sidebar active buttons
   document.querySelectorAll('.nav-item').forEach(btn => {
     if (btn.dataset.tab === tab) {
@@ -440,7 +448,13 @@ function switchNav(tab) {
     titleEl.textContent = (I18N[currentLang] && I18N[currentLang][key]) || 'FYRNOX Desktop';
   }
 
-  if (tab === 'diagnostics') {
+  if (tab === 'servers') {
+    if (allServers && allServers.length > 0) {
+      renderServerList(allServers);
+    } else {
+      fetchServers();
+    }
+  } else if (tab === 'diagnostics') {
     fetchLogs();
   } else if (tab === 'split-tunnel') {
     loadSplitTunnelView();
@@ -752,10 +766,6 @@ function updateUI(status) {
   const topbarMode = document.getElementById('topbar-mode-text');
   const btnProxy = document.getElementById('btn-mode-proxy');
   const btnTun = document.getElementById('btn-mode-tun');
-  const uacNotice = document.getElementById('dash-uac-notice');
-
-  const isTun = status.tun_active || (status.settings && status.settings.enable_tun_mode);
-  const isActualWintun = status.wintun_active;
 
   if (modeTag) {
     modeTag.textContent = isActualWintun 
@@ -2462,3 +2472,38 @@ function initDraggableHUD() {
     isDragging = false;
   });
 }
+
+
+// Window Drag Helper
+function windowDrag(e) {
+  if (e && e.button !== 0) return;
+  if (window.nativeWindowDrag) {
+    window.nativeWindowDrag();
+  } else {
+    fetch('/api/window/drag', { method: 'POST' }).catch(() => {});
+  }
+}
+window.windowDrag = windowDrag;
+window.windowMinimize = windowMinimize;
+window.windowMaximize = windowMaximize;
+window.toggleWindowMaximize = toggleWindowMaximize;
+window.windowClose = windowClose;
+window.switchNav = switchNav;
+window.toggleConnect = toggleConnect;
+window.toggleModeDropdown = toggleModeDropdown;
+window.handleModeDropdownSelect = handleModeDropdownSelect;
+window.selectServer = selectServer;
+window.pingAllServersInteractive = pingAllServersInteractive;
+window.pingAllServers = pingAllServers;
+window.dismissError = dismissError;
+window.selectRoutingMode = selectRoutingMode;
+window.toggleLanguage = toggleLanguage;
+window.fetchStatus = fetchStatus;
+window.handleAuthClick = handleAuthClick;
+window.showNotificationPanel = showNotificationPanel;
+window.interactivePingTest = interactivePingTest;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.doLogin = doLogin;
+window.doVerify = doVerify;
+window.doLogout = doLogout;
