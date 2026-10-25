@@ -238,7 +238,51 @@ The FYRNOX Windows desktop client (v1.0.4) has undergone a comprehensive enginee
 
 ---
 
-### ۷. فایل‌های خروجی نهایی و پکیج‌های کامپایل‌شده (Final Verified Distribution Artifacts)
+### 8. FYRNOX Brand-Tinted Liquid Glass & Live Terminal Logger Overhaul (v1.0.4 Phase 4)
+
+#### A. Brand-Tinted Liquid Glass Aesthetic & Subsurface Gradient Mesh
+* **Color Infusion (`style.css`):**
+  * Transitioned from neutral grey glass to a deep smoky charcoal base tint (`rgba(11, 13, 18, 0.75)`).
+  * Layered a multi-point subsurface radial mesh onto the canvas: energetic orange (`#FF6A00`, opacity 0.08) at 18% 22%, warm amber (`#FFB000`, opacity 0.05) at 82% 78%, and soft ambient glow at center, gently bleeding warmth through the Windows Acrylic backdrop.
+  * Replaced stark white borders with warm, glowing translucent contours (`1px solid rgba(255, 106, 0, 0.22)` and `rgba(255, 106, 0, 0.38)`).
+  * Injected soft ambient radial light spots behind `#dashboard-hero-card`, `#shield-connect-button`, and `.telemetry-grid`.
+  * Maintained high-contrast crispness for all UI labels, metrics, and interactive controls (`#F8FAFC` and `#94A3B8`).
+
+#### B. Live In-App Terminal Logger Engine & Diagnostics Console
+* **Object Serialization Bug Fix (`app.js`):**
+  * Resolved critical bug in `renderLogs(logs)` where an array of `LogEntry` objects was joined with `\n`, producing unreadable `[object Object]` lines.
+  * Implemented structured DOM parser extracting `timestamp`, `level`, and `message`.
+  * Added dynamic log-level badges with syntax coloring: `.log-badge.info` (`#22C55E`), `.log-badge.warn` (`#EAB308`), `.log-badge.error` (`#EF4444`), and `.log-badge.debug` (`#38BDF8`).
+* **Interactive Terminal Features:**
+  * Auto-scrolling viewport (`scrollTop = scrollHeight`) to track real-time engine events.
+  * Direct backend log synchronization: `clearLogs()` invokes `POST /api/logs/clear` to wipe server-side buffer as well as frontend DOM.
+  * Formatted clipboard export in `copyLogs()` generating clean `[timestamp] [level] message` plaintext strings.
+
+---
+
+### ۸. طراحی Liquid Glass اختصاصی برند فایرناکس و کنسول لاگ زنده ترمینال (فاز ۴ نسخه v1.0.4)
+
+#### الف) هویت بصری شیشه‌ای گرم و گرادیان زیرسطحی چندکانونی
+* **تزریق رنگ‌های اختصاصی فایرناکس (`style.css`):**
+  * تغییر رنگ پایه شیشه از خاکستری خنثی به زغالی دودی عمیق (`rgba(11, 13, 18, 0.75)`).
+  * تعبیه مش گرادیان رادیال زیرسطحی چندکانونی با نفوذ لطیف نارنجی پرانرژی (`#FF6A00` با شفافیت 0.08) و کهربایی گرم (`#FFB000` با شفافیت 0.05) در دل بلور آکریلیک ویندوز.
+  * تبدیل کادرهای سفید سرد به لبه‌های درخشان با تینت گرم آتشین (`1px solid rgba(255, 106, 0, 0.22)` و `rgba(255, 106, 0, 0.38)`).
+  * ایجاد کانون‌های نوری در پشت کارت سپر اتصال (Hero Card)، دکمه اتصال و کارت‌های تله‌متری.
+  * حفظ ۱۰۰٪ خوانایی و کنتراست شفاف تمام متون، اعداد و برچسب‌های داشبورد.
+
+#### ب) موتور لاگ درون‌برنامه‌ای زنده و کنسول عیب‌یابی ترمینال
+* **رفع باگ رندر و تبدیل اشیا (`app.js`):**
+  * رفع باگ متصل‌سازی خام آرایه اشیای `LogEntry` که خروجی را به شکل رشته‌های `[object Object]` نمایش می‌داد.
+  * پیاده‌سازی پارسر ساختاریافته برای تفکیک دقیق زمان، سطح لاگ و متن پیام.
+  * نشان‌های رنگی ترمینال: برچسب سبز برای `INFO`، زرد/کهربایی برای `WARN`، قرمز برای `ERROR` و فیروزه‌ای برای `DEBUG`.
+* **قابلیت‌های کاربردی کنسول لاگ:**
+  * اسکرول خودکار به آخرین خط دریافتی بدون قفل شدن رابط کاربری.
+  * اتصال دکمه پاکسازی لاگ به متد بک‌اند `POST /api/logs/clear` برای تخلیه همزمان بافر سرور و فرانت‌اند.
+  * کپی ساختاریافته و استاندارد تمام خطوط لاگ در کلیپ‌بورد با فرمت `[زمان] [سطح] متن`.
+
+---
+
+### ۹. فایل‌های خروجی نهایی و پکیج‌های کامپایل‌شده (Final Verified Distribution Artifacts)
 
 | نام فایل | نوع بسته | پلتفرم | حجم | وضعیت تست |
 | :--- | :--- | :--- | :--- | :---: |
@@ -248,4 +292,5 @@ The FYRNOX Windows desktop client (v1.0.4) has undergone a comprehensive enginee
 | **Fyrnox-Setup-Windows-7-8-10-x86.exe** | نصاب آماده توزیع | Windows x86 | 18.8 MB | **تایید شده (PASS)** |
 | **Fyrnox-v1.0.4-Windows-x64-Portable.zip** | نسخه پرتابل فشرده | Windows x64 | 7.4 MB | **تایید شده (PASS)** |
 | **Fyrnox-v1.0.4-Windows-x86-Portable.zip** | نسخه پرتابل فشرده | Windows x86 | 7.4 MB | **تایید شده (PASS)** |
+
 
