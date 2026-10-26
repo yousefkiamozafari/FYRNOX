@@ -118,7 +118,7 @@
       }
 
       // Base radius adjusted by ~12% for generous headroom and zero clipping
-      this.radius = 67;
+      this.radius = 60;
       this.isInteracting = false;
       this.previousMousePosition = { x: 0, y: 0 };
       this.targetRotation = { x: 0.25, y: -0.7 };
@@ -638,7 +638,7 @@
       const vFOV = (this.camera.fov * Math.PI) / 180;
       const visualRadius = this.radius * 1.25;
 
-      const dVert = (visualRadius * 1.20) / Math.tan(vFOV / 2);
+      const dVert = (visualRadius * 1.22) / Math.tan(vFOV / 2);
       const dHoriz = dVert / Math.max(aspect, 0.5);
 
       const targetZ = Math.max(dVert, dHoriz);

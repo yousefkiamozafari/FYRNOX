@@ -22,10 +22,10 @@ const I18N = {
     connected: 'CONNECTED SECURELY',
     disconnecting: 'DISCONNECTING...',
     error: 'CONNECTION ERROR',
-    btn_connect: 'CONNECT NOW',
-    btn_disconnect: 'DISCONNECT',
-    btn_connecting: 'CONNECTING...',
-    btn_disconnecting: 'DISCONNECTING...',
+    btn_connect: 'Connect',
+    btn_disconnect: 'Disconnect',
+    btn_connecting: 'Connecting',
+    btn_disconnecting: 'Disconnecting',
     btn_sign_in: 'Sign In',
     traffic_unprotected: 'Traffic is currently unprotected',
     dash_error_title: 'Connection Warning',
@@ -188,10 +188,10 @@ const I18N = {
     connected: 'متصل شد (امن)',
     disconnecting: 'در حال قطع...',
     error: 'خطا در اتصال',
-    btn_connect: 'اتصال به شبکه',
+    btn_connect: 'اتصال',
     btn_disconnect: 'قطع اتصال',
-    btn_connecting: 'در حال اتصال...',
-    btn_disconnecting: 'در حال قطع...',
+    btn_connecting: 'در حال اتصال',
+    btn_disconnecting: 'در حال قطع',
     btn_sign_in: 'ورود',
     traffic_unprotected: 'ترافیک اینترنت شما بدون حفاظت است',
     dash_error_title: 'هشدار اتصال',
@@ -625,9 +625,9 @@ function updateUI(status) {
     if (isConnected) {
       heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].connected) || 'Connected';
     } else if (isConnecting) {
-      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].connecting) || 'Connecting...';
+      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].connecting) || 'Connecting';
     } else if (isDisconnecting) {
-      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].disconnecting) || 'Disconnecting...';
+      heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].disconnecting) || 'Disconnecting';
     } else {
       heroTitle.textContent = (I18N[currentLang] && I18N[currentLang].disconnected) || 'Disconnected';
     }
@@ -649,13 +649,13 @@ function updateUI(status) {
     const stepText = (I18N[currentLang] && I18N[currentLang][stepKey]) || defaultStep;
     if (heroSub) heroSub.textContent = stepText;
     if (heroAction) heroAction.className = 'hero-action-button btn-connect';
-    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting...';
+    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting';
     if (heroSpinner) heroSpinner.style.display = 'block';
     if (shieldCheck) shieldCheck.style.display = 'none';
   } else if (isDisconnecting) {
     if (heroSub) heroSub.textContent = (I18N[currentLang] && I18N[currentLang].sub_disconnecting) || 'Restoring network routes and proxy settings...';
     if (heroAction) heroAction.className = 'hero-action-button btn-disconnect';
-    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnecting) || 'Disconnecting...';
+    if (heroActionLabel) heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_disconnecting) || 'Disconnecting';
     if (heroSpinner) heroSpinner.style.display = 'block';
     if (shieldCheck) shieldCheck.style.display = 'none';
   } else {
@@ -1302,9 +1302,11 @@ function clearSearch() {
 
 function renderServerList(servers) {
   const container = document.getElementById('server-list-container');
+  const pinnedRecContainer = document.getElementById('servers-recommended-card');
   if (!container) return;
 
   if (!servers || servers.length === 0) {
+    if (pinnedRecContainer) pinnedRecContainer.style.display = 'none';
     container.innerHTML = `
       <div style="text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 0.9rem;">
         No server locations match your search criteria.
@@ -1323,6 +1325,72 @@ function renderServerList(servers) {
 
   const selectedHost = currentStatus && currentStatus.server ? currentStatus.server.hostname : '';
   const fastestHost = sorted.length > 0 && sorted[0].ping_ms > 0 ? sorted[0].hostname : null;
+
+  // Identify recommended server (explicit is_recommended or lowest latency or first entry)
+  const recServer = sorted.find(s => s.is_recommended) || sorted[0];
+
+  if (pinnedRecContainer && recServer) {
+    pinnedRecContainer.style.display = 'flex';
+    const isRecSelected = recServer.hostname === selectedHost;
+    const recFlag = getFlag(recServer.country_code);
+
+    let recPingPillClass = 'unavailable';
+    let recPingText = '-- ms';
+    if (recServer.ping_ms > 0) {
+      recPingText = `${recServer.ping_ms} ms`;
+      if (recServer.ping_ms <= 200) recPingPillClass = 'fast';
+      else if (recServer.ping_ms <= 500) recPingPillClass = 'medium';
+      else recPingPillClass = 'slow';
+    } else if (recServer.ping_ms === -1) {
+      recPingText = 'Timeout';
+      recPingPillClass = 'slow';
+    }
+
+    const recTypeBadge = recServer.is_anycast
+      ? `<span class="badge-anycast-pill">${(I18N[currentLang] && I18N[currentLang].type_anycast) || 'ANYCAST EDGE'}</span>`
+      : `<span class="badge-pop-pill">POP: ${escapeHtml(recServer.city_code || 'DIRECT')}</span>`;
+
+    const isConn = currentStatus && (currentStatus.state === 'connected');
+    const isConnPending = currentStatus && (currentStatus.state === 'connecting');
+    let recBtnText = (I18N[currentLang] && I18N[currentLang].btn_card_connect) || 'Connect';
+    if (isRecSelected) {
+      if (isConnPending) {
+        recBtnText = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting';
+      } else if (isConn) {
+        recBtnText = (I18N[currentLang] && I18N[currentLang].btn_card_connected) || 'Connected ✓';
+      } else {
+        recBtnText = (I18N[currentLang] && I18N[currentLang].btn_card_selected) || 'Selected ✓';
+      }
+    }
+
+    pinnedRecContainer.innerHTML = `
+      <div class="pinned-rec-header">
+        <span class="pinned-rec-badge">⚡ ${(I18N[currentLang] && I18N[currentLang].rec_tag) || 'RECOMMENDED LOCATION'}</span>
+        <span class="pinned-rec-desc">${(I18N[currentLang] && I18N[currentLang].rec_fastest_edge) || 'Fastest verified edge'}</span>
+      </div>
+      <div class="server-row-card recommended-pinned-row ${isRecSelected ? 'selected' : ''}" onclick="selectServer('${escapeHtml(recServer.hostname)}')">
+        <div class="server-cell-location">
+          <span class="server-row-flag">${recFlag}</span>
+          <div class="server-loc-names">
+            <span class="server-country-name">${escapeHtml(recServer.country_name)} • ${escapeHtml(recServer.city_name || recServer.country_name)}</span>
+            <span class="server-hostname-text">${escapeHtml(recServer.hostname)}</span>
+          </div>
+        </div>
+        <div class="server-cell-type">
+          ${recTypeBadge}
+          <span class="badge-fastest-pill">⚡ ${(I18N[currentLang] && I18N[currentLang].badge_recommended) || 'RECOMMENDED'}</span>
+        </div>
+        <div class="server-cell-ping">
+          <span class="ping-latency-pill ${recPingPillClass}" data-host="${escapeHtml(recServer.hostname)}">${recPingText}</span>
+        </div>
+        <div class="server-cell-action">
+          <button class="server-select-btn ${isRecSelected ? 'active' : ''}">
+            ${recBtnText}
+          </button>
+        </div>
+      </div>
+    `;
+  }
 
   container.innerHTML = sorted.map(srv => {
     const isSelected = srv.hostname === selectedHost;
@@ -1354,7 +1422,7 @@ function renderServerList(servers) {
     let btnText = (I18N[currentLang] && I18N[currentLang].btn_card_connect) || 'Connect';
     if (isSelected) {
       if (isConnPending) {
-        btnText = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting...';
+        btnText = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting';
       } else if (isConn) {
         btnText = (I18N[currentLang] && I18N[currentLang].btn_card_connected) || 'Connected ✓';
       } else {
@@ -1399,17 +1467,17 @@ async function selectServer(hostname) {
   if (isConn) {
     const cardBtn = document.querySelector(`.server-row-card[onclick*="${hostname}"] .server-select-btn`);
     if (cardBtn) {
-      cardBtn.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting...';
+      cardBtn.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting';
       cardBtn.classList.add('active');
     }
     const heroLabel = document.getElementById('hero-status-label');
     if (heroLabel) {
-      heroLabel.textContent = (I18N[currentLang] && I18N[currentLang].connecting) || 'CONNECTING...';
+      heroLabel.textContent = (I18N[currentLang] && I18N[currentLang].connecting) || 'Connecting';
       heroLabel.className = 'hero-status-badge connecting';
     }
     const heroActionLabel = document.getElementById('hero-action-label');
     if (heroActionLabel) {
-      heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'CONNECTING...';
+      heroActionLabel.textContent = (I18N[currentLang] && I18N[currentLang].btn_connecting) || 'Connecting';
     }
     const heroSpinner = document.getElementById('hero-spinner');
     if (heroSpinner) heroSpinner.style.display = 'block';
