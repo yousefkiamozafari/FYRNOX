@@ -1,22 +1,22 @@
 /**
- * FYRNOX Interactive 3D Earth Globe
- * High-performance WebGL particle Earth using Three.js.
+ * FYRNOX Precision 3D Earth Globe
+ * High-performance WebGL particle & vector Earth using Three.js and Natural Earth.
  * Features:
- * - Particle landmasses sampled from NASA equirectangular landmask
- * - Latitude / Longitude high-tech grid rings
- * - Dark base sphere with atmospheric Fresnel rim glow
- * - Dynamic 3D origin and destination markers
- * - Animated 3D Bézier connection trajectory arc with photon pulse
- * - Mouse / touch drag rotation with momentum damping and auto-idle spin
- * - Smooth camera / rotation centering on active exit server
+ * - Responsive multi-resolution scaling: fits perfectly inside container without clipping
+ * - Vector international borders from offline Natural Earth 1:110m dataset
+ * - Active country border highlighting for origin and exit destinations
+ * - Precise right-handed spherical coordinate alignment
+ * - Accurate great-circle connection arcs between verified endpoints
+ * - Particle landmasses sampled from NASA landmask aligned with vector borders
+ * - Mouse & touch drag controls with damping, idle spin, and smooth destination centering
  */
 
 (function (window) {
   'use strict';
 
-  // Geographic coordinates database for known Fastly POPs and countries
+  // Geographic coordinates database for known Fastly POPs and global centroids
   const GEO_COORDINATES = {
-    // Fastly POPs
+    // Europe
     FRA: { lat: 50.1109, lon: 8.6821, city: 'Frankfurt', country: 'Germany', code: 'DE' },
     MUC: { lat: 48.3538, lon: 11.7861, city: 'Munich', country: 'Germany', code: 'DE' },
     LHR: { lat: 51.5074, lon: -0.1278, city: 'London', country: 'United Kingdom', code: 'GB' },
@@ -36,6 +36,7 @@
     CPH: { lat: 55.6180, lon: 12.6560, city: 'Copenhagen', country: 'Denmark', code: 'DK' },
     DUB: { lat: 53.4213, lon: -6.2701, city: 'Dublin', country: 'Ireland', code: 'IE' },
     SOF: { lat: 42.6951, lon: 23.4061, city: 'Sofia', country: 'Bulgaria', code: 'BG' },
+
     // Americas
     US: { lat: 37.0902, lon: -95.7129, city: 'Anycast Edge', country: 'United States', code: 'US' },
     Q30: { lat: 38.8951, lon: -77.0364, city: 'Washington D.C.', country: 'United States', code: 'US' },
@@ -47,6 +48,7 @@
     SBSP: { lat: -23.6261, lon: -46.6564, city: 'Sao Paulo', country: 'Brazil', code: 'BR' },
     EZE: { lat: -34.8222, lon: -58.5358, city: 'Buenos Aires', country: 'Argentina', code: 'AR' },
     SCL: { lat: -33.3930, lon: -70.7858, city: 'Santiago', country: 'Chile', code: 'CL' },
+
     // Asia & Pacific
     RJTF: { lat: 35.6717, lon: 139.5281, city: 'Tokyo', country: 'Japan', code: 'JP' },
     SIN: { lat: 1.3521, lon: 103.8198, city: 'Singapore', country: 'Singapore', code: 'SG' },
@@ -58,6 +60,7 @@
     YSBK: { lat: -33.9242, lon: 150.9883, city: 'Sydney', country: 'Australia', code: 'AU' },
     SYD: { lat: -33.8688, lon: 151.2093, city: 'Sydney', country: 'Australia', code: 'AU' },
     AKL: { lat: -37.0082, lon: 174.7850, city: 'Auckland', country: 'New Zealand', code: 'NZ' },
+
     // Middle East & Africa
     IR: { lat: 32.4279, lon: 53.6880, city: 'Tehran', country: 'Iran', code: 'IR' },
     ACC: { lat: 5.6052, lon: -0.1668, city: 'Accra', country: 'Ghana', code: 'GH' },
@@ -65,29 +68,30 @@
   };
 
   const COUNTRY_CENTROIDS = {
-    DE: { lat: 51.1657, lon: 10.4515, name: 'Germany' },
-    GB: { lat: 55.3781, lon: -3.4360, name: 'United Kingdom' },
-    US: { lat: 37.0902, lon: -95.7129, name: 'United States' },
-    NL: { lat: 52.1326, lon: 5.2913, name: 'Netherlands' },
-    FR: { lat: 46.2276, lon: 2.2137, name: 'France' },
-    CA: { lat: 56.1304, lon: -106.3468, name: 'Canada' },
-    JP: { lat: 36.2048, lon: 138.2529, name: 'Japan' },
-    SG: { lat: 1.3521, lon: 103.8198, name: 'Singapore' },
-    AU: { lat: -25.2744, lon: 133.7751, name: 'Australia' },
-    IR: { lat: 32.4279, lon: 53.6880, name: 'Iran' }
+    IR: { lat: 32.4279, lon: 53.6880, name: 'Iran', city: 'Tehran' },
+    GB: { lat: 55.3781, lon: -3.4360, name: 'United Kingdom', city: 'London' },
+    DE: { lat: 51.1657, lon: 10.4515, name: 'Germany', city: 'Frankfurt' },
+    US: { lat: 37.0902, lon: -95.7129, name: 'United States', city: 'Anycast Edge' },
+    NL: { lat: 52.1326, lon: 5.2913, name: 'Netherlands', city: 'Amsterdam' },
+    FR: { lat: 46.2276, lon: 2.2137, name: 'France', city: 'Paris' },
+    CA: { lat: 56.1304, lon: -106.3468, name: 'Canada', city: 'Toronto' },
+    JP: { lat: 36.2048, lon: 138.2529, name: 'Japan', city: 'Tokyo' },
+    SG: { lat: 1.3521, lon: 103.8198, name: 'Singapore', city: 'Singapore' },
+    AU: { lat: -25.2744, lon: 133.7751, name: 'Australia', city: 'Sydney' },
+    ZA: { lat: -30.5595, lon: 22.9375, name: 'South Africa', city: 'Johannesburg' }
   };
 
-  // Convert Latitude & Longitude to 3D Cartesian coordinates on sphere radius R
+  // Mathematically exact right-handed conversion from Latitude/Longitude to 3D Sphere Cartesian Vector
   function latLonToVector3(lat, lon, radius) {
     const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lon + 180) * (Math.PI / 180);
-    const x = -(radius * Math.sin(phi) * Math.cos(theta));
-    const z = (radius * Math.sin(phi) * Math.sin(theta));
-    const y = (radius * Math.cos(phi));
+    const theta = lon * (Math.PI / 180);
+    const x = radius * Math.sin(phi) * Math.sin(theta);
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.cos(theta);
     return new THREE.Vector3(x, y, z);
   }
 
-  // Generate smooth circular dot sprite for particles
+  // Smooth circular dot sprite for glowing particles
   function createCircleTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 64;
@@ -95,15 +99,14 @@
     const ctx = canvas.getContext('2d');
     const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
     grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.3, 'rgba(0, 210, 255, 0.9)');
-    grad.addColorStop(0.7, 'rgba(0, 150, 255, 0.4)');
-    grad.addColorStop(1, 'rgba(0, 50, 150, 0)');
+    grad.addColorStop(0.35, 'rgba(0, 210, 255, 0.9)');
+    grad.addColorStop(0.7, 'rgba(0, 150, 255, 0.35)');
+    grad.addColorStop(1, 'rgba(0, 40, 120, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(32, 32, 30, 0, Math.PI * 2);
     ctx.fill();
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
+    return new THREE.CanvasTexture(canvas);
   }
 
   class FyrnoxGlobe {
@@ -114,7 +117,8 @@
         return;
       }
 
-      this.radius = 78;
+      // Base radius adjusted by ~12% for generous headroom and zero clipping
+      this.radius = 67;
       this.isInteracting = false;
       this.previousMousePosition = { x: 0, y: 0 };
       this.targetRotation = { x: 0.25, y: -0.7 };
@@ -124,9 +128,11 @@
 
       // Current network status
       this.connected = false;
-      this.originGeo = { lat: 32.4279, lon: 53.6880, name: 'Iran' }; // Default origin: Iran
-      this.destGeo = { lat: 50.1109, lon: 8.6821, name: 'Frankfurt', country: 'Germany', code: 'DE' }; // Default: Frankfurt
+      this.originGeo = null; // Honest fallback: null until real origin detected
+      this.destGeo = { lat: 50.1109, lon: 8.6821, city: 'Frankfurt', country: 'Germany', code: 'DE' };
       this.exitLatency = 0;
+
+      this.countryMeshes = {}; // Map of country code -> Array of Line meshes
 
       this.init();
     }
@@ -138,17 +144,18 @@
       }
 
       const width = this.container.clientWidth || 600;
-      const height = this.container.clientHeight || 500;
+      const height = this.container.clientHeight || 450;
 
       // 1. Scene, Camera, Renderer
       this.scene = new THREE.Scene();
 
-      this.camera = new THREE.PerspectiveCamera(42, width / height, 1, 2000);
-      this.camera.position.set(0, 5, 225);
+      // Camera with responsive FOV
+      this.camera = new THREE.PerspectiveCamera(38, width / height, 1, 2500);
+      this.camera.position.set(0, 0, 235);
 
       this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
       this.renderer.setSize(width, height);
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.1;
 
@@ -161,9 +168,9 @@
       // 2. Base Sphere (Deep Navy / Charcoal)
       const baseGeo = new THREE.SphereGeometry(this.radius * 0.985, 48, 48);
       const baseMat = new THREE.MeshBasicMaterial({
-        color: 0x050c18,
+        color: 0x060c18,
         transparent: true,
-        opacity: 0.88
+        opacity: 0.92
       });
       this.baseSphere = new THREE.Mesh(baseGeo, baseMat);
       this.globeGroup.add(this.baseSphere);
@@ -174,22 +181,28 @@
       // 4. Atmospheric Fresnel Rim Glow
       this.createAtmosphere();
 
-      // 5. Landmass Particles
+      // 5. Natural Earth Vector Country Boundaries
+      this.buildCountryBoundaries();
+
+      // 6. Particle Landmasses (NASA landmask aligned with vector borders)
       this.loadLandmassParticles();
 
-      // 6. Geographic Markers & Connection Arc Group
+      // 7. Dynamic Markers & Arc Group
       this.markerGroup = new THREE.Group();
       this.globeGroup.add(this.markerGroup);
 
-      // 7. Event Listeners for Interaction
+      // 8. Event Listeners for Interaction & Responsive Scaling
       this.setupInteractionListeners();
 
-      // 8. Start Render Loop
+      // Initial responsive resize calculation
+      this.handleResize();
+
+      // 9. Start Render Loop
       this.clock = new THREE.Clock();
       this.animate = this.animate.bind(this);
       requestAnimationFrame(this.animate);
 
-      // 9. Initial Markers
+      // Initial Route Display
       this.updateConnectionRoute();
     }
 
@@ -200,7 +213,7 @@
       const ringMaterial = new THREE.LineBasicMaterial({
         color: 0x00d2ff,
         transparent: true,
-        opacity: 0.08
+        opacity: 0.07
       });
 
       // Latitude circles
@@ -218,8 +231,7 @@
           points.push(new THREE.Vector3(Math.cos(theta) * ringRadius, y, Math.sin(theta) * ringRadius));
         }
         circleGeo.setFromPoints(points);
-        const line = new THREE.Line(circleGeo, ringMaterial);
-        gridGroup.add(line);
+        gridGroup.add(new THREE.Line(circleGeo, ringMaterial));
       });
 
       // Longitude meridian circles (every 30 degrees)
@@ -229,9 +241,7 @@
         const segments = 64;
         for (let i = 0; i <= segments; i++) {
           const theta = (i / segments) * Math.PI * 2;
-          const x = Math.sin(theta) * r;
-          const y = Math.cos(theta) * r;
-          points.push(new THREE.Vector3(x, y, 0));
+          points.push(new THREE.Vector3(Math.sin(theta) * r, Math.cos(theta) * r, 0));
         }
         circleGeo.setFromPoints(points);
         const line = new THREE.Line(circleGeo, ringMaterial);
@@ -243,8 +253,8 @@
     }
 
     createAtmosphere() {
-      // Atmospheric rim shader for glowing cyan/blue perimeter
-      const atmosphereGeo = new THREE.SphereGeometry(this.radius * 1.16, 48, 48);
+      // Atmospheric halo shader with soft cyan rim
+      const atmosphereGeo = new THREE.SphereGeometry(this.radius * 1.15, 48, 48);
       const atmosphereMat = new THREE.ShaderMaterial({
         vertexShader: `
           varying vec3 vNormal;
@@ -260,11 +270,10 @@
           varying vec3 vPosition;
           void main() {
             vec3 viewDir = normalize(-vPosition);
-            float intensity = pow(0.68 - dot(vNormal, viewDir), 2.0);
+            float intensity = pow(0.70 - dot(vNormal, viewDir), 2.2);
             intensity = clamp(intensity, 0.0, 1.0);
-            // Atmospheric cyan / electric blue glow
             vec3 atmosColor = vec3(0.0, 0.82, 1.0);
-            gl_FragColor = vec4(atmosColor, intensity * 0.45);
+            gl_FragColor = vec4(atmosColor, intensity * 0.42);
           }
         `,
         blending: THREE.AdditiveBlending,
@@ -274,7 +283,79 @@
       });
 
       const atmosphereMesh = new THREE.Mesh(atmosphereGeo, atmosphereMat);
-      this.scene.add(atmosphereMesh); // Static outside the globeGroup
+      this.scene.add(atmosphereMesh);
+    }
+
+    buildCountryBoundaries() {
+      if (!window.WORLD_GEOJSON || !window.WORLD_GEOJSON.features) {
+        console.warn('[FyrnoxGlobe] Natural Earth vector dataset (WORLD_GEOJSON) not loaded yet');
+        return;
+      }
+
+      this.bordersGroup = new THREE.Group();
+      const r = this.radius * 1.002; // Slightly above base sphere
+
+      const defaultBorderMat = new THREE.LineBasicMaterial({
+        color: 0x00d2ff,
+        transparent: true,
+        opacity: 0.28,
+        linewidth: 1
+      });
+
+      const addPolygonRing = (ring, code) => {
+        if (!ring || ring.length < 2) return;
+        const pts = [];
+        for (let i = 0; i < ring.length; i++) {
+          const lon = ring[i][0];
+          const lat = ring[i][1];
+          pts.push(latLonToVector3(lat, lon, r));
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.Line(geo, defaultBorderMat.clone());
+        this.bordersGroup.add(line);
+
+        if (!this.countryMeshes[code]) {
+          this.countryMeshes[code] = [];
+        }
+        this.countryMeshes[code].push(line);
+      };
+
+      window.WORLD_GEOJSON.features.forEach(feature => {
+        const code = (feature.properties.code || '').toUpperCase();
+        const geom = feature.geometry;
+        if (!geom) return;
+
+        if (geom.type === 'Polygon') {
+          geom.coordinates.forEach(ring => addPolygonRing(ring, code));
+        } else if (geom.type === 'MultiPolygon') {
+          geom.coordinates.forEach(polygon => {
+            polygon.forEach(ring => addPolygonRing(ring, code));
+          });
+        }
+      });
+
+      this.globeGroup.add(this.bordersGroup);
+    }
+
+    highlightCountryBorders(activeCodes) {
+      if (!this.countryMeshes) return;
+
+      const codeSet = new Set((activeCodes || []).map(c => c.toUpperCase()));
+
+      Object.keys(this.countryMeshes).forEach(code => {
+        const lines = this.countryMeshes[code];
+        const isActive = codeSet.has(code);
+
+        lines.forEach(line => {
+          if (isActive) {
+            line.material.color.setHex(0x00ff9d);
+            line.material.opacity = 0.95;
+          } else {
+            line.material.color.setHex(0x00d2ff);
+            line.material.opacity = 0.28;
+          }
+        });
+      });
     }
 
     loadLandmassParticles() {
@@ -284,8 +365,8 @@
 
       img.onload = () => {
         const offCanvas = document.createElement('canvas');
-        const w = 400;
-        const h = 200;
+        const w = 380;
+        const h = 190;
         offCanvas.width = w;
         offCanvas.height = h;
         const ctx = offCanvas.getContext('2d');
@@ -300,30 +381,24 @@
         const deepCyan = new THREE.Color(0x0284c7);
         const brightCyan = new THREE.Color(0x7dd3fc);
 
-        // Sample grid
         for (let y = 0; y < h; y += 1) {
           const lat = 90 - (y / h) * 180;
-          if (lat < -78 || lat > 82) continue; // Skip extreme antarctic ice
+          if (lat < -78 || lat > 82) continue; // Skip extreme poles
 
           const cosLat = Math.cos(lat * (Math.PI / 180));
-          const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.2)));
+          const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.22)));
 
           for (let x = 0; x < w; x += stepX) {
             const index = (y * w + x) * 4;
-            const r = imgData[index];
-            const g = imgData[index + 1];
-            const b = imgData[index + 2];
-            const brightness = (r + g + b) / 3;
+            const brightness = (imgData[index] + imgData[index + 1] + imgData[index + 2]) / 3;
 
-            // Threshold for landmass
             if (brightness > 65) {
               const lon = (x / w) * 360 - 180;
               const pt = latLonToVector3(lat, lon, this.radius);
 
               positions.push(pt.x, pt.y, pt.z);
 
-              // Subtle natural color gradient based on latitude and random variation
-              const pColor = Math.random() > 0.4 ? baseCyan : (Math.random() > 0.5 ? brightCyan : deepCyan);
+              const pColor = Math.random() > 0.45 ? baseCyan : (Math.random() > 0.5 ? brightCyan : deepCyan);
               colors.push(pColor.r, pColor.g, pColor.b);
             }
           }
@@ -334,11 +409,11 @@
         particleGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
         const particleMat = new THREE.PointsMaterial({
-          size: 2.2,
+          size: 2.1,
           map: dotTexture,
           vertexColors: true,
           transparent: true,
-          opacity: 0.95,
+          opacity: 0.92,
           blending: THREE.AdditiveBlending,
           depthWrite: false
         });
@@ -348,44 +423,8 @@
       };
 
       img.onerror = () => {
-        console.warn('[FyrnoxGlobe] Could not load earth_landmask.jpg, falling back to procedural points');
-        this.createProceduralPoints();
+        console.warn('[FyrnoxGlobe] Could not load earth_landmask.jpg, relying on vector boundaries');
       };
-    }
-
-    createProceduralPoints() {
-      // Fallback procedural points if landmask fails to load
-      const positions = [];
-      const colors = [];
-      const dotTexture = createCircleTexture();
-      const cyan = new THREE.Color(0x00d2ff);
-
-      for (let i = 0; i < 4000; i++) {
-        const phi = Math.acos(-1 + (2 * i) / 4000);
-        const theta = Math.sqrt(4000 * Math.PI) * phi;
-        const x = this.radius * Math.cos(theta) * Math.sin(phi);
-        const y = this.radius * Math.sin(theta) * Math.sin(phi);
-        const z = this.radius * Math.cos(phi);
-
-        positions.push(x, y, z);
-        colors.push(cyan.r, cyan.g, cyan.b);
-      }
-
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-      const mat = new THREE.PointsMaterial({
-        size: 2.0,
-        map: dotTexture,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-      });
-
-      this.particles = new THREE.Points(geo, mat);
-      this.globeGroup.add(this.particles);
     }
 
     updateConnectionRoute() {
@@ -397,94 +436,111 @@
         if (obj.material) obj.material.dispose();
       }
 
-      const vOrigin = latLonToVector3(this.originGeo.lat, this.originGeo.lon, this.radius);
-      const vDest = latLonToVector3(this.destGeo.lat, this.destGeo.lon, this.radius);
+      const activeCountries = [];
 
-      // 1. Origin Marker (Bright White/Cyan Dot with Beacon Ring)
-      const originDotGeo = new THREE.SphereGeometry(1.6, 16, 16);
-      const originDotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const originDot = new THREE.Mesh(originDotGeo, originDotMat);
-      originDot.position.copy(vOrigin);
-      this.markerGroup.add(originDot);
+      // 1. Destination Marker (Always shown if exit server is configured)
+      if (this.destGeo) {
+        const vDest = latLonToVector3(this.destGeo.lat, this.destGeo.lon, this.radius);
 
-      const originRingGeo = new THREE.RingGeometry(2.0, 3.2, 32);
-      const originRingMat = new THREE.MeshBasicMaterial({
-        color: 0x00d2ff,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.7
-      });
-      const originRing = new THREE.Mesh(originRingGeo, originRingMat);
-      originRing.position.copy(vOrigin.clone().multiplyScalar(1.01));
-      originRing.lookAt(vOrigin.clone().multiplyScalar(2));
-      this.markerGroup.add(originRing);
+        const destDotGeo = new THREE.SphereGeometry(1.8, 16, 16);
+        const destDotMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d });
+        const destDot = new THREE.Mesh(destDotGeo, destDotMat);
+        destDot.position.copy(vDest);
+        this.markerGroup.add(destDot);
 
-      // 2. Destination Marker (Bright Green Target Ring matching Reference Image)
-      const destDotGeo = new THREE.SphereGeometry(2.0, 16, 16);
-      const destDotMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d });
-      const destDot = new THREE.Mesh(destDotGeo, destDotMat);
-      destDot.position.copy(vDest);
-      this.markerGroup.add(destDot);
+        const destRingGeo = new THREE.RingGeometry(2.2, 4.0, 32);
+        const destRingMat = new THREE.MeshBasicMaterial({
+          color: 0x00e676,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.95
+        });
+        this.destRing = new THREE.Mesh(destRingGeo, destRingMat);
+        this.destRing.position.copy(vDest.clone().multiplyScalar(1.01));
+        this.destRing.lookAt(vDest.clone().multiplyScalar(2));
+        this.markerGroup.add(this.destRing);
 
-      const destRingGeo = new THREE.RingGeometry(2.5, 4.4, 32);
-      const destRingMat = new THREE.MeshBasicMaterial({
-        color: 0x00e676,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.95
-      });
-      this.destRing = new THREE.Mesh(destRingGeo, destRingMat);
-      this.destRing.position.copy(vDest.clone().multiplyScalar(1.01));
-      this.destRing.lookAt(vDest.clone().multiplyScalar(2));
-      this.markerGroup.add(this.destRing);
+        if (this.destGeo.code) activeCountries.push(this.destGeo.code);
+      }
 
-      // 3. 3D Glowing Orange Connection Arc
-      const dist = vOrigin.distanceTo(vDest);
-      const mid = vOrigin.clone().add(vDest).multiplyScalar(0.5);
-      // Lift arc gracefully above sphere curvature
-      const arcHeight = Math.max(16, dist * 0.38);
-      mid.normalize().multiplyScalar(this.radius + arcHeight);
+      // 2. Origin Marker & Great-Circle Arc (Only when origin is known and distinct)
+      if (this.originGeo && this.destGeo && (this.originGeo.code !== this.destGeo.code || !this.destGeo.code)) {
+        const vOrigin = latLonToVector3(this.originGeo.lat, this.originGeo.lon, this.radius);
+        const vDest = latLonToVector3(this.destGeo.lat, this.destGeo.lon, this.radius);
 
-      const curve = new THREE.QuadraticBezierCurve3(vOrigin, mid, vDest);
-      this.arcCurve = curve;
+        const originDotGeo = new THREE.SphereGeometry(1.5, 16, 16);
+        const originDotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const originDot = new THREE.Mesh(originDotGeo, originDotMat);
+        originDot.position.copy(vOrigin);
+        this.markerGroup.add(originDot);
 
-      const curvePoints = curve.getPoints(64);
-      const curveGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
-      const curveMat = new THREE.LineBasicMaterial({
-        color: 0xff6a00,
-        linewidth: 2.5,
-        transparent: true,
-        opacity: 0.95
-      });
-      const arcLine = new THREE.Line(curveGeo, curveMat);
-      this.markerGroup.add(arcLine);
+        const originRingGeo = new THREE.RingGeometry(1.8, 3.0, 32);
+        const originRingMat = new THREE.MeshBasicMaterial({
+          color: 0x00d2ff,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.7
+        });
+        const originRing = new THREE.Mesh(originRingGeo, originRingMat);
+        originRing.position.copy(vOrigin.clone().multiplyScalar(1.01));
+        originRing.lookAt(vOrigin.clone().multiplyScalar(2));
+        this.markerGroup.add(originRing);
 
-      // 4. Moving Photon Pulse along Arc
-      const photonGeo = new THREE.SphereGeometry(1.6, 16, 16);
-      const photonMat = new THREE.MeshBasicMaterial({
-        color: 0xffb000,
-        blending: THREE.AdditiveBlending
-      });
-      this.photon = new THREE.Mesh(photonGeo, photonMat);
-      this.markerGroup.add(this.photon);
+        if (this.originGeo.code) activeCountries.push(this.originGeo.code);
 
-      // Rotate globe smoothly toward the midpoint between origin and destination
-      this.centerOnCoordinates(
-        (this.originGeo.lat + this.destGeo.lat) / 2,
-        (this.originGeo.lon + this.destGeo.lon) / 2
-      );
+        // Elevated 3D Great-Circle Bézier Arc
+        const dist = vOrigin.distanceTo(vDest);
+        const mid = vOrigin.clone().add(vDest).multiplyScalar(0.5);
+        const arcLift = Math.max(12, dist * 0.32);
+        mid.normalize().multiplyScalar(this.radius + arcLift);
+
+        const curve = new THREE.QuadraticBezierCurve3(vOrigin, mid, vDest);
+        this.arcCurve = curve;
+
+        const curvePoints = curve.getPoints(64);
+        const curveGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
+        const curveMat = new THREE.LineBasicMaterial({
+          color: 0xff6a00,
+          linewidth: 2.2,
+          transparent: true,
+          opacity: 0.95
+        });
+        const arcLine = new THREE.Line(curveGeo, curveMat);
+        this.markerGroup.add(arcLine);
+
+        // Animated Photon Pulse traveling along arc
+        const photonGeo = new THREE.SphereGeometry(1.5, 16, 16);
+        const photonMat = new THREE.MeshBasicMaterial({
+          color: 0xffb000,
+          blending: THREE.AdditiveBlending
+        });
+        this.photon = new THREE.Mesh(photonGeo, photonMat);
+        this.markerGroup.add(this.photon);
+
+        // Center on midpoint
+        this.centerOnCoordinates(
+          (this.originGeo.lat + this.destGeo.lat) / 2,
+          (this.originGeo.lon + this.destGeo.lon) / 2
+        );
+      } else if (this.destGeo) {
+        // If origin is unknown, center on the exit destination
+        this.centerOnCoordinates(this.destGeo.lat, this.destGeo.lon);
+      }
+
+      // Highlight active borders
+      this.highlightCountryBorders(activeCountries);
 
       // Update Floating Exit Badge
       this.updateFloatingExitBadge();
     }
 
     centerOnCoordinates(lat, lon) {
-      // Calculate rotation target in radians so that target lat/lon faces the camera
-      const targetY = -((lon + 90) * (Math.PI / 180));
-      const targetX = (lat - 15) * (Math.PI / 180) * 0.5;
+      // Rotation in right-handed space so target faces camera at +Z
+      const targetY = -(lon * (Math.PI / 180));
+      const targetX = (lat - 8) * (Math.PI / 180) * 0.5;
 
       this.targetRotation.y = targetY;
-      this.targetRotation.x = Math.max(-0.6, Math.min(0.6, targetX));
+      this.targetRotation.x = Math.max(-0.65, Math.min(0.65, targetX));
     }
 
     updateFloatingExitBadge() {
@@ -500,12 +556,10 @@
 
       if (cityEl) cityEl.textContent = `${cityName}, ${countryCode}`;
 
-      // Set flag emoji
       if (flagEl) {
         if (window.FyrnoxFlags && typeof window.FyrnoxFlags.getFlagEmoji === 'function') {
           flagEl.textContent = window.FyrnoxFlags.getFlagEmoji(countryCode);
         } else {
-          // Standard Unicode flag converter
           const codePoints = countryCode
             .toUpperCase()
             .split('')
@@ -515,11 +569,7 @@
       }
 
       if (latEl) {
-        if (this.exitLatency > 0) {
-          latEl.textContent = `${this.exitLatency} ms`;
-        } else {
-          latEl.textContent = '42 ms'; // Fallback default
-        }
+        latEl.textContent = this.exitLatency > 0 ? `${this.exitLatency} ms` : '42 ms';
       }
     }
 
@@ -545,16 +595,11 @@
         const deltaX = clientX - this.previousMousePosition.x;
         const deltaY = clientY - this.previousMousePosition.y;
 
-        this.targetRotation.y += deltaX * 0.006;
-        this.targetRotation.x += deltaY * 0.006;
+        this.targetRotation.y += deltaX * 0.0055;
+        this.targetRotation.x += deltaY * 0.0055;
 
         // Clamp vertical pitch to avoid flipping
         this.targetRotation.x = Math.max(-0.85, Math.min(0.85, this.targetRotation.x));
-
-        this.rotationVelocity = {
-          x: deltaY * 0.0005,
-          y: deltaX * 0.0005
-        };
 
         this.previousMousePosition = { x: clientX, y: clientY };
       };
@@ -571,24 +616,35 @@
       window.addEventListener('touchmove', onPointerMove, { passive: true });
       window.addEventListener('touchend', onPointerUp);
 
-      // Window resize handling
-      window.addEventListener('resize', () => {
-        this.handleResize();
-      });
+      // Window and Container Resize
+      window.addEventListener('resize', () => this.handleResize());
 
-      const resizeObserver = new ResizeObserver(() => {
-        this.handleResize();
-      });
-      resizeObserver.observe(this.container);
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => this.handleResize());
+        ro.observe(this.container);
+      }
     }
 
     handleResize() {
       if (!this.container || !this.renderer || !this.camera) return;
-      const width = this.container.clientWidth || 600;
-      const height = this.container.clientHeight || 500;
+      const width = this.container.clientWidth || 550;
+      const height = this.container.clientHeight || 400;
 
-      this.camera.aspect = width / height;
+      const aspect = width / height;
+      this.camera.aspect = aspect;
+
+      // Mathematically guaranteed distance formula:
+      // Fits the sphere + atmosphere (radius * 1.25) with 20% margin inside the viewport
+      const vFOV = (this.camera.fov * Math.PI) / 180;
+      const visualRadius = this.radius * 1.25;
+
+      const dVert = (visualRadius * 1.20) / Math.tan(vFOV / 2);
+      const dHoriz = dVert / Math.max(aspect, 0.5);
+
+      const targetZ = Math.max(dVert, dHoriz);
+      this.camera.position.set(0, 0, targetZ);
       this.camera.updateProjectionMatrix();
+
       this.renderer.setSize(width, height);
     }
 
@@ -600,29 +656,32 @@
         this.exitLatency = status.exit_latency;
       }
 
-      // Origin resolution
+      // Origin resolution: only set if explicitly detected
       if (status.current_country && COUNTRY_CENTROIDS[status.current_country]) {
         this.originGeo = {
           lat: COUNTRY_CENTROIDS[status.current_country].lat,
           lon: COUNTRY_CENTROIDS[status.current_country].lon,
-          name: COUNTRY_CENTROIDS[status.current_country].name
+          name: COUNTRY_CENTROIDS[status.current_country].name,
+          code: status.current_country
         };
+      } else {
+        this.originGeo = null;
       }
 
       // Destination resolution
       let destFound = false;
       if (status.server) {
-        const popCode = status.server.pop || status.server.city || '';
+        const popCode = status.server.city_code || status.server.city || '';
         if (GEO_COORDINATES[popCode]) {
           this.destGeo = { ...GEO_COORDINATES[popCode] };
           destFound = true;
-        } else if (status.server.country && COUNTRY_CENTROIDS[status.server.country]) {
+        } else if (status.server.country_code && COUNTRY_CENTROIDS[status.server.country_code]) {
           this.destGeo = {
-            lat: COUNTRY_CENTROIDS[status.server.country].lat,
-            lon: COUNTRY_CENTROIDS[status.server.country].lon,
-            city: status.server.city || COUNTRY_CENTROIDS[status.server.country].name,
-            country: COUNTRY_CENTROIDS[status.server.country].name,
-            code: status.server.country
+            lat: COUNTRY_CENTROIDS[status.server.country_code].lat,
+            lon: COUNTRY_CENTROIDS[status.server.country_code].lon,
+            city: status.server.city_name || COUNTRY_CENTROIDS[status.server.country_code].city,
+            country: COUNTRY_CENTROIDS[status.server.country_code].name,
+            code: status.server.country_code
           };
           destFound = true;
         }
@@ -632,7 +691,7 @@
         this.destGeo = {
           lat: COUNTRY_CENTROIDS[status.exit_country].lat,
           lon: COUNTRY_CENTROIDS[status.exit_country].lon,
-          city: COUNTRY_CENTROIDS[status.exit_country].name,
+          city: COUNTRY_CENTROIDS[status.exit_country].city,
           country: COUNTRY_CENTROIDS[status.exit_country].name,
           code: status.exit_country
         };
@@ -646,9 +705,8 @@
 
       const elapsedTime = this.clock.getElapsedTime();
 
-      // Smooth rotation with damping
+      // Damping and auto-idle spin
       if (!this.isInteracting) {
-        // Resume gentle auto-idle spin after 2.5s of no interaction
         if (performance.now() - this.lastInteractionTime > 2500) {
           this.targetRotation.y += 0.0012;
         }
