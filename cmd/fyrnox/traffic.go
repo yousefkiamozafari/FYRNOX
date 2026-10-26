@@ -18,34 +18,61 @@ type TrafficMeter struct {
 	speedUp   atomic.Int64 // bytes per second
 
 	sessionStart time.Time
+	sessionEnd   time.Time
+	active       atomic.Bool
 }
 
 func NewTrafficMeter() *TrafficMeter {
+	now := time.Now()
 	m := &TrafficMeter{
-		lastTick:     time.Now(),
-		sessionStart: time.Now(),
+		lastTick:     now,
+		sessionStart: now,
 	}
+	m.active.Store(false)
 	go m.tickerLoop()
 	return m
 }
 
 func (m *TrafficMeter) AddDown(n int64) {
-	m.bytesDown.Add(n)
+	if n > 0 {
+		m.bytesDown.Add(n)
+	}
 }
 
 func (m *TrafficMeter) AddUp(n int64) {
-	m.bytesUp.Add(n)
+	if n > 0 {
+		m.bytesUp.Add(n)
+	}
 }
 
-func (m *TrafficMeter) Reset() {
+// StartSession begins or resets the cumulative VPN session counters
+func (m *TrafficMeter) StartSession() {
 	m.bytesDown.Store(0)
 	m.bytesUp.Store(0)
 	m.speedDown.Store(0)
 	m.speedUp.Store(0)
 	m.lastBytesDown = 0
 	m.lastBytesUp = 0
-	m.lastTick = time.Now()
-	m.sessionStart = time.Now()
+	now := time.Now()
+	m.lastTick = now
+	m.sessionStart = now
+	m.sessionEnd = time.Time{}
+	m.active.Store(true)
+}
+
+// StopSession halts active speed calculation and freezes session duration,
+// preserving the cumulative bytes downloaded and uploaded for display.
+func (m *TrafficMeter) StopSession() {
+	if m.active.Swap(false) {
+		m.sessionEnd = time.Now()
+	}
+	m.speedDown.Store(0)
+	m.speedUp.Store(0)
+}
+
+// Reset resets the session to zero (used when starting fresh connection)
+func (m *TrafficMeter) Reset() {
+	m.StartSession()
 }
 
 func (m *TrafficMeter) tickerLoop() {
@@ -53,6 +80,12 @@ func (m *TrafficMeter) tickerLoop() {
 	defer ticker.Stop()
 
 	for now := range ticker.C {
+		if !m.active.Load() {
+			m.speedDown.Store(0)
+			m.speedUp.Store(0)
+			continue
+		}
+
 		currentDown := m.bytesDown.Load()
 		currentUp := m.bytesUp.Load()
 
@@ -63,6 +96,12 @@ func (m *TrafficMeter) tickerLoop() {
 
 		diffDown := currentDown - m.lastBytesDown
 		diffUp := currentUp - m.lastBytesUp
+		if diffDown < 0 {
+			diffDown = 0
+		}
+		if diffUp < 0 {
+			diffUp = 0
+		}
 
 		m.speedDown.Store(int64(float64(diffDown) / dt))
 		m.speedUp.Store(int64(float64(diffUp) / dt))
@@ -93,7 +132,19 @@ func (m *TrafficMeter) GetStats() TrafficStats {
 	sDown := m.speedDown.Load()
 	sUp := m.speedUp.Load()
 
-	duration := int64(time.Since(m.sessionStart).Seconds())
+	var duration int64
+	if m.active.Load() {
+		duration = int64(time.Since(m.sessionStart).Seconds())
+	} else if !m.sessionEnd.IsZero() {
+		duration = int64(m.sessionEnd.Sub(m.sessionStart).Seconds())
+		sDown = 0
+		sUp = 0
+	} else {
+		duration = 0
+		sDown = 0
+		sUp = 0
+	}
+
 	humanDown := FormatBytes(down)
 	humanUp := FormatBytes(up)
 
@@ -113,6 +164,9 @@ func (m *TrafficMeter) GetStats() TrafficStats {
 }
 
 func FormatBytes(b int64) string {
+	if b <= 0 {
+		return "0 B"
+	}
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
@@ -126,5 +180,8 @@ func FormatBytes(b int64) string {
 }
 
 func FormatSpeed(bps int64) string {
+	if bps <= 0 {
+		return "0 B/s"
+	}
 	return FormatBytes(bps) + "/s"
 }

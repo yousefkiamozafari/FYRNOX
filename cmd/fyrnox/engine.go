@@ -1013,7 +1013,7 @@ func (e *VpnEngine) Connect() error {
 	e.connectStep = "authorizing"
 	e.errorMsg = ""
 	e.exitResult = nil
-	e.meter.Reset()
+	e.meter.StartSession()
 	auth := e.auth
 	selected := *e.selected
 	settings := e.settings
@@ -1260,7 +1260,7 @@ func (e *VpnEngine) Disconnect() error {
 	e.errorMsg = ""
 	e.exitResult = nil
 	if e.meter != nil {
-		e.meter.Reset()
+		e.meter.StopSession()
 	}
 	e.notifyTray()
 	LogInfo("VPN Disconnected cleanly")

@@ -209,42 +209,11 @@
 
                   <!-- Mode Dropdown Pill: System Proxy (Default) vs Wintun TUN -->
                   <div class="mode-dropdown-wrap" id="mode-dropdown-wrap">
-                    <button type="button" class="mode-pill-btn" id="mode-dropdown-trigger" onclick="toggleModeDropdown(event)" title="Select Routing Engine">
+                    <button type="button" class="mode-pill-btn" id="mode-dropdown-trigger" onclick="toggleModeDropdown(event)" aria-haspopup="menu" aria-expanded="false" title="Select Routing Engine">
                       <span class="mode-pill-icon" id="mode-pill-icon">🌐</span>
                       <span class="mode-pill-label" id="mode-pill-label">System Proxy</span>
                       <span class="mode-pill-chevron">⌵</span>
                     </button>
-                    
-                    <div class="mode-dropdown-panel" id="mode-dropdown-panel" style="display: none;">
-                      <div class="mode-dropdown-header">ROUTING ENGINE</div>
-                      
-                      <div class="mode-dropdown-item active" id="btn-mode-proxy" onclick="handleModeDropdownSelect(false)">
-                        <div class="mode-item-left">
-                          <span class="mode-item-icon">🌐</span>
-                          <div class="mode-item-meta">
-                            <span class="mode-item-title">System Proxy <span class="mode-default-badge">Default</span></span>
-                            <span class="mode-item-sub">Zero-config web & apps proxy</span>
-                          </div>
-                        </div>
-                        <span class="mode-item-check" id="check-mode-proxy">✓</span>
-                      </div>
-
-                      <div class="mode-dropdown-item" id="btn-mode-tun" onclick="handleModeDropdownSelect(true)">
-                        <div class="mode-item-left">
-                          <span class="mode-item-icon">🛡️</span>
-                          <div class="mode-item-meta">
-                            <span class="mode-item-title">Wintun TUN</span>
-                            <span class="mode-item-sub">Full system kernel virtual adapter</span>
-                          </div>
-                        </div>
-                        <span class="mode-item-check" id="check-mode-tun" style="display: none;">✓</span>
-                      </div>
-
-                      <div id="dash-uac-notice" class="dropdown-uac-notice" style="display: none;">
-                        <span>Administrator rights required for TUN</span>
-                        <button type="button" class="uac-elevate-action-btn" onclick="restartAsAdmin()">Elevate ⚡</button>
-                      </div>
-                    </div>
                   </div>
 
                 </div>
@@ -311,7 +280,7 @@
                 </div>
                 <div class="bottom-metric-value-row">
                   <span class="metric-status-dot green">●</span>
-                  <span class="metric-val font-mono" id="bottom-down-speed">0 B/s</span>
+                  <span class="metric-val font-mono" id="bottom-down-speed">0 B</span>
                 </div>
               </div>
 
@@ -322,7 +291,7 @@
                   <span class="metric-title">Upload</span>
                 </div>
                 <div class="bottom-metric-value-row">
-                  <span class="metric-val font-mono" id="bottom-up-speed">0 B/s</span>
+                  <span class="metric-val font-mono" id="bottom-up-speed">0 B</span>
                 </div>
               </div>
 
@@ -884,7 +853,41 @@
     </div>
   </div>
 
-  <!-- FLOATING MINI-WIDGET HUD (Collapsible Desktop Pill) -->
+    <!-- TOP-LEVEL MODE DROPDOWN PORTAL (Elevated above all glass cards & overflow traps) -->
+  <div id="mode-dropdown-portal" class="mode-dropdown-portal" style="display: none;">
+    <div class="mode-dropdown-panel" id="mode-dropdown-panel" role="menu" aria-label="Routing Engine Selector">
+      <div class="mode-dropdown-header">ROUTING ENGINE</div>
+      
+      <div class="mode-dropdown-item active" id="btn-mode-proxy" onclick="handleModeDropdownSelect(false)" onkeydown="handleModeItemKey(event, false)" role="menuitem" tabindex="0">
+        <div class="mode-item-left">
+          <span class="mode-item-icon">🌐</span>
+          <div class="mode-item-meta">
+            <span class="mode-item-title">System Proxy <span class="mode-default-badge">Default</span></span>
+            <span class="mode-item-sub">Zero-config web & apps proxy</span>
+          </div>
+        </div>
+        <span class="mode-item-check" id="check-mode-proxy">✓</span>
+      </div>
+
+      <div class="mode-dropdown-item" id="btn-mode-tun" onclick="handleModeDropdownSelect(true)" onkeydown="handleModeItemKey(event, true)" role="menuitem" tabindex="0">
+        <div class="mode-item-left">
+          <span class="mode-item-icon">🛡️</span>
+          <div class="mode-item-meta">
+            <span class="mode-item-title">Wintun TUN</span>
+            <span class="mode-item-sub">Full system kernel virtual adapter</span>
+          </div>
+        </div>
+        <span class="mode-item-check" id="check-mode-tun" style="display: none;">✓</span>
+      </div>
+
+      <div id="dash-uac-notice" class="dropdown-uac-notice" style="display: none;">
+        <span>Administrator rights required for TUN</span>
+        <button type="button" class="uac-elevate-action-btn" onclick="restartAsAdmin()">Elevate ⚡</button>
+      </div>
+    </div>
+  </div>
+
+<!-- FLOATING MINI-WIDGET HUD (Collapsible Desktop Pill) -->
   <aside id="floating-mini-hud" class="floating-mini-hud" style="display: none;">
     <div class="hud-drag-handle" title="Drag HUD">⋮⋮</div>
     <div class="hud-status-indicator" id="hud-status-dot"></div>

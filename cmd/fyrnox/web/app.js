@@ -1,3 +1,16 @@
+
+function formatTrafficBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  let val = bytes;
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
+  return i === 0 ? `${Math.round(val)} B` : `${val.toFixed(1)} ${units[i]}`;
+}
+
 // FYRNOX for Windows — Desktop Controller & Real-Time Engine
 
 const I18N = {
@@ -732,19 +745,31 @@ function updateUI(status) {
     uacNotice.style.display = (isTun && !status.is_admin) ? 'flex' : 'none';
   }
 
-  // 8. Quick Stats Card & Bottom Traffic Bar (Download, Upload, Session)
+  // 8. Cumulative VPN Session Traffic Totals (Formatted as B, KB, MB, GB)
   const statDown = document.getElementById('stat-download-val');
   const statUp = document.getElementById('stat-upload-val');
   const bDown = document.getElementById('bottom-down-speed');
   const bUp = document.getElementById('bottom-up-speed');
 
-  const formattedDown = isConnected && status.traffic && status.traffic.down_speed_human ? status.traffic.down_speed_human : '0 B/s';
-  const formattedUp = isConnected && status.traffic && status.traffic.up_speed_human ? status.traffic.up_speed_human : '0 B/s';
+  let totalDown = '0 B';
+  let totalUp = '0 B';
+  if (status.traffic) {
+    if (status.traffic.total_down_human) {
+      totalDown = status.traffic.total_down_human;
+    } else if (typeof status.traffic.bytes_down === 'number' && status.traffic.bytes_down > 0) {
+      totalDown = formatTrafficBytes(status.traffic.bytes_down);
+    }
+    if (status.traffic.total_up_human) {
+      totalUp = status.traffic.total_up_human;
+    } else if (typeof status.traffic.bytes_up === 'number' && status.traffic.bytes_up > 0) {
+      totalUp = formatTrafficBytes(status.traffic.bytes_up);
+    }
+  }
 
-  if (statDown) statDown.textContent = formattedDown;
-  if (bDown) bDown.textContent = formattedDown;
-  if (statUp) statUp.textContent = formattedUp;
-  if (bUp) bUp.textContent = formattedUp;
+  if (statDown) statDown.textContent = totalDown;
+  if (bDown) bDown.textContent = totalDown;
+  if (statUp) statUp.textContent = totalUp;
+  if (bUp) bUp.textContent = totalUp;
 
   // Status Indicator Dot
   const statusDot = document.getElementById('dash-status-dot');
@@ -1576,31 +1601,127 @@ function renderRecommendedServers(servers) {
   }).join('');
 }
 
-function toggleModeDropdown(event) {
-  if (event) event.stopPropagation();
+function positionModeDropdown() {
+  const trigger = document.getElementById('mode-dropdown-trigger');
+  const portal = document.getElementById('mode-dropdown-portal');
   const panel = document.getElementById('mode-dropdown-panel');
-  if (!panel) return;
-  const isShown = panel.style.display === 'flex' || panel.style.display === 'block';
-  panel.style.display = isShown ? 'none' : 'flex';
+  if (!trigger || !portal || !panel) return;
+
+  const rect = trigger.getBoundingClientRect();
+  const panelWidth = 255;
+
+  let left = rect.left + (rect.width / 2) - (panelWidth / 2);
+  const margin = 12;
+  if (left < margin) left = margin;
+  if (left + panelWidth > window.innerWidth - margin) {
+    left = window.innerWidth - panelWidth - margin;
+  }
+
+  const panelHeight = panel.offsetHeight || 160;
+  let top = rect.bottom + 8;
+  // If opening downwards would clip against bottom of window, flip upwards
+  if (top + panelHeight > window.innerHeight - 10 && rect.top - panelHeight - 8 > 40) {
+    top = rect.top - panelHeight - 8;
+  }
+
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
+}
+
+function openModeDropdown() {
+  const portal = document.getElementById('mode-dropdown-portal');
+  const trigger = document.getElementById('mode-dropdown-trigger');
+  if (!portal || !trigger) return;
+
+  portal.style.display = 'block';
+  portal.classList.add('open');
+  trigger.classList.add('active');
+  trigger.setAttribute('aria-expanded', 'true');
+  positionModeDropdown();
+
+  // Focus active option for keyboard navigation
+  setTimeout(() => {
+    const activeItem = portal.querySelector('.mode-dropdown-item.active') || portal.querySelector('.mode-dropdown-item');
+    if (activeItem) activeItem.focus();
+  }, 30);
+}
+
+function closeModeDropdown() {
+  const portal = document.getElementById('mode-dropdown-portal');
+  const trigger = document.getElementById('mode-dropdown-trigger');
+  if (portal) {
+    portal.style.display = 'none';
+    portal.classList.remove('open');
+  }
+  if (trigger) {
+    trigger.classList.remove('active');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function toggleModeDropdown(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const portal = document.getElementById('mode-dropdown-portal');
+  if (!portal) return;
+
+  const isOpen = portal.style.display === 'block';
+  if (isOpen) {
+    closeModeDropdown();
+  } else {
+    openModeDropdown();
+  }
 }
 
 function handleModeDropdownSelect(isTun) {
-  const panel = document.getElementById('mode-dropdown-panel');
-  if (panel) panel.style.display = 'none';
+  closeModeDropdown();
   selectRoutingMode(isTun);
 }
+
+function handleModeItemKey(event, isTun) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    handleModeDropdownSelect(isTun);
+  } else if (event.key === 'Escape') {
+    closeModeDropdown();
+    const trigger = document.getElementById('mode-dropdown-trigger');
+    if (trigger) trigger.focus();
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const portal = document.getElementById('mode-dropdown-portal');
+    if (portal && portal.style.display === 'block') {
+      closeModeDropdown();
+      const trigger = document.getElementById('mode-dropdown-trigger');
+      if (trigger) trigger.focus();
+    }
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const portal = document.getElementById('mode-dropdown-portal');
+  const trigger = document.getElementById('mode-dropdown-trigger');
+  if (portal && portal.style.display === 'block') {
+    if (!portal.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
+      closeModeDropdown();
+    }
+  }
+});
+
+window.addEventListener('resize', () => {
+  const portal = document.getElementById('mode-dropdown-portal');
+  if (portal && portal.style.display === 'block') {
+    positionModeDropdown();
+  }
+});
 
 function pingAllServersInteractive() {
   pingAllServers();
 }
-
-document.addEventListener('click', (e) => {
-  const wrap = document.getElementById('mode-dropdown-wrap');
-  const panel = document.getElementById('mode-dropdown-panel');
-  if (panel && wrap && !wrap.contains(e.target)) {
-    panel.style.display = 'none';
-  }
-});
 
 async function pingAllServers() {
   if (isPinging) return;
