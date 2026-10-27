@@ -225,7 +225,20 @@ func (s *HttpProxyServer) handleClient(clientConn net.Conn) {
 			clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
 			return
 		}
-		defer upstreamConn.Close()
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			_ = upstreamConn.Close()
+			return
+		}
+		s.conns[upstreamConn] = struct{}{}
+		s.mu.Unlock()
+		defer func() {
+			s.mu.Lock()
+			delete(s.conns, upstreamConn)
+			s.mu.Unlock()
+			_ = upstreamConn.Close()
+		}()
 
 		_, err = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 		if err != nil {
@@ -244,7 +257,20 @@ func (s *HttpProxyServer) handleClient(clientConn net.Conn) {
 			clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
 			return
 		}
-		defer upstreamConn.Close()
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			_ = upstreamConn.Close()
+			return
+		}
+		s.conns[upstreamConn] = struct{}{}
+		s.mu.Unlock()
+		defer func() {
+			s.mu.Lock()
+			delete(s.conns, upstreamConn)
+			s.mu.Unlock()
+			_ = upstreamConn.Close()
+		}()
 
 		// Strip hop-by-hop proxy headers
 		req.Header.Del("Proxy-Connection")

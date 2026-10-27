@@ -4745,3 +4745,170 @@ body.is-dashboard .app-topbar,
   background: rgba(255, 106, 0, 0.28);
   border-radius: 4px;
 }
+
+
+/* ==========================================================================
+   Monthly Quota Card & IP Protocol Diagnostics
+   ========================================================================== */
+.monthly-quota-card {
+  background: rgba(18, 22, 32, 0.70);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.quota-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quota-source-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.quota-source-badge.auth {
+  background: rgba(0, 230, 118, 0.15);
+  color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.3);
+}
+
+.quota-source-badge.estimated {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.quota-metrics-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+}
+
+.quota-used-col, .quota-rem-col {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quota-label {
+  color: #94a3b8;
+  font-size: 10.5px;
+}
+
+.quota-val {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.quota-max-lbl {
+  color: #64748b;
+  font-size: 10.5px;
+}
+
+.quota-rem-val {
+  color: #38bdf8;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.quota-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6a00, #ff9800);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.quota-progress-fill.warn {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.quota-progress-fill.critical {
+  background: #ef4444;
+}
+
+.quota-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.quota-pct-text {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* IP Protocol Diagnostics */
+.ip-proto-diagnostics {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.diag-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.diag-badge.active {
+  background: rgba(0, 230, 118, 0.12);
+  border-color: rgba(0, 230, 118, 0.3);
+  color: #00e676;
+}
+
+.diag-badge.inactive {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.settings-select {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+}
+.settings-select:focus {
+  border-color: #ff6a00;
+}
+.settings-select option {
+  background: #181d29;
+  color: #f8fafc;
+}

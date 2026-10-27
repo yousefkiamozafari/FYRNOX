@@ -41,20 +41,27 @@ type ServerLocation struct {
 	CityCode        string `json:"city_code"`
 	Port            int    `json:"port"`
 	PingMs          int    `json:"ping_ms"`
+	DnsMs           int    `json:"dns_ms,omitempty"`
+	TcpMs           int    `json:"tcp_ms,omitempty"`
+	TlsMs           int    `json:"tls_ms,omitempty"`
 	IsAnycast       bool   `json:"is_anycast"`
 	IsRecommended   bool   `json:"is_recommended"`
 	RecommendReason string `json:"recommend_reason,omitempty"`
 }
 
 type UserQuotaInfo struct {
-	Subscribed    bool   `json:"subscribed"`
-	UID           int64  `json:"uid"`
-	MaxBytes      string `json:"max_bytes"`
-	MaxBytesNum   int64  `json:"max_bytes_num"`
-	QuotaLeft     string `json:"quota_left"`
-	QuotaLeftNum  int64  `json:"quota_left_num"`
-	QuotaReset    string `json:"quota_reset"`
-	QuotaPercent  float64 `json:"quota_percent"`
+	Subscribed      bool    `json:"subscribed"`
+	UID             int64   `json:"uid"`
+	IsAuthoritative bool    `json:"is_authoritative"`
+	Source          string  `json:"source"`
+	MaxBytes        string  `json:"max_bytes"`
+	MaxBytesNum     int64   `json:"max_bytes_num"`
+	QuotaLeft       string  `json:"quota_left"`
+	QuotaLeftNum    int64   `json:"quota_left_num"`
+	QuotaUsed       string  `json:"quota_used"`
+	QuotaUsedNum    int64   `json:"quota_used_num"`
+	QuotaReset      string  `json:"quota_reset"`
+	QuotaPercent    float64 `json:"quota_percent"`
 }
 
 type VpnSettings struct {
@@ -73,6 +80,7 @@ type VpnSettings struct {
 	SplitTunnelApps    []string `json:"split_tunnel_apps"`
 	DirectIranTraffic  bool     `json:"direct_iran_traffic"`
 	GamingMode         bool     `json:"gaming_mode"`
+	IPProtocol         string   `json:"ip_protocol"` // "dual", "ipv4", "ipv6"
 }
 
 type VpnStatus struct {
@@ -98,6 +106,11 @@ type VpnStatus struct {
 	WintunActive       bool            `json:"wintun_active"`
 	GamingStats        GamingStats     `json:"gaming_stats"`
 	SplitTunnelEnabled bool            `json:"split_tunnel_enabled"`
+	IPProtocol         string          `json:"ip_protocol"`
+	LocalIPv4Available bool            `json:"local_ipv4_available"`
+	LocalIPv6Available bool            `json:"local_ipv6_available"`
+	TransportProtocol  string          `json:"transport_protocol,omitempty"`
+	ExitAddressFamily  string          `json:"exit_address_family,omitempty"`
 }
 
 type VpnEngine struct {
@@ -119,6 +132,7 @@ type VpnEngine struct {
 	ipFetchMu      sync.Mutex
 
 	meter          *TrafficMeter
+	monthlyTracker *MonthlyQuotaTracker
 	controller     *proxyController
 	socksServer    *SocksProxyServer
 	httpServer     *HttpProxyServer
@@ -130,26 +144,68 @@ type VpnEngine struct {
 	connectID           int64
 }
 
+func checkLocalIPFamilies() (hasV4 bool, hasV6 bool) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return true, false
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		name := strings.ToLower(iface.Name)
+		if strings.Contains(name, "tun") || strings.Contains(name, "tap") || strings.Contains(name, "fyrnox") {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+				continue
+			}
+			if ip4 := ip.To4(); ip4 != nil {
+				hasV4 = true
+			} else if ip.To16() != nil {
+				hasV6 = true
+			}
+		}
+	}
+	return hasV4, hasV6
+}
+
 func NewVpnEngine() *VpnEngine {
 	meter := NewTrafficMeter()
+	monthlyTracker := NewMonthlyQuotaTracker("")
+	settings := loadSettings()
+	used, left, resetDate, pct := monthlyTracker.GetMonthlyUsage()
+
 	engine := &VpnEngine{
-		state:    StateDisconnected,
-		guardian: vpnclient.GuardianEndpointDefault,
-		meter:    meter,
-		settings: VpnSettings{
-			SocksPort:          20808,
-			HttpPort:           20809,
-			UseSystemProxy:     true,
-			EnableTunMode:      false,
-			UseH3:              false,
-			AutoConnect:        false,
-			TlsFragmentation:   true,
-			BypassRules:        defaultBypassRules,
-			SplitTunnelEnabled: false,
-			SplitTunnelMode:    "bypass",
-			SplitTunnelApps:    []string{"telegram.exe", "discord.exe"},
-			DirectIranTraffic:  true,
-			GamingMode:         false,
+		state:          StateDisconnected,
+		guardian:       vpnclient.GuardianEndpointDefault,
+		meter:          meter,
+		monthlyTracker: monthlyTracker,
+		settings:       settings,
+		quota: &UserQuotaInfo{
+			Subscribed:      false,
+			IsAuthoritative: false,
+			Source:          "Estimated local usage (may differ from Firefox account)",
+			MaxBytes:        "50.0 GB",
+			MaxBytesNum:     MonthlyQuotaAllowanceBytes,
+			QuotaLeft:       FormatBytes(left),
+			QuotaLeftNum:    left,
+			QuotaUsed:       FormatBytes(used),
+			QuotaUsedNum:    used,
+			QuotaReset:      resetDate,
+			QuotaPercent:    pct,
 		},
 	}
 
@@ -276,6 +332,30 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 
 	ipInfo := e.resolveCurrentIPLocked()
 
+	hasV4, hasV6 := checkLocalIPFamilies()
+	ipProto := e.settings.IPProtocol
+	if ipProto == "" {
+		ipProto = "dual"
+	}
+
+	quotaObj := e.quota
+	if (quotaObj == nil || !quotaObj.IsAuthoritative) && e.monthlyTracker != nil {
+		used, left, resetDate, pct := e.monthlyTracker.GetMonthlyUsage()
+		quotaObj = &UserQuotaInfo{
+			Subscribed:      false,
+			IsAuthoritative: false,
+			Source:          "Estimated local usage (may differ from Firefox account)",
+			MaxBytes:        "50.0 GB",
+			MaxBytesNum:     MonthlyQuotaAllowanceBytes,
+			QuotaLeft:       FormatBytes(left),
+			QuotaLeftNum:    left,
+			QuotaUsed:       FormatBytes(used),
+			QuotaUsedNum:    used,
+			QuotaReset:      resetDate,
+			QuotaPercent:    pct,
+		}
+	}
+
 	return VpnStatus{
 		Version:        "1.0.4",
 		State:          e.state,
@@ -292,13 +372,40 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 		IsLoggedIn:     e.auth != nil,
 		UserEmail:      e.userEmail,
 		Traffic:        e.meter.GetStats(),
-		Quota:          e.quota,
+		Quota:          quotaObj,
 		Settings:       e.settings,
 		IsAdmin:            IsAdmin(),
 		TunActive:          IsTunModeActive(),
 		WintunActive:       IsWintunActive(),
 		GamingStats:        globalGamer.GetStats(),
 		SplitTunnelEnabled: e.settings.SplitTunnelEnabled,
+		IPProtocol:         ipProto,
+		LocalIPv4Available: hasV4,
+		LocalIPv6Available: hasV6,
+		TransportProtocol: func() string {
+			if e.state == StateConnected {
+				switch ipProto {
+				case "ipv4":
+					return "IPv4 (tcp4)"
+				case "ipv6":
+					return "IPv6 (tcp6)"
+				default:
+					return "Dual Stack (tcp)"
+				}
+			}
+			return ""
+		}(),
+		ExitAddressFamily: func() string {
+			if e.exitResult != nil && e.exitResult.IP != "" {
+				if parsed := net.ParseIP(e.exitResult.IP); parsed != nil {
+					if parsed.To4() != nil {
+						return "IPv4"
+					}
+					return "IPv6"
+				}
+			}
+			return ""
+		}(),
 	}
 }
 
@@ -457,33 +564,54 @@ func computeMedianLatency(samples []int) int {
 	return (valid[n/2-1] + valid[n/2]) / 2
 }
 
-func measureServerPing(ctx context.Context, s ServerLocation) int {
+func measureServerPing(ctx context.Context, s ServerLocation) (pingMs, dnsMs, tcpMs, tlsMs int) {
 	port := s.Port
 	if port <= 0 {
 		port = 2499
 	}
 
-	// 1. Resolve or use cached IP to eliminate DNS latency variability
+	// 1. DNS Resolution latency
+	t0 := time.Now()
 	ip, err := resolveServerIP(ctx, s.Hostname)
+	dnsMs = int(time.Since(t0).Milliseconds())
+	if dnsMs <= 0 {
+		dnsMs = 1
+	}
+
 	target := fmt.Sprintf("%s:%d", s.Hostname, port)
 	if err == nil && ip != nil {
 		target = net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	}
 
-	// 2. Real TCP Connect (SYN/ACK) Round-Trip Time with strict 2500ms ceiling
-	start := time.Now()
-	dialer := &net.Dialer{Timeout: 2500 * time.Millisecond}
+	// 2. Real TCP Connect (SYN/ACK) Round-Trip Time with strict 2000ms ceiling
+	t1 := time.Now()
+	dialer := &net.Dialer{Timeout: 2000 * time.Millisecond}
 	rawConn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
-		return -1
+		return -1, dnsMs, -1, -1
 	}
-	rtt := int(time.Since(start).Milliseconds())
-	_ = rawConn.Close()
+	tcpMs = int(time.Since(t1).Milliseconds())
+	if tcpMs <= 0 {
+		tcpMs = 1
+	}
 
-	if rtt <= 0 {
-		rtt = 1
+	// 3. Transport Handshake (TLS Handshake)
+	t2 := time.Now()
+	tlsCfg := createProxyTLSConfig(s.Hostname, []string{"h2"})
+	tlsConn := tls.Client(rawConn, tlsCfg)
+	hErr := tlsConn.HandshakeContext(ctx)
+	if hErr != nil {
+		_ = rawConn.Close()
+		return -1, dnsMs, tcpMs, -1
 	}
-	return rtt
+	tlsMs = int(time.Since(t2).Milliseconds())
+	if tlsMs <= 0 {
+		tlsMs = 1
+	}
+	_ = tlsConn.Close()
+
+	pingMs = tcpMs + tlsMs
+	return pingMs, dnsMs, tcpMs, tlsMs
 }
 
 func (e *VpnEngine) PingAllServers() []ServerLocation {
@@ -506,7 +634,11 @@ func (e *VpnEngine) PingAllServers() []ServerLocation {
 			limit <- struct{}{}
 			defer func() { <-limit }()
 
-			servers[idx].PingMs = measureServerPing(ctx, servers[idx])
+			p, d, tc, tl := measureServerPing(ctx, servers[idx])
+			servers[idx].PingMs = p
+			servers[idx].DnsMs = d
+			servers[idx].TcpMs = tc
+			servers[idx].TlsMs = tl
 		}(i)
 	}
 
@@ -573,19 +705,26 @@ func (e *VpnEngine) PingServer(hostname string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	ping := measureServerPing(ctx, target)
+	p, d, tc, tl := measureServerPing(ctx, target)
 
 	e.mu.Lock()
 	for i := range e.servers {
 		if e.servers[i].Hostname == target.Hostname {
-			e.servers[i].PingMs = ping
+			e.servers[i].PingMs = p
+			e.servers[i].DnsMs = d
+			e.servers[i].TcpMs = tc
+			e.servers[i].TlsMs = tl
 			break
 		}
 	}
 	if e.selected != nil && e.selected.Hostname == target.Hostname {
-		e.selected.PingMs = ping
+		e.selected.PingMs = p
+		e.selected.DnsMs = d
+		e.selected.TcpMs = tc
+		e.selected.TlsMs = tl
 	}
 	e.mu.Unlock()
+	ping := p
 
 	LogInfo("Pinged server %s: %d ms", target.Hostname, ping)
 	return ping
@@ -623,7 +762,7 @@ func (e *VpnEngine) PingTunnel() (int64, error) {
 	if selected != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
 		defer cancel()
-		p := measureServerPing(ctx, *selected)
+		p, _, _, _ := measureServerPing(ctx, *selected)
 		if p > 0 {
 			e.mu.Lock()
 			if e.exitResult != nil {
@@ -966,23 +1105,48 @@ func (e *VpnEngine) refreshUserInfo() {
 	maxBytesNum, _ := strconv.ParseInt(pass.QuotaMax, 10, 64)
 	leftBytesNum, _ := strconv.ParseInt(pass.QuotaLeft, 10, 64)
 
-	var pct float64
-	if maxBytesNum > 0 {
-		pct = float64(leftBytesNum) / float64(maxBytesNum) * 100
-	}
-
 	e.mu.Lock()
-	e.quota = &UserQuotaInfo{
-		Subscribed:   true,
-		MaxBytes:     FormatBytes(maxBytesNum),
-		MaxBytesNum:  maxBytesNum,
-		QuotaLeft:    FormatBytes(leftBytesNum),
-		QuotaLeftNum: leftBytesNum,
-		QuotaReset:   pass.QuotaReset,
-		QuotaPercent: pct,
+	if maxBytesNum > 0 && leftBytesNum >= 0 {
+		usedBytesNum := maxBytesNum - leftBytesNum
+		if usedBytesNum < 0 {
+			usedBytesNum = 0
+		}
+		var pct float64
+		if maxBytesNum > 0 {
+			pct = float64(usedBytesNum) / float64(maxBytesNum) * 100
+		}
+		e.quota = &UserQuotaInfo{
+			Subscribed:      true,
+			IsAuthoritative: true,
+			Source:          "Mozilla Account",
+			MaxBytes:        FormatBytes(maxBytesNum),
+			MaxBytesNum:     maxBytesNum,
+			QuotaLeft:       FormatBytes(leftBytesNum),
+			QuotaLeftNum:    leftBytesNum,
+			QuotaUsed:       FormatBytes(usedBytesNum),
+			QuotaUsedNum:    usedBytesNum,
+			QuotaReset:      pass.QuotaReset,
+			QuotaPercent:    pct,
+		}
+		LogInfo("Authoritative Quota updated: %s left of %s (used %s, resets %s)", FormatBytes(leftBytesNum), FormatBytes(maxBytesNum), FormatBytes(usedBytesNum), pass.QuotaReset)
+	} else if e.monthlyTracker != nil {
+		used, left, resetDate, pct := e.monthlyTracker.GetMonthlyUsage()
+		e.quota = &UserQuotaInfo{
+			Subscribed:      false,
+			IsAuthoritative: false,
+			Source:          "Estimated local usage (may differ from Firefox account)",
+			MaxBytes:        "50.0 GB",
+			MaxBytesNum:     MonthlyQuotaAllowanceBytes,
+			QuotaLeft:       FormatBytes(left),
+			QuotaLeftNum:    left,
+			QuotaUsed:       FormatBytes(used),
+			QuotaUsedNum:    used,
+			QuotaReset:      resetDate,
+			QuotaPercent:    pct,
+		}
+		LogInfo("Local Estimated Quota updated: %s left of 50.0 GB (used %s, resets %s)", FormatBytes(left), FormatBytes(used), resetDate)
 	}
 	e.mu.Unlock()
-	LogInfo("Quota updated: %s left of %s (resets %s)", FormatBytes(leftBytesNum), FormatBytes(maxBytesNum), pass.QuotaReset)
 }
 
 func (e *VpnEngine) Connect() error {
@@ -1057,7 +1221,7 @@ func (e *VpnEngine) Connect() error {
 		// 2. Setup Upstream Controller
 		e.setConnectStep("connecting_upstream")
 		targetURL, _ := url.Parse(fmt.Sprintf("https://%s:%d", selected.Hostname, selected.Port))
-		controller, err := newProxyController(e.guardian, targetURL, 30*time.Second, auth, pass, settings.UseH3, settings.ApiProxy, settings.TlsFragmentation)
+		controller, err := newProxyController(e.guardian, targetURL, 30*time.Second, auth, pass, settings.UseH3, settings.ApiProxy, settings.TlsFragmentation, settings.IPProtocol)
 		if err != nil {
 			if connectCtx.Err() != nil {
 				LogInfo("Connection aborted by user during controller setup")
@@ -1175,7 +1339,7 @@ func (e *VpnEngine) Connect() error {
 		}
 
 		if settings.EnableTunMode {
-			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname); err != nil {
+			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname, settings.IPProtocol); err != nil {
 				LogWarn("Could not activate TUN mode: %v", err)
 			} else {
 				LogInfo("System TUN mode activated")
@@ -1217,6 +1381,15 @@ func (e *VpnEngine) Connect() error {
 
 func (e *VpnEngine) Disconnect() error {
 	e.mu.Lock()
+	if e.state == StateDisconnecting {
+		e.mu.Unlock()
+		return nil
+	}
+	if e.state == StateDisconnected && e.socksServer == nil && e.httpServer == nil && e.controller == nil && !IsTunModeActive() {
+		e.mu.Unlock()
+		return nil
+	}
+
 	if e.connectCancel != nil {
 		e.connectCancel()
 		e.connectCancel = nil
@@ -1224,44 +1397,57 @@ func (e *VpnEngine) Disconnect() error {
 	e.state = StateDisconnecting
 	e.connectStep = ""
 	e.connectID = time.Now().UnixNano()
+	socksSrv := e.socksServer
+	httpSrv := e.httpServer
+	ctrl := e.controller
+	e.socksServer = nil
+	e.httpServer = nil
+	e.controller = nil
+	useSysProxy := e.settings.UseSystemProxy
 	e.mu.Unlock()
 	e.notifyTray()
 
 	LogInfo("Disconnecting VPN...")
 
+	// 1. Immediately close local proxy listeners and active upstream sessions to unblock all reads/writes
+	if socksSrv != nil {
+		_ = socksSrv.Close()
+	}
+	if httpSrv != nil {
+		_ = httpSrv.Close()
+	}
+	if ctrl != nil {
+		_ = ctrl.Close()
+	}
+
+	// 2. Tear down TUN mode routes, interface and netstack with bounded timeouts
 	if IsTunModeActive() {
 		_ = DisableTunMode()
 		LogInfo("System TUN mode deactivated")
 	}
 
-	if e.settings.UseSystemProxy {
+	// 3. Restore Windows system proxy to direct mode
+	if useSysProxy {
 		_ = RestoreSystemProxy()
 		LogInfo("Windows system proxy restored to direct")
 	}
 
+	// 4. Verify system routes and adapter state
+	VerifyTunCleanup()
+
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if e.socksServer != nil {
-		_ = e.socksServer.Close()
-		e.socksServer = nil
-	}
-	if e.httpServer != nil {
-		_ = e.httpServer.Close()
-		e.httpServer = nil
-	}
-	if e.controller != nil {
-		_ = e.controller.Close()
-		e.controller = nil
-	}
-
 	e.state = StateDisconnected
 	e.connectStep = ""
 	e.errorMsg = ""
 	e.exitResult = nil
 	if e.meter != nil {
 		e.meter.StopSession()
+		stats := e.meter.GetStats()
+		if e.monthlyTracker != nil && (stats.BytesDown > 0 || stats.BytesUp > 0) {
+			e.monthlyTracker.AddBytes(stats.BytesDown + stats.BytesUp)
+		}
 	}
+	e.mu.Unlock()
 	e.notifyTray()
 	LogInfo("VPN Disconnected cleanly")
 	return nil
@@ -1430,6 +1616,8 @@ func (e *VpnEngine) UpdateSettings(s VpnSettings) {
 	httpSrv := e.httpServer
 	socksSrv := e.socksServer
 	e.mu.Unlock()
+
+	_ = saveSettings(s)
 
 	if s.ApiProxy != oldProxy || s.TlsFragmentation != oldFrag {
 		_ = configureAPIProxy(s.ApiProxy, s.TlsFragmentation)

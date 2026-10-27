@@ -236,6 +236,32 @@
                   </div>
                 </div>
 
+                <!-- CARD 3: Monthly 50 GB Allowance Card -->
+                <div class="reference-card monthly-quota-card" id="home-quota-card">
+                  <div class="quota-card-header">
+                    <span class="card-caption" data-i18n="quota_card_title">Monthly VPN Allowance</span>
+                    <span class="quota-source-badge estimated" id="quota-source-badge">Estimated local usage</span>
+                  </div>
+                  <div class="quota-metrics-row">
+                    <div class="quota-used-col">
+                      <span class="quota-label" data-i18n="quota_used_lbl">Used:</span>
+                      <span class="quota-val font-mono" id="quota-used-val">0 B</span>
+                      <span class="quota-max-lbl" id="quota-max-val">/ 50.0 GB</span>
+                    </div>
+                    <div class="quota-rem-col">
+                      <span class="quota-label" data-i18n="quota_rem_lbl">Remaining:</span>
+                      <span class="quota-rem-val font-mono" id="quota-rem-val">50.0 GB</span>
+                    </div>
+                  </div>
+                  <div class="quota-progress-track">
+                    <div class="quota-progress-fill" id="quota-progress-fill" style="width: 0%;"></div>
+                  </div>
+                  <div class="quota-footer-row">
+                    <span class="quota-reset-text" id="quota-reset-text">Resets: 1st of next month</span>
+                    <span class="quota-pct-text font-mono" id="quota-pct-val">0%</span>
+                  </div>
+                </div>
+
               </div>
 
               <!-- RIGHT COLUMN: 3D Interactive Earth Hero -->
@@ -655,6 +681,25 @@
                     <input type="checkbox" id="setting-gaming-mode" onchange="toggleGamingMode(this.checked)">
                     <span class="switch-slider"></span>
                   </label>
+                </div>
+              </div>
+
+              <div class="settings-item-row">
+                <div class="settings-item-desc">
+                  <div class="settings-item-title" data-i18n="set_ip_proto_title">IP Protocol Preference</div>
+                  <div class="settings-item-sub" data-i18n="set_ip_proto_sub">Select address family for VPN transport and leak protection. In System Proxy mode, apps not respecting proxy connect directly. In TUN mode, IPv4 Only prevents IPv6 leaks.</div>
+                  <div class="ip-proto-diagnostics" id="ip-proto-diag">
+                    <span class="diag-badge" id="diag-v4-badge">IPv4: Checking...</span>
+                    <span class="diag-badge" id="diag-v6-badge">IPv6: Checking...</span>
+                    <span class="diag-badge" id="diag-transport-badge" style="display: none;">Transport: Dual</span>
+                  </div>
+                </div>
+                <div class="settings-item-control">
+                  <select id="setting-ip-protocol" class="settings-select" onchange="saveSettings()">
+                    <option value="dual" selected data-i18n="opt_proto_dual">IPv4 + IPv6 (Dual Stack)</option>
+                    <option value="ipv4" data-i18n="opt_proto_ipv4">IPv4 Only</option>
+                    <option value="ipv6" data-i18n="opt_proto_ipv6">IPv6 Only</option>
+                  </select>
                 </div>
               </div>
 

@@ -41,6 +41,17 @@ const I18N = {
     btn_disconnecting: 'Disconnecting',
     btn_sign_in: 'Sign In',
     traffic_unprotected: 'Traffic is currently unprotected',
+    quota_card_title: 'Monthly VPN Allowance',
+    quota_used_lbl: 'Used:',
+    quota_rem_lbl: 'Remaining:',
+    quota_resets_lbl: 'Resets:',
+    quota_badge_authoritative: 'Authoritative',
+    quota_badge_estimated: 'Estimated local usage',
+    set_ip_proto_title: 'IP Protocol Preference',
+    set_ip_proto_sub: 'Select address family for VPN transport and leak protection. In System Proxy mode, apps not respecting proxy connect directly. In TUN mode, IPv4 Only prevents IPv6 leaks.',
+    opt_proto_dual: 'IPv4 + IPv6 (Dual Stack) [Recommended]',
+    opt_proto_ipv4: 'IPv4 Only',
+    opt_proto_ipv6: 'IPv6 Only',
     dash_error_title: 'Connection Warning',
     dash_error_msg: 'Failed to establish secure tunnel.',
     step_authorizing: 'Authorizing session with Firefox account...',
@@ -207,6 +218,17 @@ const I18N = {
     btn_disconnecting: 'در حال قطع',
     btn_sign_in: 'ورود',
     traffic_unprotected: 'ترافیک اینترنت شما بدون حفاظت است',
+    quota_card_title: 'سهمیه ماهانه فایرفاکس',
+    quota_used_lbl: 'مصرف شده:',
+    quota_rem_lbl: 'باقی‌مانده:',
+    quota_resets_lbl: 'تمدید ماهانه:',
+    quota_badge_authoritative: 'تایید شده سرور',
+    quota_badge_estimated: 'تخمینی محلی',
+    set_ip_proto_title: 'اولویت پروتکل IP (IPv4 / IPv6)',
+    set_ip_proto_sub: 'پروتکل آدرس‌دهی تونل VPN و محافظت نشت. در حالت پراکسی، برنامه‌های ناسازگار مستقیم متصل می‌شوند؛ در حالت TUN، گزینه IPv4 Only از نشت IPv6 جلوگیری می‌کند.',
+    opt_proto_dual: 'پروتکل دوگانه IPv4 + IPv6 (پیش‌فرض)',
+    opt_proto_ipv4: 'فقط IPv4 (محافظت کامل از نشت)',
+    opt_proto_ipv6: 'فقط IPv6',
     dash_error_title: 'هشدار اتصال',
     dash_error_msg: 'برقراری تونل امن با خطا مواجه شد.',
     step_authorizing: 'در حال احراز هویت با حساب فایرفاکس...',
@@ -771,6 +793,86 @@ function updateUI(status) {
   if (statUp) statUp.textContent = totalUp;
   if (bUp) bUp.textContent = totalUp;
 
+  // Monthly 50 GB Quota Card on Home Screen
+  const qCard = document.getElementById('home-quota-card');
+  if (qCard && status.quota) {
+    const qBadge = document.getElementById('quota-source-badge');
+    const qUsed = document.getElementById('quota-used-val');
+    const qMax = document.getElementById('quota-max-val');
+    const qRem = document.getElementById('quota-rem-val');
+    const qBar = document.getElementById('quota-progress-fill');
+    const qReset = document.getElementById('quota-reset-text');
+    const qPct = document.getElementById('quota-pct-val');
+
+    const isAuth = status.quota.is_authoritative;
+    if (qBadge) {
+      if (isAuth) {
+        qBadge.textContent = (I18N[currentLang] && I18N[currentLang].quota_badge_authoritative) || 'Authoritative';
+        qBadge.className = 'quota-source-badge auth';
+      } else {
+        qBadge.textContent = (I18N[currentLang] && I18N[currentLang].quota_badge_estimated) || 'Estimated local usage';
+        qBadge.className = 'quota-source-badge estimated';
+      }
+    }
+
+    if (qUsed) qUsed.textContent = status.quota.quota_used || '0 B';
+    if (qMax) qMax.textContent = `/ ${status.quota.max_bytes || '50.0 GB'}`;
+    if (qRem) qRem.textContent = status.quota.quota_left || '50.0 GB';
+
+    const pct = Math.max(0, Math.min(100, Math.round(status.quota.quota_percent || 0)));
+    if (qBar) {
+      qBar.style.width = `${pct}%`;
+      if (pct > 90) {
+        qBar.className = 'quota-progress-fill critical';
+      } else if (pct > 75) {
+        qBar.className = 'quota-progress-fill warn';
+      } else {
+        qBar.className = 'quota-progress-fill';
+      }
+    }
+    if (qPct) qPct.textContent = `${pct}%`;
+
+    if (qReset) {
+      let rText = status.quota.quota_reset || '';
+      if (rText) {
+        try {
+          const d = new Date(rText);
+          if (!isNaN(d.getTime())) {
+            const dateStr = d.toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            qReset.textContent = `${(I18N[currentLang] && I18N[currentLang].quota_resets_lbl) || 'Resets:'} ${dateStr}`;
+          } else {
+            qReset.textContent = `${(I18N[currentLang] && I18N[currentLang].quota_resets_lbl) || 'Resets:'} ${rText}`;
+          }
+        } catch (e) {
+          qReset.textContent = `${(I18N[currentLang] && I18N[currentLang].quota_resets_lbl) || 'Resets:'} ${rText}`;
+        }
+      } else {
+        qReset.textContent = `${(I18N[currentLang] && I18N[currentLang].quota_resets_lbl) || 'Resets:'} 1st of next month`;
+      }
+    }
+  }
+
+  // IP Protocol Diagnostics in Settings
+  const diagV4 = document.getElementById('diag-v4-badge');
+  const diagV6 = document.getElementById('diag-v6-badge');
+  const diagTrans = document.getElementById('diag-transport-badge');
+  if (diagV4) {
+    diagV4.textContent = `IPv4: ${status.local_ipv4_available ? 'Available' : 'Unavailable'}`;
+    diagV4.className = status.local_ipv4_available ? 'diag-badge active' : 'diag-badge inactive';
+  }
+  if (diagV6) {
+    diagV6.textContent = `IPv6: ${status.local_ipv6_available ? 'Available' : 'Unavailable'}`;
+    diagV6.className = status.local_ipv6_available ? 'diag-badge active' : 'diag-badge inactive';
+  }
+  if (diagTrans) {
+    if (status.state === 'connected' && (status.transport_protocol || status.exit_address_family)) {
+      diagTrans.style.display = 'inline-block';
+      diagTrans.textContent = `Transport: ${status.transport_protocol || 'tcp'} • Exit: ${status.exit_address_family || 'IPv4'}`;
+    } else {
+      diagTrans.style.display = 'none';
+    }
+  }
+
   // Status Indicator Dot
   const statusDot = document.getElementById('dash-status-dot');
   if (statusDot) {
@@ -1042,6 +1144,12 @@ function updateUI(status) {
   }
   if (setGaming) {
     setGaming.checked = !!gamingActive;
+  }
+
+  // IP Protocol setting reflection
+  const setIpProtoEl = document.getElementById('setting-ip-protocol');
+  if (setIpProtoEl && status.settings && status.settings.ip_protocol) {
+    setIpProtoEl.value = status.settings.ip_protocol;
   }
 
   // 14. Settings: Smart Iran Domestic Direct Traffic Sync
@@ -2104,6 +2212,7 @@ function saveSettings() {
   const setTun = document.getElementById('setting-tun-mode');
   const setIran = document.getElementById('setting-iran-bypass');
   const setGaming = document.getElementById('setting-gaming-mode');
+  const setIpProto = document.getElementById('setting-ip-protocol');
 
   const cur = (currentStatus && currentStatus.settings) || {};
 
@@ -2116,6 +2225,7 @@ function saveSettings() {
     bypass_rules: setBypassRules ? setBypassRules.value.trim() : (cur.bypass_rules || ''),
     direct_iran_traffic: setIran ? setIran.checked : (cur.direct_iran_traffic !== false),
     gaming_mode: setGaming ? setGaming.checked : (cur.gaming_mode || false),
+    ip_protocol: setIpProto ? setIpProto.value : (cur.ip_protocol || 'dual'),
     split_tunnel_enabled: cur.split_tunnel_enabled || false,
     split_tunnel_mode: cur.split_tunnel_mode || 'bypass',
     split_tunnel_apps: cur.split_tunnel_apps || ['telegram.exe', 'discord.exe']

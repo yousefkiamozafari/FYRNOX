@@ -44,7 +44,7 @@ func TestLiveConnectStageByStage(t *testing.T) {
 	t.Logf("2. Testing newProxyController with server %s...", engine.selected.Hostname)
 	targetURL, _ := url.Parse(fmt.Sprintf("https://%s:%d", engine.selected.Hostname, engine.selected.Port))
 	start2 := time.Now()
-	controller, err := newProxyController(engine.guardian, targetURL, 15*time.Second, engine.auth, pass, engine.settings.UseH3, engine.settings.ApiProxy, engine.settings.TlsFragmentation)
+	controller, err := newProxyController(engine.guardian, targetURL, 15*time.Second, engine.auth, pass, engine.settings.UseH3, engine.settings.ApiProxy, engine.settings.TlsFragmentation, engine.settings.IPProtocol)
 	t.Logf("newProxyController took %v | Err: %v", time.Since(start2), err)
 	if err != nil {
 		t.Skipf("Upstream server %s unreachable (%v); skipping live probe", engine.selected.Hostname, err)

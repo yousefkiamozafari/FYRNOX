@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,7 +45,7 @@ func FlushDNSCache() {
 	if procDnsFlushResolverCache.Find() == nil {
 		_, _, _ = procDnsFlushResolverCache.Call()
 	}
-	_ = newSilentCmd("ipconfig", "/flushdns").Run()
+	_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "ipconfig", "/flushdns")
 	LogInfo("Windows DNS resolver cache flushed successfully")
 }
 
@@ -55,6 +56,25 @@ const (
 	tunGateway    = "10.254.1.1"
 	tunMTU        = 1500
 )
+
+// newSilentCmdContext creates an exec.Cmd with context configured without visible window
+func newSilentCmdContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
+	return cmd
+}
+
+// runSilentCmdWithTimeout executes a command silently with bounded context timeout
+func runSilentCmdWithTimeout(timeout time.Duration, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := newSilentCmdContext(ctx, name, args...)
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
 
 // newSilentCmd creates an exec.Cmd configured to run without creating a visible console window
 func newSilentCmd(name string, args ...string) *exec.Cmd {
@@ -147,7 +167,7 @@ func getPhysicalDefaultGateway() (string, int, error) {
 }
 
 // EnableTunMode sets up Layer-3 Wintun routing (when Administrator) and WinHTTP + user environment proxies
-func EnableTunMode(socksAddr, httpAddr, remoteHost string) error {
+func EnableTunMode(socksAddr, httpAddr, remoteHost, ipProtocol string) error {
 	tunMu.Lock()
 	defer tunMu.Unlock()
 
@@ -325,6 +345,18 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost string) error {
 		_ = newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunGateway, "metric", "1").Run()
 	}
 
+	// IPv6 leak protection: blackhole non-tunnel IPv6 traffic when in IPv4-only mode
+	if ipProtocol == "ipv4" {
+		if tunIfIndex > 0 {
+			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "::/1", "fe80::1", "if", strconv.Itoa(tunIfIndex), "metric", "1")
+			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "8000::/1", "fe80::1", "if", strconv.Itoa(tunIfIndex), "metric", "1")
+		} else {
+			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "::/1", "fe80::1", "metric", "1")
+			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "8000::/1", "fe80::1", "metric", "1")
+		}
+		LogInfo("IPv6 leak protection blackhole active in TUN mode")
+	}
+
 	wintunActive = true
 	tunModeActive = true
 	FlushDNSCache()
@@ -335,7 +367,7 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost string) error {
 // cleanupHostRoutes removes any explicit host routes added for remote server IPs
 func cleanupHostRoutes() {
 	for _, ip := range remoteServerIPs {
-		_ = newSilentCmd("route", "delete", ip, "mask", "255.255.255.255").Run()
+		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "delete", ip, "mask", "255.255.255.255")
 	}
 	remoteServerIPs = nil
 }
@@ -353,9 +385,13 @@ func DisableTunMode() error {
 
 	// 1. Tear down Wintun routing and network stack if active
 	if wintunActive {
-		// Delete split default routes
-		_ = newSilentCmd("route", "delete", "0.0.0.0", "mask", "128.0.0.0").Run()
-		_ = newSilentCmd("route", "delete", "128.0.0.0", "mask", "128.0.0.0").Run()
+		// Delete split default routes with bounded timeout
+		_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "delete", "0.0.0.0", "mask", "128.0.0.0")
+		_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "delete", "128.0.0.0", "mask", "128.0.0.0")
+
+		// Delete IPv6 leak prevention routes
+		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "-6", "delete", "::/1")
+		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "-6", "delete", "8000::/1")
 
 		// Delete remote server host routes
 		cleanupHostRoutes()
@@ -366,7 +402,7 @@ func DisableTunMode() error {
 			tunDev = nil
 		}
 
-		// 1b. Tear down gVisor netstack with bounded timeout (never block caller indefinitely)
+		// 1b. Tear down gVisor netstack with bounded timeout
 		if tunStack != nil {
 			st := tunStack
 			tunStack = nil
@@ -378,7 +414,7 @@ func DisableTunMode() error {
 			}()
 			select {
 			case <-done:
-			case <-time.After(350 * time.Millisecond):
+			case <-time.After(300 * time.Millisecond):
 				LogWarn("Netstack wait timed out during teardown (continuing cleanly)")
 			}
 		}
@@ -387,8 +423,8 @@ func DisableTunMode() error {
 		LogInfo("Wintun Layer-3 adapter removed and routing table restored")
 	}
 
-	// 2. Reset WinHTTP system proxy
-	_ = newSilentCmd("netsh", "winhttp", "reset", "proxy").Run()
+	// 2. Reset WinHTTP system proxy with timeout
+	_, _ = runSilentCmdWithTimeout(2*time.Second, "netsh", "winhttp", "reset", "proxy")
 
 	// 3. Remove user-level environment variables via direct Windows Registry (< 1ms)
 	clearEnvVarsDirect()
@@ -398,6 +434,18 @@ func DisableTunMode() error {
 	tunModeActive = false
 	LogInfo("System routing and proxies completely restored")
 	return nil
+}
+
+// VerifyTunCleanup verifies that TUN routes and interfaces have been removed cleanly
+func VerifyTunCleanup() bool {
+	out, err := runSilentCmdWithTimeout(2*time.Second, "route", "print", "0.0.0.0")
+	if err == nil && (strings.Contains(out, "10.254.1.1") || strings.Contains(out, "128.0.0.0")) {
+		LogWarn("Detected lingering TUN routes after disconnect; executing force route delete...")
+		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "delete", "0.0.0.0", "mask", "128.0.0.0")
+		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "delete", "128.0.0.0", "mask", "128.0.0.0")
+		return false
+	}
+	return true
 }
 
 func setEnvVarsDirect(socksURL, httpURL string) {

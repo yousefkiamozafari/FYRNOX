@@ -422,7 +422,7 @@ func (fc *fragmentingConn) Write(b []byte) (int, error) {
 	return fc.Conn.Write(b)
 }
 
-func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, timeout time.Duration, apiProxy string, tlsFrag bool) (*tls.Conn, error) {
+func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, timeout time.Duration, apiProxy string, tlsFrag bool, ipProtocol string) (*tls.Conn, error) {
 	apiProxy = strings.TrimSpace(apiProxy)
 	var rawConn net.Conn
 	var err error
@@ -482,7 +482,17 @@ func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, tim
 
 	if rawConn == nil && err == nil {
 		dialer := createProxyDialer(timeout)
-		rawConn, err = dialer.DialContext(ctx, "tcp", proxyHost)
+		network := "tcp"
+		switch strings.ToLower(ipProtocol) {
+		case "ipv4":
+			network = "tcp4"
+		case "ipv6":
+			network = "tcp6"
+		}
+		rawConn, err = dialer.DialContext(ctx, network, proxyHost)
+		if err != nil && network == "tcp6" {
+			return nil, fmt.Errorf("IPv6 connection failed: %w (your network or the server may not support IPv6 routing; select Dual Stack or IPv4 Only)", err)
+		}
 	}
 
 	if err != nil {
@@ -510,7 +520,7 @@ func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, tim
 	return tlsConn, nil
 }
 
-func newH2ProxySession(proxyURL *url.URL, token string, timeout time.Duration, apiProxy string, tlsFrag bool) (*h2ProxySession, error) {
+func newH2ProxySession(proxyURL *url.URL, token string, timeout time.Duration, apiProxy string, tlsFrag bool, ipProtocol string) (*h2ProxySession, error) {
 	proxyHost := proxyURL.Host
 	if proxyURL.Port() == "" {
 		proxyHost = proxyURL.Hostname() + ":443"
@@ -520,7 +530,7 @@ func newH2ProxySession(proxyURL *url.URL, token string, timeout time.Duration, a
 	defer cancel()
 
 	tlsCfg := createProxyTLSConfig(proxyURL.Hostname(), []string{"h2"})
-	proxyTLS, err := dialProxyTLS(ctx, proxyHost, tlsCfg, timeout, apiProxy, tlsFrag)
+	proxyTLS, err := dialProxyTLS(ctx, proxyHost, tlsCfg, timeout, apiProxy, tlsFrag, ipProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -664,7 +674,7 @@ type h3ProxySession struct {
 	closeErr  error
 }
 
-func newH3ProxySession(proxyURL *url.URL, token string, timeout time.Duration, apiProxy string) (*h3ProxySession, error) {
+func newH3ProxySession(proxyURL *url.URL, token string, timeout time.Duration, apiProxy string, ipProtocol string) (*h3ProxySession, error) {
 	host := proxyURL.Hostname()
 	portStr := proxyURL.Port()
 	if portStr == "" {
@@ -794,15 +804,15 @@ type proxyController struct {
 	closeOnce      sync.Once
 }
 
-func newProxyController(guardian string, proxyURL *url.URL, timeout time.Duration, auth *runtimeAuth, pass *vpnclient.ProxyPassInfo, useH3 bool, apiProxy string, tlsFrag bool) (*proxyController, error) {
+func newProxyController(guardian string, proxyURL *url.URL, timeout time.Duration, auth *runtimeAuth, pass *vpnclient.ProxyPassInfo, useH3 bool, apiProxy string, tlsFrag bool, ipProtocol string) (*proxyController, error) {
 	var factory func(token string) (proxySession, error)
 	if useH3 {
 		factory = func(token string) (proxySession, error) {
-			return newH3ProxySession(proxyURL, token, timeout, apiProxy)
+			return newH3ProxySession(proxyURL, token, timeout, apiProxy, ipProtocol)
 		}
 	} else {
 		factory = func(token string) (proxySession, error) {
-			return newH2ProxySession(proxyURL, token, timeout, apiProxy, tlsFrag)
+			return newH2ProxySession(proxyURL, token, timeout, apiProxy, tlsFrag, ipProtocol)
 		}
 	}
 
