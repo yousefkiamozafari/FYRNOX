@@ -175,6 +175,11 @@ func applyFramelessStyle(hwnd uintptr) {
 	procSetWindowPos.Call(hwnd, 0, 0, 0, 0, 0, uintptr(swpNoMove|swpNoSize|swpNoZOrder|swpFrameChanged))
 }
 
+type winPoint struct {
+	X int32
+	Y int32
+}
+
 // handleWindowDrag triggers native OS window dragging (with full Aero Snap support)
 func handleWindowDrag(hwnd uintptr) {
 	if hwnd == 0 {
@@ -183,8 +188,13 @@ func handleWindowDrag(hwnd uintptr) {
 	if hwnd == 0 {
 		return
 	}
+	var pt winPoint
+	_, _, _ = procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 	procReleaseCapture.Call()
-	procSendMessageW.Call(hwnd, uintptr(wmNCLButtonDown), uintptr(htCaption), 0)
+	// WM_SYSCOMMAND 0x0112 with SC_MOVE | 2 (0xF012) initiates native Win32 window dragging loop
+	procPostMessageW.Call(hwnd, 0x0112, 0xF012, 0)
+	lParam := uintptr(uint32(uint16(pt.X)) | (uint32(uint16(pt.Y)) << 16))
+	procSendMessageW.Call(hwnd, uintptr(wmNCLButtonDown), uintptr(htCaption), lParam)
 }
 
 // handleWindowMinimize minimizes the window

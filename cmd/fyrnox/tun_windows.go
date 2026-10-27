@@ -40,12 +40,13 @@ var (
 	procDnsFlushResolverCache = modDnsapi.NewProc("DnsFlushResolverCache")
 )
 
-// FlushDNSCache flushes the Windows DNS resolver cache via DnsFlushResolverCache and ipconfig
+// FlushDNSCache flushes the Windows DNS resolver cache via DnsFlushResolverCache
 func FlushDNSCache() {
 	if procDnsFlushResolverCache.Find() == nil {
 		_, _, _ = procDnsFlushResolverCache.Call()
+	} else {
+		_, _ = runSilentCmdWithTimeout(800*time.Millisecond, "ipconfig", "/flushdns")
 	}
-	_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "ipconfig", "/flushdns")
 	LogInfo("Windows DNS resolver cache flushed successfully")
 }
 
@@ -385,22 +386,35 @@ func DisableTunMode() error {
 
 	// 1. Tear down Wintun routing and network stack if active
 	if wintunActive {
-		// Delete split default routes with bounded timeout
-		_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "delete", "0.0.0.0", "mask", "128.0.0.0")
-		_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "delete", "128.0.0.0", "mask", "128.0.0.0")
-
-		// Delete IPv6 leak prevention routes
-		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "-6", "delete", "::/1")
-		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "-6", "delete", "8000::/1")
-
-		// Delete remote server host routes
-		cleanupHostRoutes()
-
 		// 1a. Close Wintun device FIRST so netstack packet loops terminate immediately!
 		if tunDev != nil {
 			closeDevice(tunDev)
 			tunDev = nil
 		}
+
+		// Parallelize route deletions for instantaneous teardown (< 100ms)
+		var routeWg sync.WaitGroup
+		routeWg.Add(5)
+		go func() {
+			defer routeWg.Done()
+			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "delete", "0.0.0.0", "mask", "128.0.0.0")
+		}()
+		go func() {
+			defer routeWg.Done()
+			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "delete", "128.0.0.0", "mask", "128.0.0.0")
+		}()
+		go func() {
+			defer routeWg.Done()
+			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "-6", "delete", "::/1")
+		}()
+		go func() {
+			defer routeWg.Done()
+			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "-6", "delete", "8000::/1")
+		}()
+		go func() {
+			defer routeWg.Done()
+			cleanupHostRoutes()
+		}()
 
 		// 1b. Tear down gVisor netstack with bounded timeout
 		if tunStack != nil {
@@ -414,17 +428,18 @@ func DisableTunMode() error {
 			}()
 			select {
 			case <-done:
-			case <-time.After(300 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 				LogWarn("Netstack wait timed out during teardown (continuing cleanly)")
 			}
 		}
 
+		routeWg.Wait()
 		wintunActive = false
 		LogInfo("Wintun Layer-3 adapter removed and routing table restored")
 	}
 
-	// 2. Reset WinHTTP system proxy with timeout
-	_, _ = runSilentCmdWithTimeout(2*time.Second, "netsh", "winhttp", "reset", "proxy")
+	// 2. Reset WinHTTP system proxy with bounded timeout
+	_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "netsh", "winhttp", "reset", "proxy")
 
 	// 3. Remove user-level environment variables via direct Windows Registry (< 1ms)
 	clearEnvVarsDirect()

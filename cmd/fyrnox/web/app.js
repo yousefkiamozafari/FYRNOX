@@ -129,7 +129,17 @@ const I18N = {
     btn_clear_logs: '🗑️ Clear',
     logs_copied: 'Logs copied to clipboard!',
     ip_copied: 'Public IP copied to clipboard!',
+    traffic_download: 'Download',
+    traffic_upload: 'Upload',
+    traffic_ping: 'Latency',
+    traffic_session: 'Session',
     set_heading_routing: 'Routing Modes & Tunnel Protocol',
+    set_killswitch_title: 'Active Kill Switch (Leak Protection)',
+    set_killswitch_sub: 'Blocks all non-VPN internet traffic automatically if the VPN disconnects unexpectedly or reconnects, preventing IP and DNS leaks. Local LAN is preserved.',
+    set_autoreconnect_title: 'Intelligent Auto-Reconnect',
+    set_autoreconnect_sub: 'Automatically re-establishes the VPN tunnel with exponential backoff if the network drops, sleep-wake occurs, or edge connection stalls.',
+    status_reconnecting: 'Reconnecting...',
+    status_reconnecting_sub: 'Network interrupted. Auto-recovering secure tunnel...',
     set_tun_title: 'Wintun Layer-3 TUN Mode',
     set_tun_sub: 'Route 100% of all Windows traffic, games, command line tools, and UDP packets',
     set_h3_title: 'HTTP/3 (QUIC / UDP) Transport',
@@ -318,7 +328,17 @@ const I18N = {
     btn_clear_logs: '🗑️ پاک کردن',
     logs_copied: 'گزارش‌ها در کلیپ‌بورد کپی شد!',
     ip_copied: 'آدرس آی‌پی در کلیپ‌بورد کپی شد!',
+    traffic_download: 'دانلود',
+    traffic_upload: 'آپلود',
+    traffic_ping: 'تاخیر / پینگ',
+    traffic_session: 'مدت نشست',
     set_heading_routing: 'حالت‌های مسیریابی و پروتکل تونل',
+    set_killswitch_title: 'کیل‌سوئیچ فعال (ضد نشت IP و DNS)',
+    set_killswitch_sub: 'مسدودسازی بلادرنگ ترافیک خارج از تونل در صورت قطع ناگهانی برای جلوگیری کامل از نشت اطلاعات و IP واقعی.',
+    set_autoreconnect_title: 'اتصال مجدد خودکار هوشمند',
+    set_autoreconnect_sub: 'برقراری مجدد تونل امن با الگوریتم نمایی در صورت قطع اتصال شبکه یا بیدار شدن سیستم از خواب.',
+    status_reconnecting: 'در حال اتصال مجدد...',
+    status_reconnecting_sub: 'ارتباط قطع شد؛ در حال بازیابی خودکار تونل امن...',
     set_tun_title: 'حالت مسیریابی سراسری Wintun L3 TUN',
     set_tun_sub: 'هدایت ۱۰۰٪ ترافیک ویندوز، بازی‌ها، دستورات ترمینال و بسته‌های UDP',
     set_h3_title: 'پروتکل انتقالی HTTP/3 (QUIC / UDP)',
@@ -579,13 +599,15 @@ function initSSE() {
     setInterval(fetchStatus, 1500);
   }
 
-  // Active status poller: Polls every 1s while connecting/disconnecting to prevent any UI freezing
+  // Adaptive status poller: 1000ms while connected or connecting/reconnecting; paused when idle/disconnected
   setInterval(() => {
-    if (currentStatus && (currentStatus.state === 'connecting' || currentStatus.state === 'disconnecting')) {
-      fetchStatus();
+    if (currentStatus) {
+      const st = currentStatus.state;
+      if (st === 'connected' || st === 'connecting' || st === 'reconnecting' || st === 'disconnecting') {
+        fetchStatus();
+      }
     }
   }, 1000);
-  setInterval(fetchStatus, 4000);
 }
 
 async function fetchStatus() {
@@ -794,12 +816,38 @@ function updateUI(status) {
     uacNotice.style.display = (isTun && !status.is_admin) ? 'flex' : 'none';
   }
 
-  // 8. Cumulative VPN Session Traffic Totals (Formatted as B, KB, MB, GB)
+  // 8. Live Real-Time Telemetry Bar Beneath 3D Globe
   const statDown = document.getElementById('stat-download-val');
   const statUp = document.getElementById('stat-upload-val');
   const bDown = document.getElementById('bottom-down-speed');
   const bUp = document.getElementById('bottom-up-speed');
+  const bPing = document.getElementById('bottom-ping-val');
+  const bSession = document.getElementById('bottom-session-duration');
 
+  if (isConnected) {
+    if (bDown) {
+      bDown.textContent = (status.traffic && status.traffic.speed_down_human) || '0 B/s';
+    }
+    if (bUp) {
+      bUp.textContent = (status.traffic && status.traffic.speed_up_human) || '0 B/s';
+    }
+    if (bPing) {
+      if (status.server && status.server.ping_ms > 0) {
+        bPing.textContent = `${status.server.ping_ms} ms`;
+      } else if (status.exit_latency && status.exit_latency > 0) {
+        bPing.textContent = `${status.exit_latency} ms`;
+      } else {
+        bPing.textContent = '—';
+      }
+    }
+  } else {
+    if (bDown) bDown.textContent = '—';
+    if (bUp) bUp.textContent = '—';
+    if (bPing) bPing.textContent = '—';
+    if (bSession) bSession.textContent = '—';
+  }
+
+  // Cumulative VPN Session Traffic Totals
   let totalDown = '0 B';
   let totalUp = '0 B';
   if (status.traffic) {
@@ -814,11 +862,8 @@ function updateUI(status) {
       totalUp = formatTrafficBytes(status.traffic.bytes_up);
     }
   }
-
   if (statDown) statDown.textContent = totalDown;
-  if (bDown) bDown.textContent = totalDown;
   if (statUp) statUp.textContent = totalUp;
-  if (bUp) bUp.textContent = totalUp;
 
   // Monthly 50 GB Quota Card on Home Screen
   const qCard = document.getElementById('home-quota-card');
@@ -1118,6 +1163,13 @@ function updateUI(status) {
   const setTls = document.getElementById('setting-tls-frag');
   const setApiProxy = document.getElementById('setting-api-proxy');
   const setBypassRules = document.getElementById('setting-bypass-rules');
+  const setKillSwitch = document.getElementById('setting-kill-switch');
+  const setAutoRec = document.getElementById('setting-auto-reconnect');
+
+  if (status.settings) {
+    if (setKillSwitch) setKillSwitch.checked = !!status.settings.kill_switch;
+    if (setAutoRec) setAutoRec.checked = status.settings.auto_reconnect !== false;
+  }
   const setUserEmail = document.getElementById('settings-user-email');
   const setAuthBtn = document.getElementById('settings-auth-btn');
 
@@ -2277,10 +2329,14 @@ function saveSettings() {
   const setIran = document.getElementById('setting-iran-bypass');
   const setGaming = document.getElementById('setting-gaming-mode');
   const setIpProto = document.getElementById('setting-ip-protocol');
+  const setKillSwitch = document.getElementById('setting-kill-switch');
+  const setAutoRec = document.getElementById('setting-auto-reconnect');
 
   const cur = (currentStatus && currentStatus.settings) || {};
 
   const payload = {
+    kill_switch: setKillSwitch ? setKillSwitch.checked : (cur.kill_switch || false),
+    auto_reconnect: setAutoRec ? setAutoRec.checked : (cur.auto_reconnect !== false),
     enable_tun_mode: setTun ? setTun.checked : (cur.enable_tun_mode || false),
     use_system_proxy: setTun ? !setTun.checked : (cur.use_system_proxy !== false),
     use_h3: setH3 ? setH3.checked : (cur.use_h3 || false),

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -185,8 +186,8 @@ func RestoreSystemProxy() error {
 		_ = k.SetStringValue("ProxyOverride", lastBackup.Override)
 	}
 
-	// Reset WinHTTP proxy
-	_ = newSilentCmd("netsh", "winhttp", "reset", "proxy").Run()
+	// Reset WinHTTP proxy with bounded timeout
+	_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "netsh", "winhttp", "reset", "proxy")
 
 	// Clear user environment variables
 	clearEnvVarsDirect()

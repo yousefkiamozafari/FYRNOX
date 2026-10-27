@@ -117,6 +117,7 @@ func main() {
 
 	// Clean up any old orphaned proxy settings from crashed sessions
 	CleanOrphanedProxy()
+	CleanupStaleKillSwitchRules()
 
 	fmt.Println("==================================================")
 	fmt.Println("           Fyrnox for Windows v1.0.4              ")
@@ -153,6 +154,7 @@ func main() {
 	go func() {
 		<-sigCh
 		LogInfo("Shutting down Fyrnox...")
+		_ = globalKillSwitch.Disarm()
 		_ = engine.Disconnect()
 		_ = RestoreSystemProxy()
 		LogInfo("Cleanup complete. Goodbye!")
@@ -168,6 +170,7 @@ func main() {
 		if globalTray != nil {
 			globalTray.Remove()
 		}
+		_ = globalKillSwitch.Disarm()
 		_ = engine.Disconnect()
 		_ = RestoreSystemProxy()
 		LogInfo("Shutdown complete.")

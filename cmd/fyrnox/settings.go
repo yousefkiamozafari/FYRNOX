@@ -20,6 +20,8 @@ func defaultSettings() VpnSettings {
 		SplitTunnelApps:    nil,
 		GamingMode:         false,
 		IPProtocol:         "dual", // "dual", "ipv4", "ipv6"
+		KillSwitch:         false,
+		AutoReconnect:      true,
 	}
 }
 

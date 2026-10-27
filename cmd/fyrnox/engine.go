@@ -81,6 +81,8 @@ type VpnSettings struct {
 	DirectIranTraffic  bool     `json:"direct_iran_traffic"`
 	GamingMode         bool     `json:"gaming_mode"`
 	IPProtocol         string   `json:"ip_protocol"` // "dual", "ipv4", "ipv6"
+	KillSwitch         bool     `json:"kill_switch"`
+	AutoReconnect      bool     `json:"auto_reconnect"`
 }
 
 type VpnStatus struct {
@@ -113,6 +115,7 @@ type VpnStatus struct {
 	ExitAddressFamily  string          `json:"exit_address_family,omitempty"`
 	FallbackActive     bool            `json:"fallback_active"`
 	FallbackState      string          `json:"fallback_state,omitempty"`
+	KillSwitchActive   bool            `json:"kill_switch_active"`
 }
 
 type VpnEngine struct {
@@ -385,6 +388,7 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 		TunActive:          IsTunModeActive(),
 		WintunActive:       IsWintunActive(),
 		GamingStats:        globalGamer.GetStats(),
+		KillSwitchActive:   globalKillSwitch.IsActive(),
 		SplitTunnelEnabled: e.settings.SplitTunnelEnabled,
 		IPProtocol:         ipProto,
 		LocalIPv4Available: hasV4,
@@ -1399,6 +1403,12 @@ func (e *VpnEngine) Connect() error {
 
 		LogInfo("VPN Connected and verified successfully! Public IP: %s (%s)", probe.IP, probe.CountryCode)
 
+		// Disarm KillSwitch if it was armed during reconnecting
+		_ = globalKillSwitch.Disarm()
+
+		// Start background tunnel watchdog
+		go e.runTunnelWatchdog(currentConnID)
+
 		// Update quota info in background
 		go e.refreshUserInfo()
 	}()
@@ -1436,6 +1446,9 @@ func (e *VpnEngine) Disconnect() error {
 
 	LogInfo("Disconnecting VPN...")
 
+	// Disarm Kill Switch on deliberate user disconnect
+	_ = globalKillSwitch.Disarm()
+
 	// Ensure LAN proxy listeners are stopped on VPN disconnect
 	_ = globalLANShare.SetEnabled(false, nil, nil)
 
@@ -1451,7 +1464,8 @@ func (e *VpnEngine) Disconnect() error {
 	}
 
 	// 2. Tear down TUN mode routes, interface and netstack with bounded timeouts
-	if IsTunModeActive() {
+	wasTun := IsTunModeActive()
+	if wasTun {
 		_ = DisableTunMode()
 		LogInfo("System TUN mode deactivated")
 	}
@@ -1462,8 +1476,10 @@ func (e *VpnEngine) Disconnect() error {
 		LogInfo("Windows system proxy restored to direct")
 	}
 
-	// 4. Verify system routes and adapter state
-	VerifyTunCleanup()
+	// 4. Verify system routes and adapter state in background
+	if wasTun {
+		go VerifyTunCleanup()
+	}
 
 	e.mu.Lock()
 	e.state = StateDisconnected
@@ -1654,6 +1670,9 @@ func (e *VpnEngine) UpdateSettings(s VpnSettings) {
 	}
 
 	globalGamer.SetGamingMode(s.GamingMode)
+	if !s.KillSwitch {
+		_ = globalKillSwitch.Disarm()
+	}
 
 	if httpSrv != nil {
 		httpSrv.SetSettings(s)
@@ -1735,4 +1754,138 @@ func configureAPIProxy(raw string, tlsFrag bool) error {
 
 func createCustomDialer() *net.Dialer {
 	return createProxyDialer(20 * time.Second)
+}
+
+
+// runTunnelWatchdog monitors active connection health and initiates auto-reconnect if tunnel stalls
+func (e *VpnEngine) runTunnelWatchdog(cid int64) {
+	ticker := time.NewTicker(12 * time.Second)
+	defer ticker.Stop()
+
+	consecutiveFails := 0
+
+	for {
+		select {
+		case <-ticker.C:
+			e.mu.RLock()
+			currentCid := e.connectID
+			currentState := e.state
+			ctrl := e.controller
+			autoRec := e.settings.AutoReconnect
+			killSw := e.settings.KillSwitch
+			srv := e.selected
+			e.mu.RUnlock()
+
+			if currentCid != cid || currentState != StateConnected || ctrl == nil {
+				return
+			}
+
+			// Active lightweight keepalive probe through active tunnel
+			testConn, err := ctrl.OpenTunnel("1.1.1.1:80")
+			if err != nil {
+				consecutiveFails++
+				LogWarn("VPN tunnel keepalive probe failed (%d/3): %v", consecutiveFails, err)
+			} else {
+				consecutiveFails = 0
+				_ = testConn.Close()
+			}
+
+			if consecutiveFails >= 3 {
+				LogWarn("VPN tunnel stalled or dropped! Consecutive probe failures exceeded limit.")
+				if !autoRec {
+					_ = e.Disconnect()
+					e.mu.Lock()
+					e.state = StateError
+					e.errorMsg = "VPN connection stalled or timed out"
+					e.mu.Unlock()
+					e.notifyTray()
+					return
+				}
+
+				// Intelligent Auto-Reconnect
+				LogInfo("Initiating intelligent auto-reconnect...")
+				var srvIP string
+				if srv != nil {
+					ips, err := net.LookupIP(srv.Hostname)
+					if err == nil && len(ips) > 0 {
+						srvIP = ips[0].String()
+					}
+				}
+
+				if killSw {
+					_ = globalKillSwitch.Arm(srvIP)
+				}
+
+				e.mu.Lock()
+				e.state = StateReconnecting
+				e.connectStep = "reconnecting"
+				e.mu.Unlock()
+				e.notifyTray()
+
+				go e.performAutoReconnect(cid, srvIP)
+				return
+			}
+		}
+	}
+}
+
+// performAutoReconnect executes exponential backoff retry to restore the VPN tunnel
+func (e *VpnEngine) performAutoReconnect(cid int64, srvIP string) {
+	backoffs := []time.Duration{
+		1 * time.Second,
+		2 * time.Second,
+		4 * time.Second,
+		8 * time.Second,
+		16 * time.Second,
+	}
+
+	for attempt, delay := range backoffs {
+		time.Sleep(delay)
+
+		e.mu.RLock()
+		if e.connectID != cid || e.state != StateReconnecting {
+			e.mu.RUnlock()
+			LogInfo("Auto-reconnect cancelled by user")
+			_ = globalKillSwitch.Disarm()
+			return
+		}
+		e.mu.RUnlock()
+
+		LogInfo("Auto-reconnect attempt %d/5...", attempt+1)
+
+		e.mu.Lock()
+		ctrl := e.controller
+		e.controller = nil
+		e.mu.Unlock()
+		if ctrl != nil {
+			_ = ctrl.Close()
+		}
+
+		err := e.Connect()
+		if err == nil {
+			for w := 0; w < 30; w++ {
+				time.Sleep(200 * time.Millisecond)
+				e.mu.RLock()
+				st := e.state
+				e.mu.RUnlock()
+				if st == StateConnected {
+					LogInfo("Intelligent auto-reconnect succeeded on attempt %d!", attempt+1)
+					_ = globalKillSwitch.Disarm()
+					return
+				}
+				if st == StateError || st == StateDisconnected {
+					break
+				}
+			}
+		}
+	}
+
+	LogWarn("All auto-reconnect attempts exhausted")
+	e.mu.Lock()
+	if e.state == StateReconnecting {
+		e.state = StateError
+		e.errorMsg = "Connection lost. Auto-reconnect attempts failed."
+	}
+	e.mu.Unlock()
+	e.notifyTray()
 }

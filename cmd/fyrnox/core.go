@@ -726,7 +726,7 @@ func newH3ProxySession(proxyURL *url.URL, token string, timeout time.Duration, a
 }
 
 func (s *h3ProxySession) IsAlive() bool {
-	return s.conn != nil
+	return s.conn != nil && s.conn.Context().Err() == nil
 }
 
 func (s *h3ProxySession) OpenTunnel(authority string) (net.Conn, error) {
@@ -856,7 +856,34 @@ func newProxyController(guardian string, proxyURL *url.URL, timeout time.Duratio
 		return nil
 	})
 	go c.runRenewalLoop()
+	go c.runKeepAliveWatchdog()
 	return c, nil
+}
+
+func (c *proxyController) runKeepAliveWatchdog() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			closed := c.closed
+			sess := c.session
+			c.mu.Unlock()
+
+			if closed {
+				return
+			}
+
+			if sess == nil || !isSessionAlive(sess) {
+				LogWarn("Proxy session keepalive failed; proactively rebuilding in-memory session...")
+				_ = c.rebuild()
+			}
+		}
+	}
 }
 
 func (c *proxyController) OpenTunnel(authority string) (net.Conn, error) {

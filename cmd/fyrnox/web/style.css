@@ -111,6 +111,7 @@ body {
 .liquid-titlebar {
   height: 38px;
   width: 100vw;
+  -webkit-app-region: drag;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -133,6 +134,7 @@ body {
   align-items: center;
   padding-left: 14px;
   cursor: default;
+  -webkit-app-region: drag;
 }
 
 .titlebar-brand {
@@ -184,6 +186,17 @@ body {
 
 .titlebar-status-text.connecting {
   color: var(--accent-gold);
+}
+
+.titlebar-controls,
+.titlebar-btn,
+.titlebar-utility-btn,
+.titlebar-divider-vert,
+button,
+input,
+select,
+a {
+  -webkit-app-region: no-drag;
 }
 
 .titlebar-controls {
@@ -3374,6 +3387,17 @@ body {
   color: #ffffff;
 }
 
+.titlebar-controls,
+.titlebar-btn,
+.titlebar-utility-btn,
+.titlebar-divider-vert,
+button,
+input,
+select,
+a {
+  -webkit-app-region: no-drag;
+}
+
 .titlebar-controls {
   display: flex;
   align-items: center;
@@ -4505,13 +4529,41 @@ body.is-dashboard .app-topbar,
 }
 
 .metric-arrow.down-arrow {
-  color: #00e676;
+  color: #FF6A00;
   font-weight: 700;
 }
 
 .metric-arrow.up-arrow {
-  color: #ff6a00;
+  color: #3B82F6;
   font-weight: 700;
+}
+
+.metric-status-dot.orange {
+  color: #FF6A00;
+  font-size: 8px;
+  text-shadow: 0 0 6px rgba(255, 106, 0, 0.6);
+}
+
+.metric-status-dot.blue {
+  color: #3B82F6;
+  font-size: 8px;
+  text-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+.bottom-metric-value-row .metric-val.down-val {
+  color: #FF6A00;
+}
+
+.bottom-metric-value-row .metric-val.up-val {
+  color: #3B82F6;
+}
+
+.legend-dot.orange {
+  color: #FF6A00;
+}
+
+.legend-dot.blue {
+  color: #3B82F6;
 }
 
 .metric-clock-icon {
@@ -4536,6 +4588,7 @@ body.is-dashboard .app-topbar,
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.2px;
+  transition: opacity 250ms ease, color 250ms ease, transform 250ms ease;
 }
 
 .bottom-graph-wrapper {

@@ -312,37 +312,49 @@
 
             <!-- BOTTOM SPANNING ROW: Live Network Statistics & Throughput Waveform -->
             <div class="home-bottom-traffic-bar">
-              <!-- Metric 1: Download Speed -->
+              <!-- Metric 1: Download Speed (Orange #FF6A00) -->
               <div class="bottom-metric-item">
                 <div class="bottom-metric-header">
                   <span class="metric-arrow down-arrow">↓</span>
-                  <span class="metric-title">Download</span>
+                  <span class="metric-title" data-i18n="traffic_download">Download</span>
                 </div>
                 <div class="bottom-metric-value-row">
-                  <span class="metric-status-dot green">●</span>
-                  <span class="metric-val font-mono" id="bottom-down-speed">0 B</span>
+                  <span class="metric-status-dot orange">●</span>
+                  <span class="metric-val font-mono down-val" id="bottom-down-speed">—</span>
                 </div>
               </div>
 
-              <!-- Metric 2: Upload Speed -->
+              <!-- Metric 2: Upload Speed (Blue #3B82F6) -->
               <div class="bottom-metric-item">
                 <div class="bottom-metric-header">
                   <span class="metric-arrow up-arrow">↑</span>
-                  <span class="metric-title">Upload</span>
+                  <span class="metric-title" data-i18n="traffic_upload">Upload</span>
                 </div>
                 <div class="bottom-metric-value-row">
-                  <span class="metric-val font-mono" id="bottom-up-speed">0 B</span>
+                  <span class="metric-status-dot blue">●</span>
+                  <span class="metric-val font-mono up-val" id="bottom-up-speed">—</span>
                 </div>
               </div>
 
-              <!-- Metric 3: Session Duration -->
+              <!-- Metric 3: Real Latency / Ping -->
+              <div class="bottom-metric-item">
+                <div class="bottom-metric-header">
+                  <span class="metric-clock-icon">⚡</span>
+                  <span class="metric-title" data-i18n="traffic_ping">Latency</span>
+                </div>
+                <div class="bottom-metric-value-row">
+                  <span class="metric-val font-mono" id="bottom-ping-val">—</span>
+                </div>
+              </div>
+
+              <!-- Metric 4: Session Duration -->
               <div class="bottom-metric-item">
                 <div class="bottom-metric-header">
                   <span class="metric-clock-icon">⏱</span>
-                  <span class="metric-title">Session</span>
+                  <span class="metric-title" data-i18n="traffic_session">Session</span>
                 </div>
                 <div class="bottom-metric-value-row">
-                  <span class="metric-val font-mono" id="bottom-session-duration">00:00:00</span>
+                  <span class="metric-val font-mono" id="bottom-session-duration">—</span>
                 </div>
               </div>
 
@@ -352,11 +364,11 @@
                 <div class="bottom-graph-legend">
                   <div class="legend-row">
                     <span class="legend-dot orange">●</span>
-                    <span class="legend-text font-mono" id="graph-legend-down">0 B/s</span>
+                    <span class="legend-text font-mono" id="graph-legend-down">—</span>
                   </div>
                   <div class="legend-row">
-                    <span class="legend-dot cyan">●</span>
-                    <span class="legend-text font-mono" id="graph-legend-up">0 B/s</span>
+                    <span class="legend-dot blue">●</span>
+                    <span class="legend-text font-mono" id="graph-legend-up">—</span>
                   </div>
                 </div>
               </div>
@@ -819,6 +831,32 @@
                     <option value="ipv4" data-i18n="opt_proto_ipv4">IPv4 Only</option>
                     <option value="ipv6" data-i18n="opt_proto_ipv6">IPv6 Only</option>
                   </select>
+                </div>
+              </div>
+
+              <div class="settings-item-row">
+                <div class="settings-item-desc">
+                  <div class="settings-item-title" data-i18n="set_killswitch_title">Active Kill Switch (Leak Protection)</div>
+                  <div class="settings-item-sub" data-i18n="set_killswitch_sub">Blocks all non-VPN internet traffic automatically if the VPN disconnects unexpectedly or reconnects, preventing IP and DNS leaks. Local LAN is preserved.</div>
+                </div>
+                <div class="settings-item-control">
+                  <label class="switch-toggle">
+                    <input type="checkbox" id="setting-kill-switch" onchange="saveSettings()">
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-item-row">
+                <div class="settings-item-desc">
+                  <div class="settings-item-title" data-i18n="set_autoreconnect_title">Intelligent Auto-Reconnect</div>
+                  <div class="settings-item-sub" data-i18n="set_autoreconnect_sub">Automatically re-establishes the VPN tunnel with exponential backoff if the network drops, sleep-wake occurs, or edge connection stalls.</div>
+                </div>
+                <div class="settings-item-control">
+                  <label class="switch-toggle">
+                    <input type="checkbox" id="setting-auto-reconnect" checked onchange="saveSettings()">
+                    <span class="switch-slider"></span>
+                  </label>
                 </div>
               </div>
 
