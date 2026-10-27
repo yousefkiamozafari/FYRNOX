@@ -189,6 +189,18 @@ const I18N = {
     set_iran_bypass_title: 'Direct Routing for Iran Domestic Traffic (Zero-Config)',
     set_iran_bypass_sub: 'Bypass domestic banking networks, Shetab gateways, and .ir domains directly without consuming VPN quota',
     set_gaming_title: 'Dedicated Low-Latency Gaming Accelerator',
+    set_heading_lan_share: 'LAN Proxy Sharing / Console Hotspot (Wi-Fi)',
+    set_lan_share_title: 'Allow LAN Inbound Proxy & Console Sharing',
+    set_lan_share_sub: 'Binds mixed HTTP/SOCKS5 listener to 0.0.0.0 allowing PlayStation, Xbox, Switch, and phones on Wi-Fi to use VPN.',
+    lan_scan_qr: 'Scan QR Code on mobile or enter proxy on your console',
+    set_heading_panic: 'Global Emergency Panic Key & Stealth Mode',
+    set_panic_sub: 'Press Ctrl + Alt + Shift + X anywhere to immediately sever VPN connections, flush DNS cache, hide window, and remove tray icon.',
+    btn_test_panic: 'Test Panic Lockdown 🚨',
+    diag_matrix_title: 'In-App Sanctions & Service Access Matrix',
+    diag_matrix_sub: 'Real-time probe of geo-restricted and sanctioned platforms routed through the active tunnel',
+    diag_matrix_check_btn: 'Run Matrix Check ⚡',
+    fallback_optimized_udp: 'Optimized UDP (H3)',
+    fallback_protected_tcp: 'Protected Fallback (TCP/H2)',
     set_gaming_sub: 'Prioritizes raw UDP packets, enforces MTU 1420 (no fragmentation), and eliminates head-of-line blocking'
   },
   fa: {
@@ -366,6 +378,18 @@ const I18N = {
     set_iran_bypass_title: 'مسیریابی مستقیم ترافیک داخلی ایران (Zero-Config Bypass)',
     set_iran_bypass_sub: 'هدایت مستقیم بانک‌ها، درگاه‌های شاپرک و دامنه‌های ir. از اینترنت عادی بدون کسر حجم و افت سرعت',
     set_gaming_title: 'شتاب‌دهنده اختصاصی گیمینگ (پینگ پایین)',
+    set_heading_lan_share: 'اشتراک پروکسی در شبکه محلی و کنسول‌های بازی',
+    set_lan_share_title: 'فعال‌سازی اشتراک در شبکه محلی و کنسول‌ها',
+    set_lan_share_sub: 'پروکسی را روی 0.0.0.0 اجرا کرده و به پلی‌استیشن، ایکس‌باکس، سوییچ و موبایل‌های متصل به وای‌فای امکان استفاده از VPN را می‌دهد.',
+    lan_scan_qr: 'اسکن بارکد QR در موبایل یا وارد کردن دستی در تنظیمات شبکه کنسول',
+    set_heading_panic: 'کلید اضطراری سراسری (Panic Key) و حالت مخفی',
+    set_panic_sub: 'با فشردن کلیدهای میانبر Ctrl + Alt + Shift + X در هر برنامه‌ای، بلافاصله اتصال قطع شده، کش DNS پاکسازی، پنجره مخفی و آیکون کنار ساعت حذف می‌شود.',
+    btn_test_panic: 'تست قفل اضطراری 🚨',
+    diag_matrix_title: 'ماتریس دسترسی به سرویس‌ها و پایش تحریم‌ها',
+    diag_matrix_sub: 'پایش بلادرنگ سرویس‌های تحریم‌شده و فیلترشده از طریق تونل اختصاصی VPN',
+    diag_matrix_check_btn: 'بررسی مجدد دسترسی ⚡',
+    fallback_optimized_udp: 'UDP بهینه‌شده (QUIC/H3)',
+    fallback_protected_tcp: 'فالبک محافظت‌شده (TCP چندتکه‌ای)',
     set_gaming_sub: 'اولویت‌دهی به پکت‌های UDP خام، تنظیم خودکار MTU 1420 برای جلوگیری از تکه‌تکه شدن و حذف MUX'
   }
 };
@@ -512,6 +536,9 @@ function switchNav(tab) {
     }
   } else if (tab === 'diagnostics') {
     fetchLogs();
+    fetchServiceMatrix();
+  } else if (tab === 'settings') {
+    fetchLANShareStatus();
   } else if (tab === 'split-tunnel') {
     loadSplitTunnelView();
   }
@@ -1144,6 +1171,43 @@ function updateUI(status) {
   }
   if (setGaming) {
     setGaming.checked = !!gamingActive;
+  }
+
+  // 13b. Smart Ping Shield Game Detection Badge
+  const dashGameBadge = document.getElementById('dash-game-qos-badge');
+  const dashGameText = document.getElementById('dash-game-qos-text');
+  if (dashGameBadge) {
+    if (status.gaming_stats && status.gaming_stats.game_detected) {
+      dashGameBadge.style.display = 'flex';
+      const gName = status.gaming_stats.detected_game ? status.gaming_stats.detected_game.replace('.exe', '').toUpperCase() : 'GAME';
+      if (dashGameText) {
+        dashGameText.textContent = `${gName} Detected • Low-Jitter QoS Active`;
+      }
+    } else {
+      dashGameBadge.style.display = 'none';
+    }
+  }
+
+  // 13c. Intelligent Protocol Fallback Telemetry Pill
+  const fallbackRow = document.getElementById('transport-fallback-row');
+  const fallbackPill = document.getElementById('dash-fallback-pill');
+  const fallbackLabel = document.getElementById('dash-fallback-label');
+  if (fallbackRow && fallbackPill && fallbackLabel) {
+    if (isConnected) {
+      fallbackRow.style.display = 'flex';
+      if (status.fallback_active) {
+        fallbackPill.className = 'transport-fallback-pill fallback';
+        fallbackLabel.textContent = (I18N[currentLang] && I18N[currentLang].fallback_protected_tcp) || 'Protected Fallback (TCP/H2)';
+      } else if (status.settings && status.settings.use_h3) {
+        fallbackPill.className = 'transport-fallback-pill udp';
+        fallbackLabel.textContent = (I18N[currentLang] && I18N[currentLang].fallback_optimized_udp) || 'Optimized UDP (H3)';
+      } else {
+        fallbackPill.className = 'transport-fallback-pill';
+        fallbackLabel.textContent = 'Standard TCP (H2)';
+      }
+    } else {
+      fallbackRow.style.display = 'none';
+    }
   }
 
   // IP Protocol setting reflection
@@ -2865,3 +2929,194 @@ window.closeModal = closeModal;
 window.doLogin = doLogin;
 window.doVerify = doVerify;
 window.doLogout = doLogout;
+
+
+// ==========================================================================
+// FLAGSHIP FEATURES 1-5 CLIENT IMPLEMENTATION
+// ==========================================================================
+
+let activeConsolePlatform = 'ps5';
+let cachedLanIP = '192.168.1.1';
+
+// --- Feature 1: LAN Proxy Sharing & Console Hotspot ---
+async function fetchLANShareStatus() {
+  try {
+    const res = await fetch('/api/lan-share');
+    if (res.ok) {
+      const data = await res.json();
+      renderLANShareUI(data);
+    }
+  } catch (err) {
+    console.error('Failed to fetch LAN share status:', err);
+  }
+}
+
+async function toggleLANShare(enabled) {
+  try {
+    const res = await fetch('/api/lan-share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      alert(data.error || 'Failed to toggle LAN sharing');
+      const toggle = document.getElementById('setting-lan-share');
+      if (toggle) toggle.checked = !enabled;
+      return;
+    }
+    renderLANShareUI(data);
+  } catch (err) {
+    console.error('Error toggling LAN share:', err);
+  }
+}
+
+function renderLANShareUI(data) {
+  const toggle = document.getElementById('setting-lan-share');
+  const details = document.getElementById('lan-share-details-panel');
+  const ipVal = document.getElementById('lan-ip-val');
+  const httpUrl = document.getElementById('lan-http-url');
+  const socksUrl = document.getElementById('lan-socks-url');
+  const qrContainer = document.getElementById('lan-qrcode-container');
+  const guideIp = document.getElementById('guide-ip');
+
+  if (toggle) toggle.checked = !!data.enabled;
+  if (details) details.style.display = data.enabled ? 'block' : 'none';
+
+  if (data.lan_ip) {
+    cachedLanIP = data.lan_ip;
+  }
+
+  if (ipVal) ipVal.textContent = cachedLanIP;
+  if (guideIp) guideIp.textContent = cachedLanIP;
+
+  const httpStr = `http://${cachedLanIP}:${data.http_port || 10809}`;
+  const socksStr = `socks5://${cachedLanIP}:${data.socks_port || 10808}`;
+
+  if (httpUrl) httpUrl.textContent = httpStr;
+  if (socksUrl) socksUrl.textContent = socksStr;
+
+  if (qrContainer && typeof window.generateQRCodeSVG === 'function') {
+    const qrData = data.proxy_url || httpStr;
+    qrContainer.innerHTML = window.generateQRCodeSVG(qrData, 154, '#0B0D12', '#ffffff');
+  }
+}
+
+function copyLANEndpoint(type) {
+  const url = type === 'http' ? `http://${cachedLanIP}:10809` : `socks5://${cachedLanIP}:10808`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      alert(currentLang === 'fa' ? 'آدرس کپی شد: ' + url : 'Copied to clipboard: ' + url);
+    });
+  } else {
+    prompt('Copy endpoint:', url);
+  }
+}
+
+function switchConsoleTab(platform) {
+  activeConsolePlatform = platform;
+  document.querySelectorAll('.console-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase().includes(platform));
+  });
+
+  const guideBody = document.getElementById('console-guide-body');
+  if (!guideBody) return;
+
+  if (platform === 'ps5') {
+    guideBody.textContent = `Settings → Network → Settings → Set Up Internet Connection → Advanced Settings → Proxy Server: Use → Address: ${cachedLanIP}, Port: 10809`;
+  } else if (platform === 'xbox') {
+    guideBody.textContent = `Settings → General → Network settings → Advanced settings → Configure PC Hotspot Gateway or Set Proxy: ${cachedLanIP}:10809`;
+  } else if (platform === 'switch') {
+    guideBody.textContent = `System Settings → Internet → Internet Settings → Select Wi-Fi → Change Settings → Proxy Settings: On → Server: ${cachedLanIP}, Port: 10809`;
+  }
+}
+
+// --- Feature 4: Global Panic Key & Stealth Mode ---
+async function triggerPanicTest() {
+  const confirmMsg = currentLang === 'fa' 
+    ? 'آیا از فعال‌سازی حالت اضطراری (Panic) اطمینان دارید؟ تمام اتصالات قطع شده و پنجره پنهان می‌شود.'
+    : 'Trigger Emergency Panic Lockdown? VPN connections will sever and the window will hide immediately.';
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    await fetch('/api/panic/toggle', { method: 'POST' });
+  } catch (err) {
+    console.error('Error triggering panic:', err);
+  }
+}
+
+// --- Feature 5: In-App Sanctions & Service Health Matrix ---
+async function fetchServiceMatrix() {
+  try {
+    const res = await fetch('/api/service-matrix');
+    if (res.ok) {
+      const data = await res.json();
+      renderServiceMatrix(data);
+    }
+  } catch (err) {
+    console.error('Failed to fetch service matrix:', err);
+  }
+}
+
+async function refreshServiceMatrix() {
+  const btn = document.getElementById('btn-matrix-check');
+  if (btn) btn.classList.add('checking');
+
+  try {
+    const res = await fetch('/api/service-matrix/check', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      renderServiceMatrix(data);
+    }
+  } catch (err) {
+    console.error('Failed to refresh service matrix:', err);
+  } finally {
+    if (btn) btn.classList.remove('checking');
+  }
+}
+
+function renderServiceMatrix(data) {
+  const grid = document.getElementById('service-matrix-grid');
+  const timeEl = document.getElementById('matrix-last-updated');
+
+  if (timeEl && data.last_updated) {
+    timeEl.textContent = (currentLang === 'fa' ? 'آخرین بررسی: ' : 'Last check: ') + data.last_updated;
+  }
+
+  if (!grid || !data.services) return;
+
+  grid.innerHTML = data.services.map(svc => {
+    let pillClass = 'unrestricted';
+    let pillLabel = currentLang === 'fa' ? 'بدون محدودیت' : 'Unrestricted';
+    if (svc.status === 'geoblocked') {
+      pillClass = 'geoblocked';
+      pillLabel = currentLang === 'fa' ? 'تحریم منطقه‌ای' : 'Geoblocked';
+    } else if (svc.status === 'blocked') {
+      pillClass = 'blocked';
+      pillLabel = currentLang === 'fa' ? 'مسدود / فیلتر' : 'Blocked';
+    }
+
+    const latencyText = svc.latency_ms > 0 ? `${svc.latency_ms} ms` : '-- ms';
+
+    return `
+      <div class="matrix-item-card">
+        <div class="matrix-item-top">
+          <span class="matrix-item-name">${escapeHtml(svc.name)}</span>
+          <span class="matrix-item-category">${escapeHtml(svc.category)}</span>
+        </div>
+        <div class="matrix-item-bottom">
+          <span class="matrix-status-pill ${pillClass}">● ${pillLabel}</span>
+          <span class="matrix-latency-val font-mono">${latencyText}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+window.toggleLANShare = toggleLANShare;
+window.copyLANEndpoint = copyLANEndpoint;
+window.switchConsoleTab = switchConsoleTab;
+window.triggerPanicTest = triggerPanicTest;
+window.refreshServiceMatrix = refreshServiceMatrix;
+window.fetchServiceMatrix = fetchServiceMatrix;
+window.fetchLANShareStatus = fetchLANShareStatus;

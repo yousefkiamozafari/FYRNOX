@@ -56,6 +56,13 @@ func (s *ApiServer) Start() error {
 	mux.HandleFunc("/api/window/minimize", s.handleWindowMinimize)
 	mux.HandleFunc("/api/window/maximize", s.handleWindowMaximize)
 	mux.HandleFunc("/api/window/close", s.handleWindowClose)
+	mux.HandleFunc("/api/lan-share", s.handleLANShare)
+	mux.HandleFunc("/api/service-matrix", s.handleServiceMatrix)
+	mux.HandleFunc("/api/service-matrix/check", s.handleServiceMatrixCheck)
+	mux.HandleFunc("/api/panic/toggle", s.handlePanicToggle)
+	mux.HandleFunc("/api/panic/restore", s.handlePanicRestore)
+	mux.HandleFunc("/api/panic/status", s.handlePanicStatus)
+	mux.HandleFunc("/api/game-qos", s.handleGameQoS)
 
 	// Static UI
 	subFS, err := fs.Sub(embeddedWebFS, "web")
@@ -394,3 +401,91 @@ func (s *ApiServer) handleGamingMode(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(w, globalGamer.GetStats())
 }
 
+
+
+func (s *ApiServer) handleLANShare(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.jsonResponse(w, map[string]any{"ok": false, "error": "Invalid JSON payload"})
+			return
+		}
+		if req.Enabled {
+			status := s.engine.GetStatus()
+			if status.State != StateConnected {
+				s.jsonResponse(w, map[string]any{"ok": false, "error": "VPN must be connected before enabling LAN sharing"})
+				return
+			}
+			opener := s.engine.GetTunnelOpener()
+			if opener == nil {
+				s.jsonResponse(w, map[string]any{"ok": false, "error": "VPN tunnel is not ready"})
+				return
+			}
+			if err := globalLANShare.SetEnabled(true, opener, s.engine.meter); err != nil {
+				s.jsonResponse(w, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+		} else {
+			_ = globalLANShare.SetEnabled(false, nil, nil)
+		}
+	}
+	s.jsonResponse(w, globalLANShare.GetStatus())
+}
+
+func (s *ApiServer) handleServiceMatrix(w http.ResponseWriter, r *http.Request) {
+	matrix := globalServiceMatrix.GetMatrix(s.engine)
+	s.jsonResponse(w, matrix)
+}
+
+func (s *ApiServer) handleServiceMatrixCheck(w http.ResponseWriter, r *http.Request) {
+	matrix := globalServiceMatrix.Refresh(s.engine)
+	s.jsonResponse(w, matrix)
+}
+
+func (s *ApiServer) handlePanicToggle(w http.ResponseWriter, r *http.Request) {
+	globalPanic.TogglePanic()
+	s.jsonResponse(w, map[string]interface{}{
+		"panic":  globalPanic.IsPanicActive(),
+		"hotkey": "Ctrl+Alt+Shift+X",
+	})
+}
+
+func (s *ApiServer) handlePanicRestore(w http.ResponseWriter, r *http.Request) {
+	globalPanic.RestorePanic()
+	s.jsonResponse(w, map[string]interface{}{
+		"panic":  false,
+		"hotkey": "Ctrl+Alt+Shift+X",
+	})
+}
+
+func (s *ApiServer) handlePanicStatus(w http.ResponseWriter, r *http.Request) {
+	s.jsonResponse(w, map[string]interface{}{
+		"panic":  globalPanic.IsPanicActive(),
+		"hotkey": "Ctrl+Alt+Shift+X",
+	})
+}
+
+func (s *ApiServer) handleGameQoS(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			Add    string `json:"add"`
+			Remove string `json:"remove"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			if req.Add != "" {
+				globalPingShield.AddCustomGameSignature(req.Add)
+			}
+			if req.Remove != "" {
+				globalPingShield.RemoveCustomGameSignature(req.Remove)
+			}
+		}
+	}
+	stats := globalGamer.GetStats()
+	s.jsonResponse(w, map[string]interface{}{
+		"game_detected": stats.GameDetected,
+		"detected_game": stats.DetectedGame,
+		"signatures":    globalPingShield.GetGameSignatures(),
+	})
+}

@@ -273,3 +273,15 @@ func (t *TrayManager) Remove() {
 		t.installed = false
 	}
 }
+
+
+// Restore re-attaches the notification tray icon if previously removed
+func (t *TrayManager) Restore() {
+	if !t.installed && t.hwnd != 0 {
+		r, _, _ := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.nid)))
+		if r != 0 {
+			t.installed = true
+			LogInfo("System tray icon restored.")
+		}
+	}
+}

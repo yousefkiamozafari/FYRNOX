@@ -4912,3 +4912,489 @@ body.is-dashboard .app-topbar,
   background: #181d29;
   color: #f8fafc;
 }
+
+
+/* ==========================================================================
+   FLAGSHIP FEATURES 1-5: LIQUID GLASS UI STYLING
+   ========================================================================== */
+
+/* --- Feature 3: Intelligent Protocol Fallback Pill --- */
+.transport-fallback-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.transport-fallback-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+  transition: all 0.25s ease;
+}
+
+.transport-fallback-pill:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.fallback-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #64748b;
+  display: inline-block;
+  transition: all 0.25s ease;
+}
+
+.transport-fallback-pill.udp .fallback-dot {
+  background: #00e676;
+  box-shadow: 0 0 8px rgba(0, 230, 118, 0.6);
+}
+
+.transport-fallback-pill.udp {
+  color: #a7f3d0;
+  border-color: rgba(0, 230, 118, 0.25);
+}
+
+.transport-fallback-pill.fallback .fallback-dot {
+  background: #ffb000;
+  box-shadow: 0 0 8px rgba(255, 176, 0, 0.6);
+  animation: pulse-fallback 1.8s infinite ease-in-out;
+}
+
+.transport-fallback-pill.fallback {
+  color: #fde68a;
+  border-color: rgba(255, 176, 0, 0.3);
+  background: rgba(255, 176, 0, 0.08);
+}
+
+@keyframes pulse-fallback {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* --- Feature 2: Smart Ping Shield QoS Badge --- */
+.game-qos-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 14px;
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.15), rgba(255, 106, 0, 0.15));
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 12px;
+  color: #e9d5ff;
+  font-size: 0.74rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.15);
+  animation: qos-glow 3s infinite alternate ease-in-out;
+}
+
+@keyframes qos-glow {
+  0% { border-color: rgba(168, 85, 247, 0.3); }
+  100% { border-color: rgba(255, 106, 0, 0.5); }
+}
+
+.game-qos-icon {
+  font-size: 0.9rem;
+}
+
+/* --- Feature 5: In-App Sanctions & Service Access Matrix Card --- */
+.service-matrix-card {
+  background: rgba(18, 22, 32, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.service-matrix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.service-matrix-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0 0 3px 0;
+}
+
+.service-matrix-sub {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.service-matrix-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-matrix-time {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-family: var(--font-mono, monospace);
+}
+
+.matrix-check-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(255, 106, 0, 0.2), rgba(255, 176, 0, 0.15));
+  border: 1px solid rgba(255, 106, 0, 0.4);
+  border-radius: 8px;
+  color: #ffb000;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.matrix-check-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 106, 0, 0.3), rgba(255, 176, 0, 0.25));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.2);
+}
+
+.matrix-check-btn.checking .matrix-btn-icon {
+  animation: spin 0.8s linear infinite;
+}
+
+.service-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.matrix-item-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.matrix-item-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.matrix-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.matrix-item-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.matrix-item-category {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.matrix-item-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.matrix-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.matrix-status-pill.unrestricted {
+  background: rgba(0, 230, 118, 0.14);
+  color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.25);
+}
+
+.matrix-status-pill.geoblocked {
+  background: rgba(255, 176, 0, 0.14);
+  color: #ffb000;
+  border: 1px solid rgba(255, 176, 0, 0.3);
+}
+
+.matrix-status-pill.blocked {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.matrix-latency-val {
+  font-size: 0.72rem;
+  font-family: var(--font-mono, monospace);
+  color: #64748b;
+}
+
+/* --- Feature 1: LAN Proxy Sharing / Console Hotspot Card --- */
+.lan-sharing-group-card {
+  border-left: 3px solid #ff6a00 !important;
+}
+
+.lan-share-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lan-share-columns {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .lan-share-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lan-qr-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(10, 13, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+}
+
+.lan-qrcode-render {
+  width: 170px;
+  height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.lan-qrcode-render svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lan-qr-caption {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  margin-top: 8px;
+  line-height: 1.3;
+}
+
+.lan-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lan-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lan-status-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.lan-status-pill.active {
+  background: rgba(0, 230, 118, 0.15);
+  color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.3);
+}
+
+.lan-ip-text {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.lan-endpoints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lan-endpoint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 12px;
+  gap: 10px;
+}
+
+.lan-ep-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.lan-ep-label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.lan-ep-url {
+  font-size: 0.78rem;
+  color: #ffb000;
+  word-break: break-all;
+}
+
+.lan-copy-btn {
+  padding: 4px 10px;
+  background: rgba(255, 106, 0, 0.15);
+  border: 1px solid rgba(255, 106, 0, 0.3);
+  border-radius: 6px;
+  color: #ff9400;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.lan-copy-btn:hover {
+  background: rgba(255, 106, 0, 0.25);
+  color: #ffb000;
+}
+
+.lan-console-accordion {
+  background: rgba(10, 13, 20, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.console-tab-header {
+  display: flex;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.console-tab-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.console-tab-btn.active {
+  color: #f8fafc;
+  background: rgba(255, 106, 0, 0.15);
+  box-shadow: inset 0 -2px 0 #ff6a00;
+}
+
+.console-guide-body {
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+/* --- Feature 4: Global Panic Key Card --- */
+.panic-group-card {
+  border-left: 3px solid #ef4444 !important;
+}
+
+.panic-hotkey-badge {
+  padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.panic-action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.panic-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.panic-dot {
+  color: #00e676;
+  font-size: 0.8rem;
+}
+
+.panic-test-btn {
+  padding: 6px 14px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panic-test-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}

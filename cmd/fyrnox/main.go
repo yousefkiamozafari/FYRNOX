@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"time"
 	"flag"
 	"fmt"
 	"os"
@@ -95,7 +97,20 @@ func main() {
 	elevatedFlag := flag.Bool("elevated", false, "Internal flag indicating process was elevated via UAC")
 	serverFlag := flag.String("server", "", "Server hostname to auto-select")
 	modeFlag := flag.String("mode", "", "Mode to activate (tun or proxy)")
+	restoreFlag := flag.Bool("restore", false, "Restore window from stealth panic mode")
 	flag.Parse()
+
+	if *restoreFlag {
+		client := &http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Post(fmt.Sprintf("http://127.0.0.1:%d/api/panic/restore", *portFlag), "application/json", nil)
+		if err == nil {
+			resp.Body.Close()
+			fmt.Println("FYRNOX stealth panic restored.")
+			return
+		}
+		fmt.Printf("Could not reach running FYRNOX instance: %v\n", err)
+		return
+	}
 
 	// Clean up any old orphaned instances from previous sessions
 	terminateOldInstances(exeName)
@@ -127,6 +142,9 @@ func main() {
 		LogError("Failed to start API server: %v", err)
 		os.Exit(1)
 	}
+
+	// Initialize global emergency panic hotkey (Ctrl + Alt + Shift + X)
+	InitPanicHotKey(engine)
 
 	// Trap termination signals to cleanly restore system proxy and routes
 	sigCh := make(chan os.Signal, 1)

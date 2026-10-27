@@ -802,6 +802,7 @@ type proxyController struct {
 	closed         bool
 	done           chan struct{}
 	closeOnce      sync.Once
+	fallbackMgr    *FallbackManager
 }
 
 func newProxyController(guardian string, proxyURL *url.URL, timeout time.Duration, auth *runtimeAuth, pass *vpnclient.ProxyPassInfo, useH3 bool, apiProxy string, tlsFrag bool, ipProtocol string) (*proxyController, error) {
@@ -832,6 +833,28 @@ func newProxyController(guardian string, proxyURL *url.URL, timeout time.Duratio
 		expiresAt:      pass.ExpiresAt(),
 		done:           make(chan struct{}),
 	}
+	c.fallbackMgr = NewFallbackManager(proxyURL, apiProxy, ipProtocol, useH3, func(switchToH3 bool) error {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if switchToH3 {
+			c.sessionFactory = func(token string) (proxySession, error) {
+				return newH3ProxySession(proxyURL, token, timeout, apiProxy, ipProtocol)
+			}
+		} else {
+			c.sessionFactory = func(token string) (proxySession, error) {
+				return newH2ProxySession(proxyURL, token, timeout, apiProxy, true, ipProtocol)
+			}
+		}
+		newSess, err := c.sessionFactory(c.rawToken)
+		if err != nil {
+			return err
+		}
+		if c.session != nil {
+			_ = c.session.Close()
+		}
+		c.session = newSess
+		return nil
+	})
 	go c.runRenewalLoop()
 	return c, nil
 }
@@ -854,7 +877,18 @@ func (c *proxyController) OpenTunnel(authority string) (net.Conn, error) {
 		c.mu.Unlock()
 	}
 
-	return sess.OpenTunnel(authority)
+	conn, err := sess.OpenTunnel(authority)
+	if c.fallbackMgr != nil {
+		c.fallbackMgr.RecordUDPResult(err == nil, 0)
+	}
+	return conn, err
+}
+
+func (c *proxyController) GetFallbackStatus() (active bool, state string, lossRate float64) {
+	if c.fallbackMgr == nil {
+		return false, "tcp", 0
+	}
+	return c.fallbackMgr.GetStatus()
 }
 
 func (c *proxyController) rebuild() error {
@@ -923,6 +957,9 @@ func (c *proxyController) runRenewalLoop() {
 func (c *proxyController) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.done)
+		if c.fallbackMgr != nil {
+			c.fallbackMgr.Stop()
+		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		c.closed = true

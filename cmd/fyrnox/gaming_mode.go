@@ -9,11 +9,13 @@ import (
 )
 
 type GamingStats struct {
-	Active     bool    `json:"active"`
-	PingMs     int     `json:"ping_ms"`
-	JitterMs   int     `json:"jitter_ms"`
-	PacketLoss float64 `json:"packet_loss"`
-	Mtu        int     `json:"mtu"`
+	Active       bool    `json:"active"`
+	PingMs       int     `json:"ping_ms"`
+	JitterMs     int     `json:"jitter_ms"`
+	PacketLoss   float64 `json:"packet_loss"`
+	Mtu          int     `json:"mtu"`
+	GameDetected bool    `json:"game_detected"`
+	DetectedGame string  `json:"detected_game"`
 }
 
 type GamingAccelerator struct {
@@ -81,6 +83,7 @@ func (g *GamingAccelerator) telemetryLoop(stopCh chan struct{}) {
 		case <-stopCh:
 			return
 		case <-ticker.C:
+			globalPingShield.ScanActiveGameSockets()
 			target := probes[probeIdx%len(probes)]
 			probeIdx++
 
@@ -173,11 +176,14 @@ func (g *GamingAccelerator) GetStats() GamingStats {
 		mtu = 1420
 	}
 
+	detected, gameExe := globalPingShield.IsGameDetected()
 	return GamingStats{
-		Active:     g.active,
-		PingMs:     g.lastPing,
-		JitterMs:   g.jitter,
-		PacketLoss: math.Round(g.packetLoss*10) / 10,
-		Mtu:        mtu,
+		Active:       g.active,
+		PingMs:       g.lastPing,
+		JitterMs:     g.jitter,
+		PacketLoss:   math.Round(g.packetLoss*10) / 10,
+		Mtu:          mtu,
+		GameDetected: detected,
+		DetectedGame: gameExe,
 	}
 }

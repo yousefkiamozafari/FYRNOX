@@ -216,6 +216,20 @@
                     </button>
                   </div>
 
+                  <!-- Protocol Transport Fallback Pill -->
+                  <div class="transport-fallback-row" id="transport-fallback-row">
+                    <div class="transport-fallback-pill" id="dash-fallback-pill" title="Active Transport Protocol">
+                      <span class="fallback-dot" id="dash-fallback-dot"></span>
+                      <span class="fallback-label" id="dash-fallback-label">Optimized UDP</span>
+                    </div>
+                  </div>
+
+                  <!-- Smart Game QoS Ping Shield Badge -->
+                  <div class="game-qos-badge" id="dash-game-qos-badge" style="display: none;">
+                    <span class="game-qos-icon">🎮</span>
+                    <span class="game-qos-text" id="dash-game-qos-text">Game Detected (QoS Active)</span>
+                  </div>
+
                 </div>
 
                 <!-- CARD 2: Selected Server Card -->
@@ -630,6 +644,26 @@
 
           </div>
 
+          <!-- In-App Sanctions & Service Access Matrix Card -->
+          <div class="service-matrix-card" id="service-matrix-card">
+            <div class="service-matrix-header">
+              <div class="service-matrix-title-wrap">
+                <h3 class="service-matrix-title" data-i18n="diag_matrix_title">In-App Sanctions & Service Access Matrix</h3>
+                <p class="service-matrix-sub" data-i18n="diag_matrix_sub">Real-time probe of geo-restricted and sanctioned platforms routed through the active tunnel</p>
+              </div>
+              <div class="service-matrix-actions">
+                <span class="service-matrix-time" id="matrix-last-updated">Last check: --:--:--</span>
+                <button type="button" class="matrix-check-btn" id="btn-matrix-check" onclick="refreshServiceMatrix()">
+                  <span class="matrix-btn-icon">⚡</span>
+                  <span data-i18n="diag_matrix_check_btn">Run Matrix Check</span>
+                </button>
+              </div>
+            </div>
+            <div class="service-matrix-grid" id="service-matrix-grid">
+              <!-- Dynamically populated items -->
+            </div>
+          </div>
+
           <!-- Live System Console Logs Box -->
           <div class="logs-console-section">
             <div class="logs-console-header">
@@ -654,6 +688,91 @@
           
           <div class="settings-sections-wrap">
             
+            <!-- LAN Proxy Sharing & Console Hotspot Card -->
+            <div class="settings-group-card lan-sharing-group-card">
+              <div class="settings-card-header-flex">
+                <div>
+                  <h3 class="settings-group-heading" data-i18n="set_heading_lan_share">LAN Proxy Sharing / Console Hotspot (Wi-Fi Sharing)</h3>
+                  <p class="settings-group-desc" data-i18n="set_lan_share_sub">Binds mixed HTTP/SOCKS5 listener to 0.0.0.0 allowing PlayStation, Xbox, Switch, and phones on Wi-Fi to use VPN.</p>
+                </div>
+                <div class="settings-item-control">
+                  <label class="switch-toggle">
+                    <input type="checkbox" id="setting-lan-share" onchange="toggleLANShare(this.checked)">
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="lan-share-details-panel" class="lan-share-details" style="display: none;">
+                <div class="lan-share-columns">
+                  <!-- QR Code Card -->
+                  <div class="lan-qr-box">
+                    <div id="lan-qrcode-container" class="lan-qrcode-render"></div>
+                    <span class="lan-qr-caption" data-i18n="lan_scan_qr">Scan QR Code on mobile or enter proxy on console</span>
+                  </div>
+
+                  <!-- Details & Quick Copy -->
+                  <div class="lan-info-col">
+                    <div class="lan-badge-row">
+                      <span class="lan-status-pill active" id="lan-active-badge">LAN Active</span>
+                      <span class="lan-ip-text">IP: <strong id="lan-ip-val" class="font-mono">192.168.1.x</strong></span>
+                    </div>
+
+                    <div class="lan-endpoints-list">
+                      <div class="lan-endpoint-row">
+                        <div class="lan-ep-desc">
+                          <span class="lan-ep-label">HTTP Proxy (Port 10809)</span>
+                          <span class="lan-ep-url font-mono" id="lan-http-url">http://192.168.1.x:10809</span>
+                        </div>
+                        <button type="button" class="lan-copy-btn" onclick="copyLANEndpoint('http')">Copy HTTP</button>
+                      </div>
+
+                      <div class="lan-endpoint-row">
+                        <div class="lan-ep-desc">
+                          <span class="lan-ep-label">SOCKS5 Proxy (Port 10808)</span>
+                          <span class="lan-ep-url font-mono" id="lan-socks-url">socks5://192.168.1.x:10808</span>
+                        </div>
+                        <button type="button" class="lan-copy-btn" onclick="copyLANEndpoint('socks')">Copy SOCKS5</button>
+                      </div>
+                    </div>
+
+                    <!-- Console Setup Accordion -->
+                    <div class="lan-console-accordion">
+                      <div class="console-tab-header">
+                        <button type="button" class="console-tab-btn active" onclick="switchConsoleTab('ps5')">PS5</button>
+                        <button type="button" class="console-tab-btn" onclick="switchConsoleTab('xbox')">Xbox</button>
+                        <button type="button" class="console-tab-btn" onclick="switchConsoleTab('switch')">Switch</button>
+                      </div>
+                      <div class="console-guide-body font-mono" id="console-guide-body">
+                        Settings → Network → Set Up Internet Connection → Advanced Settings → Proxy: Use → Address: <span id="guide-ip">192.168.x.x</span>, Port: 10809
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Global Emergency Panic Key & Stealth Mode Card -->
+            <div class="settings-group-card panic-group-card">
+              <div class="settings-card-header-flex">
+                <div>
+                  <h3 class="settings-group-heading" data-i18n="set_heading_panic">Global Emergency Panic Key & Stealth Mode</h3>
+                  <p class="settings-group-desc" data-i18n="set_panic_sub">Press Ctrl + Alt + Shift + X anywhere to immediately sever VPN connections, flush DNS cache, hide window, and remove tray icon.</p>
+                </div>
+                <div class="settings-item-control">
+                  <span class="panic-hotkey-badge font-mono">Ctrl + Alt + Shift + X</span>
+                </div>
+              </div>
+
+              <div class="panic-action-row">
+                <div class="panic-status-indicator">
+                  <span class="panic-dot active">●</span>
+                  <span class="panic-status-text">Win32 Hotkey Hook Active</span>
+                </div>
+                <button type="button" class="panic-test-btn" onclick="triggerPanicTest()" data-i18n="btn_test_panic">Test Panic Lockdown 🚨</button>
+              </div>
+            </div>
+
             <!-- Connection & Routing Protocols -->
             <div class="settings-group-card">
               <h3 class="settings-group-heading" data-i18n="set_heading_routing">Routing Modes & Tunnel Protocol</h3>
@@ -952,6 +1071,7 @@
   <script src="world_geo.js"></script>
   <script src="globe.js"></script>
   <script src="traffic_graph.js"></script>
+  <script src="qrcode.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

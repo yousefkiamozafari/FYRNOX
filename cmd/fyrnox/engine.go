@@ -111,6 +111,8 @@ type VpnStatus struct {
 	LocalIPv6Available bool            `json:"local_ipv6_available"`
 	TransportProtocol  string          `json:"transport_protocol,omitempty"`
 	ExitAddressFamily  string          `json:"exit_address_family,omitempty"`
+	FallbackActive     bool            `json:"fallback_active"`
+	FallbackState      string          `json:"fallback_state,omitempty"`
 }
 
 type VpnEngine struct {
@@ -406,7 +408,27 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 			}
 			return ""
 		}(),
+		FallbackActive: func() bool {
+			if e.controller != nil {
+				active, _, _ := e.controller.GetFallbackStatus()
+				return active
+			}
+			return false
+		}(),
+		FallbackState: func() string {
+			if e.controller != nil {
+				_, state, _ := e.controller.GetFallbackStatus()
+				return state
+			}
+			return ""
+		}(),
 	}
+}
+
+func (e *VpnEngine) GetTunnelOpener() tunnelOpener {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.controller
 }
 
 func (e *VpnEngine) getRecommendedLocked() *ServerLocation {
@@ -1408,6 +1430,9 @@ func (e *VpnEngine) Disconnect() error {
 	e.notifyTray()
 
 	LogInfo("Disconnecting VPN...")
+
+	// Ensure LAN proxy listeners are stopped on VPN disconnect
+	_ = globalLANShare.SetEnabled(false, nil, nil)
 
 	// 1. Immediately close local proxy listeners and active upstream sessions to unblock all reads/writes
 	if socksSrv != nil {
