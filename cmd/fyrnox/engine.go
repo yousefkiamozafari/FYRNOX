@@ -366,7 +366,12 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 		Server:         e.selected,
 		Recommended:    e.getRecommendedLocked(),
 		CurrentIP:      ipInfo.IP,
-		CurrentCountry: ipInfo.CountryCode,
+		CurrentCountry: func() string {
+			if e.currentCountry != "" {
+				return e.currentCountry
+			}
+			return ipInfo.CountryCode
+		}(),
 		IsVPNIP:        ipInfo.IsVPN,
 		ExitIP:         func() string { if e.exitResult != nil { return e.exitResult.IP }; return "" }(),
 		ExitCountry:    func() string { if e.exitResult != nil { return e.exitResult.CountryCode }; return "" }(),
