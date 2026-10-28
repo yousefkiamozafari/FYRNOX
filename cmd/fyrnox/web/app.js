@@ -3210,3 +3210,42 @@ window.triggerPanicTest = triggerPanicTest;
 window.refreshServiceMatrix = refreshServiceMatrix;
 window.fetchServiceMatrix = fetchServiceMatrix;
 window.fetchLANShareStatus = fetchLANShareStatus;
+
+
+// ==========================================================================
+// Interactive Telemetry Latency (Real-Time Ping on Click)
+// ==========================================================================
+let isManualPinging = false;
+async function triggerManualPing() {
+  if (isManualPinging) return;
+  const pingEl = document.getElementById('bottom-ping-val');
+  if (!pingEl) return;
+  
+  const prevVal = pingEl.textContent;
+  isManualPinging = true;
+  pingEl.textContent = '...';
+
+  try {
+    const res = await fetch('/api/ping');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.ok && data.ping_ms > 0) {
+        pingEl.textContent = `${data.ping_ms} ms`;
+        if (currentStatus && currentStatus.server) {
+          currentStatus.server.ping_ms = data.ping_ms;
+        }
+        return;
+      }
+    }
+    pingEl.textContent = prevVal !== '...' ? prevVal : '—';
+  } catch (err) {
+    console.warn('[Fyrnox] Real-time ping failed:', err);
+    pingEl.textContent = prevVal !== '...' ? prevVal : '—';
+  } finally {
+    setTimeout(() => {
+      isManualPinging = false;
+    }, 350);
+  }
+}
+
+window.triggerManualPing = triggerManualPing;

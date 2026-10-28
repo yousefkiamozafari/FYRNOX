@@ -5832,3 +5832,40 @@ body.is-dashboard .app-topbar,
   animation: none !important;
   transition: none !important;
 }
+
+
+/* ==========================================================================
+   ALIGN NAVIGATION DOCK TO FAR-LEFT & INTERACTIVE LATENCY CHIP
+   ========================================================================== */
+.bottom-bar-unified {
+  justify-content: space-between !important;
+  padding: 0 24px !important;
+}
+
+.bottom-profile-wrap {
+  display: none !important;
+}
+
+.nav-dock-pill {
+  margin-left: 0 !important;
+}
+
+.telemetry-chip.ping-chip {
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), opacity 140ms ease !important;
+}
+
+.telemetry-chip.ping-chip:hover {
+  opacity: 0.88 !important;
+  transform: translateY(-1px) !important;
+}
+
+.telemetry-chip.ping-chip:active {
+  transform: scale(0.94) !important;
+}
+
+.telemetry-chip.ping-chip .chip-label {
+  text-decoration: underline dotted rgba(229, 227, 223, 0.35) !important;
+  text-underline-offset: 2px !important;
+}

@@ -132,14 +132,14 @@
     canvas.width = 64;
     canvas.height = 64;
     const ctx = canvas.getContext('2d');
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 28);
     grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-    grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.92)');
-    grad.addColorStop(0.60, 'rgba(255, 255, 255, 0.35)');
+    grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.75)');
+    grad.addColorStop(0.70, 'rgba(255, 255, 255, 0.20)');
     grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(32, 32, 30, 0, Math.PI * 2);
+    ctx.arc(32, 32, 28, 0, Math.PI * 2);
     ctx.fill();
     return new THREE.CanvasTexture(canvas);
   }
@@ -305,16 +305,16 @@
             vec3 viewDir = normalize(-vPosition);
             float dotNV = dot(vNormal, viewDir);
             float rim = 1.0 - max(0.0, dotNV);
-            // Sharp falloff: 0.0 at center facing camera, glowing intensely only at grazing edges
-            float intensity = pow(rim, 3.4);
-            
+            // Sharp falloff: 0.0 at center, glowing only at outermost rim
+            float intensity = pow(rim, 3.8);
+
             // Dual-tone blend: Warm Amber (#D9954B) to Deep Cyber Blue (#83AFCB)
             float blend = clamp(vNormal.x * 0.5 + 0.5, 0.0, 1.0);
             vec3 amber = vec3(0.851, 0.584, 0.294);     // #D9954B
             vec3 steelBlue = vec3(0.514, 0.686, 0.796); // #83AFCB
             vec3 rimColor = mix(steelBlue, amber, blend);
-            
-            gl_FragColor = vec4(rimColor, intensity * 0.85);
+
+            gl_FragColor = vec4(rimColor, intensity * 0.90);
           }
         `,
         blending: THREE.AdditiveBlending,
@@ -327,165 +327,108 @@
       this.scene.add(atmosphereMesh);
     }
 
-    buildCountryBoundaries() {
-      if (!window.WORLD_GEOJSON || !window.WORLD_GEOJSON.features) {
-        console.warn('[FyrnoxGlobe] Natural Earth vector dataset (WORLD_GEOJSON) not loaded yet');
-        return;
-      }
+    loadLandmassParticles() {
+      // High-Accuracy Natural Earth GeoJSON Continent Dot-Matrix
+      // Guaranteed zero distortion, authentic continent coastlines and borders
+      const w = 480;
+      const h = 240;
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = w;
+      offCanvas.height = h;
+      const ctx = offCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
 
-      this.bordersGroup = new THREE.Group();
-      const r = this.radius * 1.002;
-
-      const defaultBorderMat = new THREE.LineBasicMaterial({
-        color: 0x00d2ff,
-        transparent: true,
-        opacity: 0.28,
-        linewidth: 1
-      });
-
-      const addPolygonRing = (ring, code) => {
-        if (!ring || ring.length < 2) return;
-        const pts = [];
+      const drawRing = (ring) => {
+        if (!ring || ring.length < 3) return;
+        ctx.beginPath();
         for (let i = 0; i < ring.length; i++) {
           const lon = ring[i][0];
           const lat = ring[i][1];
-          pts.push(latLonToVector3(lat, lon, r));
+          const x = ((lon + 180) / 360) * w;
+          const y = ((90 - lat) / 180) * h;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        const line = new THREE.Line(geo, defaultBorderMat.clone());
-        this.bordersGroup.add(line);
-
-        if (!this.countryMeshes[code]) {
-          this.countryMeshes[code] = [];
-        }
-        this.countryMeshes[code].push(line);
+        ctx.closePath();
+        ctx.fill();
       };
 
-      window.WORLD_GEOJSON.features.forEach(feature => {
-        const code = (feature.properties && (feature.properties.ISO_A2 || feature.properties.ADM0_A3 || '')) || '';
-        const geom = feature.geometry;
-        if (!geom) return;
-
-        if (geom.type === 'Polygon') {
-          geom.coordinates.forEach(ring => addPolygonRing(ring, code));
-        } else if (geom.type === 'MultiPolygon') {
-          geom.coordinates.forEach(polygon => {
-            polygon.forEach(ring => addPolygonRing(ring, code));
-          });
-        }
-      });
-
-      this.globeGroup.add(this.bordersGroup);
-    }
-
-    highlightCountryBorders(activeCodes) {
-      if (!this.countryMeshes) return;
-
-      const codeSet = new Set((activeCodes || []).map(c => c.toUpperCase()));
-
-      Object.keys(this.countryMeshes).forEach(code => {
-        const lines = this.countryMeshes[code];
-        const isActive = codeSet.has(code);
-
-        lines.forEach(line => {
-          if (isActive) {
-            line.material.color.setHex(0x00ff9d);
-            line.material.opacity = 0.95;
-          } else {
-            line.material.color.setHex(0x00d2ff);
-            line.material.opacity = 0.28;
+      if (window.WORLD_GEOJSON && Array.isArray(window.WORLD_GEOJSON.features)) {
+        window.WORLD_GEOJSON.features.forEach(feat => {
+          const geom = feat.geometry;
+          if (!geom) return;
+          if (geom.type === 'Polygon') {
+            geom.coordinates.forEach(ring => drawRing(ring));
+          } else if (geom.type === 'MultiPolygon') {
+            geom.coordinates.forEach(poly => poly.forEach(ring => drawRing(ring)));
           }
         });
-      });
-    }
+      }
 
-    loadLandmassParticles() {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = 'earth_landmask.jpg';
+      const imgData = ctx.getImageData(0, 0, w, h).data;
+      const positions = [];
+      const colors = [];
+      const dotTexture = createCircleTexture();
 
-      const buildParticlesFromImageData = (imgData, w, h) => {
-        const positions = [];
-        const colors = [];
-        const dotTexture = createCircleTexture();
+      // Premium Cybernetic Palette: Deep Blue & Warm Amber
+      const cAmberBase   = new THREE.Color(0xD9954B); // #D9954B Brand Amber
+      const cAmberWarm   = new THREE.Color(0xC47F35);
+      const cBlueBase    = new THREE.Color(0x83AFCB); // #83AFCB Brand Blue
+      const cBlueDeep    = new THREE.Color(0x4F7894);
+      const cBlueMuted   = new THREE.Color(0x3B627D);
 
-        // Holographic Palette: Dual-tone Cybernetic Blue & Warm Amber
-        const cAmberBright = new THREE.Color(0xF2BA7E);
-        const cAmberBase   = new THREE.Color(0xD9954B); // #D9954B Brand Amber
-        const cBlueBright  = new THREE.Color(0xA9D2EB);
-        const cBlueBase    = new THREE.Color(0x83AFCB); // #83AFCB Brand Blue
-        const cBlueDeep    = new THREE.Color(0x4A7593);
+      const r = this.radius;
 
-        const r = this.radius;
+      // Sample points uniformly across latitude and longitude
+      for (let y = 0; y < h; y += 1) {
+        const lat = 90 - (y / h) * 180;
+        if (lat < -72 || lat > 82) continue; // Skip polar extremities
 
-        for (let y = 0; y < h; y += 1) {
-          const lat = 90 - (y / h) * 180;
-          if (lat < -75 || lat > 82) continue;
+        const cosLat = Math.cos(lat * (Math.PI / 180));
+        const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.28)));
 
-          const cosLat = Math.cos(lat * (Math.PI / 180));
-          const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.28)));
+        for (let x = 0; x < w; x += stepX) {
+          const index = (y * w + x) * 4;
+          // Alpha > 120 means pixel is inside continent
+          if (imgData[index + 3] > 120) {
+            const lon = (x / w) * 360 - 180;
+            const pt = latLonToVector3(lat, lon, r);
+            positions.push(pt.x, pt.y, pt.z);
 
-          for (let x = 0; x < w; x += stepX) {
-            const index = (y * w + x) * 4;
-            const brightness = (imgData[index] + imgData[index + 1] + imgData[index + 2]) / 3;
-
-            if (brightness > 55) {
-              const lon = (x / w) * 360 - 180;
-              const pt = latLonToVector3(lat, lon, r);
-              positions.push(pt.x, pt.y, pt.z);
-
-              // 80% cyber blue variants, 20% warm amber highlights
-              const rand = Math.random();
-              let pColor;
-              if (rand < 0.12) {
-                pColor = cAmberBase;
-              } else if (rand < 0.20) {
-                pColor = cAmberBright;
-              } else if (rand < 0.55) {
-                pColor = cBlueBase;
-              } else if (rand < 0.80) {
-                pColor = cBlueBright;
-              } else {
-                pColor = cBlueDeep;
-              }
-              colors.push(pColor.r, pColor.g, pColor.b);
+            const rand = Math.random();
+            let pColor;
+            if (rand < 0.15) {
+              pColor = cAmberBase;
+            } else if (rand < 0.25) {
+              pColor = cAmberWarm;
+            } else if (rand < 0.65) {
+              pColor = cBlueBase;
+            } else if (rand < 0.85) {
+              pColor = cBlueDeep;
+            } else {
+              pColor = cBlueMuted;
             }
+            colors.push(pColor.r, pColor.g, pColor.b);
           }
         }
+      }
 
-        const particleGeo = new THREE.BufferGeometry();
-        particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        particleGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      const particleGeo = new THREE.BufferGeometry();
+      particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      particleGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
-        const particleMat = new THREE.PointsMaterial({
-          size: 2.2,
-          map: dotTexture,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.95,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        });
+      const particleMat = new THREE.PointsMaterial({
+        size: 1.85,
+        map: dotTexture,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.90,
+        blending: THREE.NormalBlending, // NormalBlending prevents washed-out white blowouts!
+        depthWrite: false
+      });
 
-        const particles = new THREE.Points(particleGeo, particleMat);
-        this.globeGroup.add(particles);
-      };
-
-      img.onload = () => {
-        const offCanvas = document.createElement('canvas');
-        const w = 440;
-        const h = 220;
-        offCanvas.width = w;
-        offCanvas.height = h;
-        const ctx = offCanvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        const imgData = ctx.getImageData(0, 0, w, h).data;
-        buildParticlesFromImageData(imgData, w, h);
-      };
-
-      img.onerror = () => {
-        console.warn('[FyrnoxGlobe] Could not load earth_landmask.jpg, building procedural fallback');
-      };
+      const particles = new THREE.Points(particleGeo, particleMat);
+      this.globeGroup.add(particles);
     }
 
     updateConnectionRoute() {

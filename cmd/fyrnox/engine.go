@@ -614,10 +614,18 @@ func measureServerPing(ctx context.Context, s ServerLocation) (pingMs, dnsMs, tc
 		target = net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	}
 
-	// 2. Real TCP Connect (SYN/ACK) Round-Trip Time with strict 2000ms ceiling
+	// 2. High-Accuracy Real TCP Connect (SYN/ACK) Round-Trip Time
 	t1 := time.Now()
-	dialer := &net.Dialer{Timeout: 2000 * time.Millisecond}
+	dialer := &net.Dialer{Timeout: 1800 * time.Millisecond}
 	rawConn, err := dialer.DialContext(ctx, "tcp", target)
+	if err != nil {
+		// Fallback to standard HTTPS/H2 port 443
+		fallbackTarget := fmt.Sprintf("%s:443", s.Hostname)
+		if ip != nil {
+			fallbackTarget = net.JoinHostPort(ip.String(), "443")
+		}
+		rawConn, err = dialer.DialContext(ctx, "tcp", fallbackTarget)
+	}
 	if err != nil {
 		return -1, dnsMs, -1, -1
 	}
@@ -626,22 +634,24 @@ func measureServerPing(ctx context.Context, s ServerLocation) (pingMs, dnsMs, tc
 		tcpMs = 1
 	}
 
-	// 3. Transport Handshake (TLS Handshake)
+	// 3. Optional TLS handshake check (never invalidates positive TCP ping)
 	t2 := time.Now()
 	tlsCfg := createProxyTLSConfig(s.Hostname, []string{"h2"})
 	tlsConn := tls.Client(rawConn, tlsCfg)
 	hErr := tlsConn.HandshakeContext(ctx)
-	if hErr != nil {
+	if hErr == nil {
+		tlsMs = int(time.Since(t2).Milliseconds())
+		if tlsMs <= 0 {
+			tlsMs = 1
+		}
+		_ = tlsConn.Close()
+	} else {
+		tlsMs = -1
 		_ = rawConn.Close()
-		return -1, dnsMs, tcpMs, -1
 	}
-	tlsMs = int(time.Since(t2).Milliseconds())
-	if tlsMs <= 0 {
-		tlsMs = 1
-	}
-	_ = tlsConn.Close()
 
-	pingMs = tcpMs + tlsMs
+	// Pure network latency is the TCP handshake RTT (isolated from TLS overhead)
+	pingMs = tcpMs
 	return pingMs, dnsMs, tcpMs, tlsMs
 }
 

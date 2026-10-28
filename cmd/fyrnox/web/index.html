@@ -817,22 +817,7 @@
 
     <!-- UNIFIED SMOKED GLASS BOTTOM DOCK & TELEMETRY ROW (Matching Reference Design) -->
     <footer class="bottom-bar-unified" id="bottom-bar-unified">
-      <!-- 1. Left Profile Card -->
-      <div class="bottom-profile-wrap">
-        <div class="account-card" onclick="handleAuthClick()" title="Account & Subscription">
-          <div class="account-avatar-wrap">
-            <img src="favicon.png" alt="Avatar" class="account-avatar-img">
-          </div>
-          <div class="account-info">
-            <span class="account-name" id="sidebar-user-name">user@fyrnox.app</span>
-            <div class="account-badge-row">
-              <span class="account-badge-pill" id="sidebar-user-badge">Premium</span>
-              <div class="account-badge-bar"></div>
-            </div>
-          </div>
-        </div>
-        <div class="bottom-version-tag">v1.0.4</div>
-      </div>
+
 
       <!-- 2. Center Oval Navigation Dock with Fluid Indicator -->
       <nav class="nav-dock-pill" id="main-nav-dock">
@@ -884,8 +869,8 @@
           <div class="chip-val font-mono" id="bottom-up-speed">—</div>
         </div>
 
-        <!-- Latency -->
-        <div class="telemetry-chip">
+        <!-- Latency (Interactive Real-Time Check) -->
+        <div class="telemetry-chip ping-chip" id="chip-latency" onclick="triggerManualPing()" title="Click to measure real-time latency">
           <div class="chip-top">
             <span class="chip-icon">⚡</span>
             <span class="chip-label" data-i18n="traffic_ping">Latency</span>
