@@ -522,14 +522,16 @@ function updateDockIndicator(tab) {
   }
 }
 
+const NAV_TABS = ['dashboard', 'servers', 'diagnostics', 'settings'];
+
 function switchNav(tab) {
-  if (tab === activeNav) return;
-  const prevTab = activeNav;
-  activeNav = tab;
+  const targetIdx = NAV_TABS.indexOf(tab);
+  if (targetIdx < 0) return;
   
+  activeNav = tab;
   updateDockIndicator(tab);
 
-  // Update dashboard class for topbar visibility
+  // Update dashboard class
   document.body.classList.toggle('is-dashboard', tab === 'dashboard');
   const appShell = document.querySelector('.app-shell');
   if (appShell) {
@@ -541,29 +543,20 @@ function switchNav(tab) {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
 
-  const prevPanel = document.getElementById(`view-${prevTab}`);
-  const targetPanel = document.getElementById(`view-${tab}`);
-
-  // iOS-grade Spring View Transition
-  if (prevPanel && prevPanel !== targetPanel) {
-    prevPanel.classList.remove('active');
-    prevPanel.classList.add('outgoing');
-    setTimeout(() => {
-      prevPanel.classList.remove('outgoing');
-    }, 330);
+  // Slide track using hardware-accelerated translate3d with Apple spring curve
+  const track = document.getElementById('view-slider-track');
+  if (track) {
+    track.classList.remove('is-dragging');
+    track.style.transform = `translate3d(-${targetIdx * 25}%, 0, 0)`;
   }
 
-  if (targetPanel) {
-    targetPanel.classList.add('active');
-  }
-
-  // WebGL Globe Context Retention: Three.js canvas in #view-dashboard is NEVER torn down!
+  // Trigger subview actions & WebGL resize
   if (tab === 'dashboard') {
     if (window.fyrnoxGlobe && typeof window.fyrnoxGlobe.handleResize === 'function') {
-      setTimeout(() => window.fyrnoxGlobe.handleResize(), 40);
+      setTimeout(() => window.fyrnoxGlobe.handleResize(), 30);
     }
     if (window.fyrnoxTrafficGraph && typeof window.fyrnoxTrafficGraph.handleResize === 'function') {
-      setTimeout(() => window.fyrnoxTrafficGraph.handleResize(), 40);
+      setTimeout(() => window.fyrnoxTrafficGraph.handleResize(), 30);
     }
   }
 
@@ -802,9 +795,9 @@ function updateUI(status) {
     }
   }
 
-  // 7. Routing Mode Pill & Dropdown Sync
-  const isTun = status.tun_active || (status.settings && status.settings.enable_tun_mode);
-  const isActualWintun = status.wintun_active;
+  // 7. Routing Mode Pill & Dropdown Sync (100% State Synchronized)
+  // Single source of truth: TUN is active only if Wintun driver is active, or if TUN is requested AND app is elevated as admin
+  const isTunModeActive = Boolean(status.wintun_active || ((status.tun_active || (status.settings && status.settings.enable_tun_mode)) && status.is_admin));
 
   const modePillIcon = document.getElementById('mode-pill-icon');
   const modePillLabel = document.getElementById('mode-pill-label');
@@ -815,7 +808,7 @@ function updateUI(status) {
   const uacNotice = document.getElementById('dash-uac-notice');
 
   if (modePillIcon && modePillLabel) {
-    if (isActualWintun || (isTun && status.is_admin)) {
+    if (isTunModeActive) {
       modePillIcon.textContent = '🛡️';
       modePillLabel.textContent = 'Wintun TUN';
     } else {
@@ -824,8 +817,9 @@ function updateUI(status) {
     }
   }
 
+  // Strictly sync checkmarks and active states to matches the trigger label
   if (checkProxy && checkTun) {
-    if (isTun) {
+    if (isTunModeActive) {
       checkTun.style.display = 'inline';
       checkProxy.style.display = 'none';
       if (optTun) optTun.classList.add('active');
@@ -3249,3 +3243,145 @@ async function triggerManualPing() {
 }
 
 window.triggerManualPing = triggerManualPing;
+
+
+// ==========================================================================
+// DUAL-MODE IOS SWIPE NAVIGATION & SCRUBBING
+// ==========================================================================
+function initIOSSwipeNavigation() {
+  const track = document.getElementById('view-slider-track');
+  const dock = document.getElementById('main-nav-dock');
+  if (!track) return;
+
+  let isDragging = false;
+  let dragMode = null; // 'background' or 'dock'
+  let startX = 0;
+  let startY = 0;
+  let currentDeltaX = 0;
+  let initialTrackPercent = 0;
+  const viewWidth = window.innerWidth;
+
+  // Helper to get active index
+  const getActiveIndex = () => Math.max(0, NAV_TABS.indexOf(activeNav));
+
+  // ------------------------------------------------------------------------
+  // METHOD A: Background Drag & Swipe (Excluding Globe canvas)
+  // ------------------------------------------------------------------------
+  const onBackgroundPointerDown = (e) => {
+    // 1. Gesture Conflict Prevention: NEVER trigger on Three.js globe canvas!
+    if (e.target.closest('#globe-3d-wrap') || e.target.tagName === 'CANVAS') {
+      return;
+    }
+    // 2. Ignore clicks on buttons, inputs, dropdowns, and interactive widgets
+    if (e.target.closest('button, input, select, textarea, .mode-pill-btn, .card-action-btn, #main-nav-dock, .telemetry-chip')) {
+      return;
+    }
+
+    isDragging = true;
+    dragMode = 'background';
+    startX = e.clientX;
+    startY = e.clientY;
+    currentDeltaX = 0;
+    initialTrackPercent = getActiveIndex() * 25;
+
+    track.classList.add('is-dragging');
+  };
+
+  // ------------------------------------------------------------------------
+  // METHOD B: Dock Scrubbing
+  // ------------------------------------------------------------------------
+  const onDockPointerDown = (e) => {
+    isDragging = true;
+    dragMode = 'dock';
+    startX = e.clientX;
+    track.classList.add('is-dragging');
+  };
+
+  // Pointer Move (Unified)
+  const onPointerMove = (e) => {
+    if (!isDragging) return;
+
+    if (dragMode === 'background') {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      // Check for horizontal drag intent
+      if (Math.abs(dx) > Math.abs(dy) + 5) {
+        currentDeltaX = dx;
+        const currentIdx = getActiveIndex();
+        
+        // Resistance at boundaries (rubber-banding)
+        let effectiveDx = dx;
+        if ((currentIdx === 0 && dx > 0) || (currentIdx === NAV_TABS.length - 1 && dx < 0)) {
+          effectiveDx = dx * 0.28;
+        }
+
+        const deltaPercent = (effectiveDx / window.innerWidth) * 25;
+        track.style.transform = `translate3d(calc(-${initialTrackPercent}% + ${deltaPercent}%), 0, 0)`;
+      }
+    } else if (dragMode === 'dock' && dock) {
+      const dockRect = dock.getBoundingClientRect();
+      const relativeX = Math.max(0, Math.min(dockRect.width, e.clientX - dockRect.left));
+      const ratio = relativeX / dockRect.width;
+      
+      // Drive the track directly across 0% to 75%
+      const targetPercent = ratio * 75;
+      track.style.transform = `translate3d(-${targetPercent}%, 0, 0)`;
+
+      // Move dock indicator fluidly
+      const indicator = document.getElementById('nav-dock-indicator');
+      if (indicator) {
+        const indicatorX = Math.max(0, Math.min(dockRect.width - 40, relativeX - 20));
+        indicator.style.transform = `translateX(${indicatorX}px)`;
+      }
+    }
+  };
+
+  // Pointer Up (Snap with Apple Spring Physics)
+  const onPointerUp = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    track.classList.remove('is-dragging');
+
+    if (dragMode === 'background') {
+      const currentIdx = getActiveIndex();
+      const threshold = 55; // pixels to trigger page snap
+
+      let targetIdx = currentIdx;
+      if (currentDeltaX < -threshold && currentIdx < NAV_TABS.length - 1) {
+        targetIdx = currentIdx + 1;
+      } else if (currentDeltaX > threshold && currentIdx > 0) {
+        targetIdx = currentIdx - 1;
+      }
+
+      switchNav(NAV_TABS[targetIdx]);
+    } else if (dragMode === 'dock' && dock) {
+      const dockRect = dock.getBoundingClientRect();
+      const relativeX = Math.max(0, Math.min(dockRect.width, e.clientX - dockRect.left));
+      const ratio = relativeX / dockRect.width;
+      const targetIdx = Math.max(0, Math.min(NAV_TABS.length - 1, Math.round(ratio * (NAV_TABS.length - 1))));
+      switchNav(NAV_TABS[targetIdx]);
+    }
+
+    dragMode = null;
+    currentDeltaX = 0;
+  };
+
+  // Attach background listeners
+  const appContainer = document.querySelector('.app-view-container') || document.body;
+  appContainer.addEventListener('pointerdown', onBackgroundPointerDown, { passive: true });
+  
+  // Attach dock scrubbing listener
+  if (dock) {
+    dock.addEventListener('pointerdown', onDockPointerDown, { passive: true });
+  }
+
+  window.addEventListener('pointermove', onPointerMove, { passive: true });
+  window.addEventListener('pointerup', onPointerUp, { passive: true });
+  window.addEventListener('pointercancel', onPointerUp, { passive: true });
+}
+
+// Initialize swipe gestures on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initIOSSwipeNavigation, 100);
+});

@@ -183,8 +183,8 @@
     }
 
     init() {
-      const width = this.container.clientWidth || 550;
-      const height = this.container.clientHeight || 400;
+      const width = Math.max(this.container.clientWidth || 0, 520);
+      const height = Math.max(this.container.clientHeight || 0, 480);
 
       // 1. Scene, Camera, Renderer
       this.scene = new THREE.Scene();
@@ -221,6 +221,8 @@
 
       // Initial responsive resize calculation
       this.handleResize();
+      setTimeout(() => this.handleResize(), 80);
+      setTimeout(() => this.handleResize(), 250);
 
       // 9. Initial Route Display
       this.updateConnectionRoute();

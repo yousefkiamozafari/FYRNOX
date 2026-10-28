@@ -45,6 +45,7 @@
     
     <!-- DYNAMIC CONTENT VIEW PANE (Layered Hardware-Accelerated Views) -->
     <main class="app-view-container">
+      <div class="view-slider-track" id="view-slider-track">
 
         <!-- ============================================================== -->
         <!-- VIEW 1: DASHBOARD (MODERN GLASS / PREMIUM HYBRID LAYOUT) -->
@@ -813,14 +814,16 @@
 
         </section>
 
-      </main>
+            </div><!-- /view-slider-track -->
+    </main>
 
     <!-- UNIFIED SMOKED GLASS BOTTOM DOCK & TELEMETRY ROW (Matching Reference Design) -->
     <footer class="bottom-bar-unified" id="bottom-bar-unified">
 
 
-      <!-- 2. Center Oval Navigation Dock with Fluid Indicator -->
-      <nav class="nav-dock-pill" id="main-nav-dock">
+      <!-- 2. Navigation Dock Horizontally Centered Under Left Column -->
+      <div class="dock-left-alignment-wrapper">
+        <nav class="nav-dock-pill" id="main-nav-dock">
         <div class="nav-dock-indicator" id="nav-dock-indicator"></div>
         <button type="button" class="dock-item active" data-tab="dashboard" onclick="switchNav('dashboard')" title="Home">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -848,6 +851,7 @@
           </svg>
         </button>
       </nav>
+      </div>
 
       <!-- 3. Right Telemetry Indicators -->
       <div class="bottom-telemetry-row">
