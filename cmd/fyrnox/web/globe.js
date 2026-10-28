@@ -318,10 +318,13 @@
           varying vec3 vPosition;
           void main() {
             vec3 viewDir = normalize(-vPosition);
-            float intensity = pow(0.70 - dot(vNormal, viewDir), 2.2);
+            float intensity = pow(0.74 - dot(vNormal, viewDir), 2.0);
             intensity = clamp(intensity, 0.0, 1.0);
-            vec3 atmosColor = vec3(0.0, 0.82, 1.0);
-            gl_FragColor = vec4(atmosColor, intensity * 0.42);
+            float blend = clamp((vNormal.x + 0.5), 0.0, 1.0);
+            vec3 amber = vec3(0.851, 0.584, 0.294); // #D9954B
+            vec3 steelBlue = vec3(0.514, 0.686, 0.796); // #83AFCB
+            vec3 atmosColor = mix(steelBlue, amber, blend);
+            gl_FragColor = vec4(atmosColor, intensity * 0.35);
           }
         `,
         blending: THREE.AdditiveBlending,
@@ -597,7 +600,7 @@
           // Guarantees solid, continuous visibility on all WebGL/DirectX implementations without 1px line aliasing
           const tubeGeo = new THREE.TubeGeometry(curve, 80, 0.45, 8, false);
           const tubeMat = new THREE.MeshBasicMaterial({
-            color: 0xffb000, // Vibrant warm gold
+            color: 0xD9954B, // Smoked Glass Brand Amber
             transparent: true,
             opacity: 0.95,
             depthTest: true
@@ -618,7 +621,7 @@
           // Animated Photon traveling along the curve
           const photonGeo = new THREE.SphereGeometry(1.3, 16, 16);
           const photonMat = new THREE.MeshBasicMaterial({
-            color: 0xffe066,
+            color: 0xF2BA7E,
             blending: THREE.AdditiveBlending
           });
           this.photon = new THREE.Mesh(photonGeo, photonMat);
@@ -864,7 +867,8 @@
       const dVert = (visualRadius * 1.22) / Math.tan(vFOV / 2);
       const dHoriz = dVert / Math.max(aspect, 0.5);
 
-      const targetZ = Math.max(dVert, dHoriz);
+      // Scaled up by ~15% for dominant holographic presence in right pane
+      const targetZ = Math.max(dVert, dHoriz) * 0.86;
       this.camera.position.set(0, 0, targetZ);
       this.camera.updateProjectionMatrix();
 

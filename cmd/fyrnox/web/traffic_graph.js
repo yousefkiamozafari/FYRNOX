@@ -175,25 +175,25 @@
 
       // Gradients for area fills
       const downGrad = this.ctx.createLinearGradient(0, 0, 0, h);
-      downGrad.addColorStop(0, 'rgba(255, 106, 0, 0.22)');
-      downGrad.addColorStop(0.8, 'rgba(255, 106, 0, 0.04)');
+      downGrad.addColorStop(0, 'rgba(217, 149, 75, 0.22)');
+      downGrad.addColorStop(0.8, 'rgba(217, 149, 75, 0.04)');
       downGrad.addColorStop(1, 'rgba(255, 106, 0, 0.0)');
 
       const upGrad = this.ctx.createLinearGradient(0, 0, 0, h);
-      upGrad.addColorStop(0, 'rgba(59, 130, 246, 0.20)');
-      upGrad.addColorStop(0.8, 'rgba(59, 130, 246, 0.03)');
+      upGrad.addColorStop(0, 'rgba(131, 175, 203, 0.20)');
+      upGrad.addColorStop(0.8, 'rgba(131, 175, 203, 0.03)');
       upGrad.addColorStop(1, 'rgba(0, 210, 255, 0.0)');
 
       if (hasTraffic) {
         // Real-time active curves
-        this.drawSpline(this.historyUp, '#3B82F6', upGrad, 1.8, false);
-        this.drawSpline(this.historyDown, '#ff6a00', downGrad, 2.2, false);
+        this.drawSpline(this.historyUp, '#83AFCB', upGrad, 1.8, false);
+        this.drawSpline(this.historyDown, '#D9954B', downGrad, 2.2, false);
       } else {
         // Ambient elegant wave when idle
         const idleDown = [10, 15, 25, 38, 28, 20, 32, 45, 35, 22, 18, 30, 42, 32, 18, 24, 38, 48, 35, 20];
         const idleUp = [8, 12, 18, 24, 20, 14, 22, 30, 25, 16, 12, 20, 28, 22, 14, 18, 26, 32, 24, 15];
-        this.drawSpline(idleUp, 'rgba(59, 130, 246, 0.75)', upGrad, 1.5, true);
-        this.drawSpline(idleDown, 'rgba(255, 106, 0, 0.85)', downGrad, 1.8, true);
+        this.drawSpline(idleUp, 'rgba(131, 175, 203, 0.75)', upGrad, 1.5, true);
+        this.drawSpline(idleDown, 'rgba(217, 149, 75, 0.85)', downGrad, 1.8, true);
       }
 
       // Update graph legend texts

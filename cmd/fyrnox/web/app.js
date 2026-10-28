@@ -498,14 +498,37 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('[FYRNOX] Failed to initialize 3D Globe or Traffic Graph:', e);
   }
   initDraggableHUD();
+  setTimeout(() => {
+    updateDockIndicator('dashboard');
+  }, 60);
+  window.addEventListener('resize', () => {
+    updateDockIndicator(activeNav);
+  });
 });
 
 // ==========================================================================
 // Navigation & Views
 // ==========================================================================
+function updateDockIndicator(tab) {
+  const dock = document.getElementById('main-nav-dock');
+  const indicator = document.getElementById('nav-dock-indicator');
+  if (!dock || !indicator) return;
+  const targetBtn = dock.querySelector(`.dock-item[data-tab="${tab}"]`);
+  const firstBtn = dock.querySelector('.dock-item');
+  if (targetBtn && firstBtn) {
+    const baseLeft = firstBtn.offsetLeft;
+    const dx = targetBtn.offsetLeft - baseLeft;
+    indicator.style.transform = `translateX(${dx}px)`;
+  }
+}
+
 function switchNav(tab) {
+  if (tab === activeNav) return;
+  const prevTab = activeNav;
   activeNav = tab;
   
+  updateDockIndicator(tab);
+
   // Update dashboard class for topbar visibility
   document.body.classList.toggle('is-dashboard', tab === 'dashboard');
   const appShell = document.querySelector('.app-shell');
@@ -513,31 +536,34 @@ function switchNav(tab) {
     appShell.classList.toggle('view-is-dashboard', tab === 'dashboard');
   }
 
-  // Update sidebar active buttons
-  document.querySelectorAll('.nav-item').forEach(btn => {
-    if (btn.dataset.tab === tab) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
+  // Update sidebar & dock active buttons
+  document.querySelectorAll('.dock-item, .nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
   });
 
-  // Update view panes
-  document.querySelectorAll('.view-panel').forEach(panel => {
-    panel.classList.remove('active');
-  });
-
+  const prevPanel = document.getElementById(`view-${prevTab}`);
   const targetPanel = document.getElementById(`view-${tab}`);
+
+  // iOS-grade Spring View Transition
+  if (prevPanel && prevPanel !== targetPanel) {
+    prevPanel.classList.remove('active');
+    prevPanel.classList.add('outgoing');
+    setTimeout(() => {
+      prevPanel.classList.remove('outgoing');
+    }, 330);
+  }
+
   if (targetPanel) {
     targetPanel.classList.add('active');
   }
 
+  // WebGL Globe Context Retention: Three.js canvas in #view-dashboard is NEVER torn down!
   if (tab === 'dashboard') {
     if (window.fyrnoxGlobe && typeof window.fyrnoxGlobe.handleResize === 'function') {
-      setTimeout(() => window.fyrnoxGlobe.handleResize(), 50);
+      setTimeout(() => window.fyrnoxGlobe.handleResize(), 40);
     }
     if (window.fyrnoxTrafficGraph && typeof window.fyrnoxTrafficGraph.handleResize === 'function') {
-      setTimeout(() => window.fyrnoxTrafficGraph.handleResize(), 50);
+      setTimeout(() => window.fyrnoxTrafficGraph.handleResize(), 40);
     }
   }
 
@@ -822,6 +848,7 @@ function updateUI(status) {
   const bDown = document.getElementById('bottom-down-speed');
   const bUp = document.getElementById('bottom-up-speed');
   const bPing = document.getElementById('bottom-ping-val');
+  const bLoss = document.getElementById('bottom-loss-val');
   const bSession = document.getElementById('bottom-session-duration');
 
   if (isConnected) {
@@ -838,6 +865,13 @@ function updateUI(status) {
         bPing.textContent = `${status.exit_latency} ms`;
       } else {
         bPing.textContent = '—';
+      }
+    }
+    if (bLoss) {
+      if (typeof status.packet_loss === 'number') {
+        bLoss.textContent = `${status.packet_loss}%`;
+      } else {
+        bLoss.textContent = '0%';
       }
     }
   } else {
