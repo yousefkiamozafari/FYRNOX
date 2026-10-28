@@ -524,6 +524,25 @@ function updateDockIndicator(tab) {
 
 const NAV_TABS = ['dashboard', 'servers', 'diagnostics', 'settings'];
 
+function updateViewPanels(activeIdx, animated = true, dragDeltaPx = 0) {
+  const panels = [
+    document.getElementById('view-dashboard'),
+    document.getElementById('view-servers'),
+    document.getElementById('view-diagnostics'),
+    document.getElementById('view-settings')
+  ];
+  panels.forEach((p, i) => {
+    if (!p) return;
+    p.style.transition = animated ? 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)' : 'none';
+    const offsetPercent = (i - activeIdx) * 100;
+    if (dragDeltaPx !== 0) {
+      p.style.transform = `translate3d(calc(${offsetPercent}% + ${dragDeltaPx}px), 0, 0)`;
+    } else {
+      p.style.transform = `translate3d(${offsetPercent}%, 0, 0)`;
+    }
+  });
+}
+
 function switchNav(tab) {
   const targetIdx = NAV_TABS.indexOf(tab);
   if (targetIdx < 0) return;
@@ -543,17 +562,25 @@ function switchNav(tab) {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
 
-  // Slide track using hardware-accelerated translate3d with Apple spring curve
+  // Slide view panels via independent translate3d with Apple spring physics
+  updateViewPanels(targetIdx, true, 0);
+
+  // Also maintain .active class on panels for semantic state
+  document.querySelectorAll('.view-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `view-${tab}`);
+  });
+
   const track = document.getElementById('view-slider-track');
   if (track) {
     track.classList.remove('is-dragging');
-    track.style.transform = `translate3d(-${targetIdx * 25}%, 0, 0)`;
   }
 
   // Trigger subview actions & WebGL resize
   if (tab === 'dashboard') {
     if (window.fyrnoxGlobe && typeof window.fyrnoxGlobe.handleResize === 'function') {
       setTimeout(() => window.fyrnoxGlobe.handleResize(), 30);
+      setTimeout(() => window.fyrnoxGlobe.handleResize(), 150);
+      setTimeout(() => window.fyrnoxGlobe.handleResize(), 300);
     }
     if (window.fyrnoxTrafficGraph && typeof window.fyrnoxTrafficGraph.handleResize === 'function') {
       setTimeout(() => window.fyrnoxTrafficGraph.handleResize(), 30);
@@ -1884,6 +1911,19 @@ function openModeDropdown() {
   const portal = document.getElementById('mode-dropdown-portal');
   const trigger = document.getElementById('mode-dropdown-trigger');
   if (!portal || !trigger) return;
+
+  // Ensure routing dropdown checkmarks strictly sync with active state before opening
+  const isTunModeActive = Boolean(currentStatus && (currentStatus.wintun_active || ((currentStatus.tun_active || (currentStatus.settings && currentStatus.settings.enable_tun_mode)) && currentStatus.is_admin)));
+  const checkProxy = document.getElementById('check-mode-proxy');
+  const checkTun = document.getElementById('check-mode-tun');
+  const optProxy = document.getElementById('btn-mode-proxy');
+  const optTun = document.getElementById('btn-mode-tun');
+  if (checkProxy && checkTun) {
+    checkTun.style.display = isTunModeActive ? 'inline' : 'none';
+    checkProxy.style.display = isTunModeActive ? 'none' : 'inline';
+    if (optTun) optTun.classList.toggle('active', isTunModeActive);
+    if (optProxy) optProxy.classList.toggle('active', !isTunModeActive);
+  }
 
   portal.style.display = 'block';
   portal.classList.add('open');
@@ -3249,31 +3289,29 @@ window.triggerManualPing = triggerManualPing;
 // DUAL-MODE IOS SWIPE NAVIGATION & SCRUBBING
 // ==========================================================================
 function initIOSSwipeNavigation() {
-  const track = document.getElementById('view-slider-track');
   const dock = document.getElementById('main-nav-dock');
-  if (!track) return;
+  const container = document.querySelector('.app-view-container') || document.body;
 
   let isDragging = false;
   let dragMode = null; // 'background' or 'dock'
   let startX = 0;
   let startY = 0;
   let currentDeltaX = 0;
-  let initialTrackPercent = 0;
-  const viewWidth = window.innerWidth;
+  let targetIdxFloat = 0;
 
-  // Helper to get active index
   const getActiveIndex = () => Math.max(0, NAV_TABS.indexOf(activeNav));
 
   // ------------------------------------------------------------------------
-  // METHOD A: Background Drag & Swipe (Excluding Globe canvas)
+  // METHOD A: Background Drag & Swipe (Restricted strictly to Left Column & Background)
   // ------------------------------------------------------------------------
   const onBackgroundPointerDown = (e) => {
-    // 1. Gesture Conflict Prevention: NEVER trigger on Three.js globe canvas!
-    if (e.target.closest('#globe-3d-wrap') || e.target.tagName === 'CANVAS') {
-      return;
+    // 1. Gesture Conflict Prevention: NEVER trigger on Three.js globe canvas or globe wrapper!
+    if (e.target.closest('#globe-3d-wrap') || e.target.closest('.globe-hero-panel') || e.target.closest('.dash-right-column') || e.target.tagName === 'CANVAS') {
+      return; // Globe rotation only, no page transition
     }
+
     // 2. Ignore clicks on buttons, inputs, dropdowns, and interactive widgets
-    if (e.target.closest('button, input, select, textarea, .mode-pill-btn, .card-action-btn, #main-nav-dock, .telemetry-chip')) {
+    if (e.target.closest('button, input, select, textarea, .mode-pill-btn, .card-action-btn, #main-nav-dock, .telemetry-chip, a, .server-card, .diag-action-btn')) {
       return;
     }
 
@@ -3282,19 +3320,22 @@ function initIOSSwipeNavigation() {
     startX = e.clientX;
     startY = e.clientY;
     currentDeltaX = 0;
-    initialTrackPercent = getActiveIndex() * 25;
-
-    track.classList.add('is-dragging');
   };
 
   // ------------------------------------------------------------------------
-  // METHOD B: Dock Scrubbing
+  // METHOD B: Dock Scrubbing (Scrubbing icons drives page slider, dock stays fixed)
   // ------------------------------------------------------------------------
   const onDockPointerDown = (e) => {
+    if (!dock) return;
     isDragging = true;
     dragMode = 'dock';
     startX = e.clientX;
-    track.classList.add('is-dragging');
+    startY = e.clientY;
+
+    const dockRect = dock.getBoundingClientRect();
+    const relativeX = Math.max(0, Math.min(dockRect.width, e.clientX - dockRect.left));
+    const ratio = relativeX / dockRect.width;
+    targetIdxFloat = ratio * (NAV_TABS.length - 1);
   };
 
   // Pointer Move (Unified)
@@ -3309,24 +3350,33 @@ function initIOSSwipeNavigation() {
       if (Math.abs(dx) > Math.abs(dy) + 5) {
         currentDeltaX = dx;
         const currentIdx = getActiveIndex();
-        
-        // Resistance at boundaries (rubber-banding)
+
+        // Rubber-banding resistance at boundaries
         let effectiveDx = dx;
         if ((currentIdx === 0 && dx > 0) || (currentIdx === NAV_TABS.length - 1 && dx < 0)) {
           effectiveDx = dx * 0.28;
         }
 
-        const deltaPercent = (effectiveDx / window.innerWidth) * 25;
-        track.style.transform = `translate3d(calc(-${initialTrackPercent}% + ${deltaPercent}%), 0, 0)`;
+        updateViewPanels(currentIdx, false, effectiveDx);
       }
     } else if (dragMode === 'dock' && dock) {
       const dockRect = dock.getBoundingClientRect();
       const relativeX = Math.max(0, Math.min(dockRect.width, e.clientX - dockRect.left));
       const ratio = relativeX / dockRect.width;
-      
-      // Drive the track directly across 0% to 75%
-      const targetPercent = ratio * 75;
-      track.style.transform = `translate3d(-${targetPercent}%, 0, 0)`;
+      targetIdxFloat = ratio * (NAV_TABS.length - 1);
+
+      // Directly drive panel translations without animation delay
+      const panels = [
+        document.getElementById('view-dashboard'),
+        document.getElementById('view-servers'),
+        document.getElementById('view-diagnostics'),
+        document.getElementById('view-settings')
+      ];
+      panels.forEach((p, i) => {
+        if (!p) return;
+        p.style.transition = 'none';
+        p.style.transform = `translate3d(${(i - targetIdxFloat) * 100}%, 0, 0)`;
+      });
 
       // Move dock indicator fluidly
       const indicator = document.getElementById('nav-dock-indicator');
@@ -3341,7 +3391,6 @@ function initIOSSwipeNavigation() {
   const onPointerUp = (e) => {
     if (!isDragging) return;
     isDragging = false;
-    track.classList.remove('is-dragging');
 
     if (dragMode === 'background') {
       const currentIdx = getActiveIndex();
@@ -3355,23 +3404,16 @@ function initIOSSwipeNavigation() {
       }
 
       switchNav(NAV_TABS[targetIdx]);
-    } else if (dragMode === 'dock' && dock) {
-      const dockRect = dock.getBoundingClientRect();
-      const relativeX = Math.max(0, Math.min(dockRect.width, e.clientX - dockRect.left));
-      const ratio = relativeX / dockRect.width;
-      const targetIdx = Math.max(0, Math.min(NAV_TABS.length - 1, Math.round(ratio * (NAV_TABS.length - 1))));
-      switchNav(NAV_TABS[targetIdx]);
+    } else if (dragMode === 'dock') {
+      const snapIdx = Math.max(0, Math.min(NAV_TABS.length - 1, Math.round(targetIdxFloat)));
+      switchNav(NAV_TABS[snapIdx]);
     }
 
     dragMode = null;
     currentDeltaX = 0;
   };
 
-  // Attach background listeners
-  const appContainer = document.querySelector('.app-view-container') || document.body;
-  appContainer.addEventListener('pointerdown', onBackgroundPointerDown, { passive: true });
-  
-  // Attach dock scrubbing listener
+  container.addEventListener('pointerdown', onBackgroundPointerDown, { passive: true });
   if (dock) {
     dock.addEventListener('pointerdown', onDockPointerDown, { passive: true });
   }
@@ -3379,6 +3421,9 @@ function initIOSSwipeNavigation() {
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerup', onPointerUp, { passive: true });
   window.addEventListener('pointercancel', onPointerUp, { passive: true });
+
+  // Initial layout positioning
+  updateViewPanels(getActiveIndex(), false, 0);
 }
 
 // Initialize swipe gestures on DOM ready

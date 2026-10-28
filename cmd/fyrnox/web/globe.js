@@ -221,8 +221,10 @@
 
       // Initial responsive resize calculation
       this.handleResize();
-      setTimeout(() => this.handleResize(), 80);
-      setTimeout(() => this.handleResize(), 250);
+      setTimeout(() => this.handleResize(), 50);
+      setTimeout(() => this.handleResize(), 150);
+      setTimeout(() => this.handleResize(), 300);
+      setTimeout(() => this.handleResize(), 600);
 
       // 9. Initial Route Display
       this.updateConnectionRoute();
@@ -806,8 +808,8 @@
 
     handleResize() {
       if (!this.container || !this.renderer || !this.camera) return;
-      const width = this.container.clientWidth || 550;
-      const height = this.container.clientHeight || 400;
+      const width = Math.max(this.container.clientWidth || 0, Math.round(window.innerWidth * 0.58));
+      const height = Math.max(this.container.clientHeight || 0, Math.round(window.innerHeight - 60));
 
       const aspect = width / height;
       this.camera.aspect = aspect;
