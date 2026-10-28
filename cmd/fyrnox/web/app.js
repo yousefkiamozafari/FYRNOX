@@ -878,7 +878,7 @@ function updateUI(status) {
     if (bDown) bDown.textContent = '—';
     if (bUp) bUp.textContent = '—';
     if (bPing) bPing.textContent = '—';
-    if (bSession) bSession.textContent = '—';
+    if (bSession) bSession.textContent = '00:00:00';
   }
 
   // Cumulative VPN Session Traffic Totals

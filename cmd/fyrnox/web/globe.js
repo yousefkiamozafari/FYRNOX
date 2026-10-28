@@ -133,10 +133,10 @@
     canvas.height = 64;
     const ctx = canvas.getContext('2d');
     const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.35, 'rgba(0, 210, 255, 0.9)');
-    grad.addColorStop(0.7, 'rgba(0, 150, 255, 0.35)');
-    grad.addColorStop(1, 'rgba(0, 40, 120, 0)');
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+    grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.92)');
+    grad.addColorStop(0.60, 'rgba(255, 255, 255, 0.35)');
+    grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(32, 32, 30, 0, Math.PI * 2);
@@ -206,26 +206,10 @@
       this.globeGroup.rotation.y = this.currentRotation.y;
       this.scene.add(this.globeGroup);
 
-      // 2. Base Sphere (Deep Obsidian Navy)
-      const baseGeo = new THREE.SphereGeometry(this.radius * 0.985, 48, 48);
-      const baseMat = new THREE.MeshBasicMaterial({
-        color: 0x060c18,
-        transparent: true,
-        opacity: 0.92
-      });
-      this.baseSphere = new THREE.Mesh(baseGeo, baseMat);
-      this.globeGroup.add(this.baseSphere);
-
-      // 3. Latitude & Longitude Wireframe Grid
-      this.createGridRings();
-
-      // 4. Atmospheric Fresnel Rim Glow
+      // 2. Atmospheric Fresnel Rim Glow (Glassy 3D depth, crystal clear center, zero background disc)
       this.createAtmosphere();
 
-      // 5. Natural Earth Vector Country Boundaries
-      this.buildCountryBoundaries();
-
-      // 6. Particle Landmasses (NASA landmask)
+      // 3. Dense Cybernetic Holographic Particle Matrix (Continents strictly formed by glowing dots)
       this.loadLandmassParticles();
 
       // 7. Dynamic Markers & Route Group
@@ -302,7 +286,8 @@
     }
 
     createAtmosphere() {
-      const atmosphereGeo = new THREE.SphereGeometry(this.radius * 1.15, 48, 48);
+      // Atmospheric Fresnel Rim Light: Razor-sharp glassy 3D spherical depth, 100% transparent center
+      const atmosphereGeo = new THREE.SphereGeometry(this.radius * 1.025, 64, 64);
       const atmosphereMat = new THREE.ShaderMaterial({
         vertexShader: `
           varying vec3 vNormal;
@@ -318,17 +303,22 @@
           varying vec3 vPosition;
           void main() {
             vec3 viewDir = normalize(-vPosition);
-            float intensity = pow(0.74 - dot(vNormal, viewDir), 2.0);
-            intensity = clamp(intensity, 0.0, 1.0);
-            float blend = clamp((vNormal.x + 0.5), 0.0, 1.0);
-            vec3 amber = vec3(0.851, 0.584, 0.294); // #D9954B
+            float dotNV = dot(vNormal, viewDir);
+            float rim = 1.0 - max(0.0, dotNV);
+            // Sharp falloff: 0.0 at center facing camera, glowing intensely only at grazing edges
+            float intensity = pow(rim, 3.4);
+            
+            // Dual-tone blend: Warm Amber (#D9954B) to Deep Cyber Blue (#83AFCB)
+            float blend = clamp(vNormal.x * 0.5 + 0.5, 0.0, 1.0);
+            vec3 amber = vec3(0.851, 0.584, 0.294);     // #D9954B
             vec3 steelBlue = vec3(0.514, 0.686, 0.796); // #83AFCB
-            vec3 atmosColor = mix(steelBlue, amber, blend);
-            gl_FragColor = vec4(atmosColor, intensity * 0.35);
+            vec3 rimColor = mix(steelBlue, amber, blend);
+            
+            gl_FragColor = vec4(rimColor, intensity * 0.85);
           }
         `,
         blending: THREE.AdditiveBlending,
-        side: THREE.BackSide,
+        side: THREE.FrontSide,
         transparent: true,
         depthWrite: false
       });
@@ -414,42 +404,50 @@
       img.crossOrigin = 'anonymous';
       img.src = 'earth_landmask.jpg';
 
-      img.onload = () => {
-        const offCanvas = document.createElement('canvas');
-        const w = 380;
-        const h = 190;
-        offCanvas.width = w;
-        offCanvas.height = h;
-        const ctx = offCanvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-
-        const imgData = ctx.getImageData(0, 0, w, h).data;
+      const buildParticlesFromImageData = (imgData, w, h) => {
         const positions = [];
         const colors = [];
         const dotTexture = createCircleTexture();
 
-        const baseCyan = new THREE.Color(0x00d2ff);
-        const deepCyan = new THREE.Color(0x0284c7);
-        const brightCyan = new THREE.Color(0x7dd3fc);
+        // Holographic Palette: Dual-tone Cybernetic Blue & Warm Amber
+        const cAmberBright = new THREE.Color(0xF2BA7E);
+        const cAmberBase   = new THREE.Color(0xD9954B); // #D9954B Brand Amber
+        const cBlueBright  = new THREE.Color(0xA9D2EB);
+        const cBlueBase    = new THREE.Color(0x83AFCB); // #83AFCB Brand Blue
+        const cBlueDeep    = new THREE.Color(0x4A7593);
+
+        const r = this.radius;
 
         for (let y = 0; y < h; y += 1) {
           const lat = 90 - (y / h) * 180;
-          if (lat < -78 || lat > 82) continue;
+          if (lat < -75 || lat > 82) continue;
 
           const cosLat = Math.cos(lat * (Math.PI / 180));
-          const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.22)));
+          const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.28)));
 
           for (let x = 0; x < w; x += stepX) {
             const index = (y * w + x) * 4;
             const brightness = (imgData[index] + imgData[index + 1] + imgData[index + 2]) / 3;
 
-            if (brightness > 65) {
+            if (brightness > 55) {
               const lon = (x / w) * 360 - 180;
-              const pt = latLonToVector3(lat, lon, this.radius);
-
+              const pt = latLonToVector3(lat, lon, r);
               positions.push(pt.x, pt.y, pt.z);
 
-              const pColor = Math.random() > 0.45 ? baseCyan : (Math.random() > 0.5 ? brightCyan : deepCyan);
+              // 80% cyber blue variants, 20% warm amber highlights
+              const rand = Math.random();
+              let pColor;
+              if (rand < 0.12) {
+                pColor = cAmberBase;
+              } else if (rand < 0.20) {
+                pColor = cAmberBright;
+              } else if (rand < 0.55) {
+                pColor = cBlueBase;
+              } else if (rand < 0.80) {
+                pColor = cBlueBright;
+              } else {
+                pColor = cBlueDeep;
+              }
               colors.push(pColor.r, pColor.g, pColor.b);
             }
           }
@@ -460,11 +458,11 @@
         particleGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
         const particleMat = new THREE.PointsMaterial({
-          size: 2.1,
+          size: 2.2,
           map: dotTexture,
           vertexColors: true,
           transparent: true,
-          opacity: 0.92,
+          opacity: 0.95,
           blending: THREE.AdditiveBlending,
           depthWrite: false
         });
@@ -473,15 +471,23 @@
         this.globeGroup.add(particles);
       };
 
+      img.onload = () => {
+        const offCanvas = document.createElement('canvas');
+        const w = 440;
+        const h = 220;
+        offCanvas.width = w;
+        offCanvas.height = h;
+        const ctx = offCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h).data;
+        buildParticlesFromImageData(imgData, w, h);
+      };
+
       img.onerror = () => {
-        console.warn('[FyrnoxGlobe] Could not load earth_landmask.jpg, relying on vector boundaries');
+        console.warn('[FyrnoxGlobe] Could not load earth_landmask.jpg, building procedural fallback');
       };
     }
 
-    /**
-     * Rebuilds connection route geometry using true Spherical Great-Circle Interpolation (Slerp)
-     * and a continuous 3D Tube mesh to guarantee zero gaps, zero clipping, and exact marker anchoring.
-     */
     updateConnectionRoute() {
       // Clear existing markers and arc
       while (this.markerGroup.children.length > 0) {
@@ -509,7 +515,7 @@
 
         // Destination Sphere Pin
         const destDotGeo = new THREE.SphereGeometry(1.6, 16, 16);
-        const destDotMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d });
+        const destDotMat = new THREE.MeshBasicMaterial({ color: 0xD9954B });
         const destDot = new THREE.Mesh(destDotGeo, destDotMat);
         destDot.position.copy(vDest);
         this.markerGroup.add(destDot);
@@ -517,7 +523,7 @@
         // Destination Pulse Ring
         const destRingGeo = new THREE.RingGeometry(2.0, 3.8, 32);
         const destRingMat = new THREE.MeshBasicMaterial({
-          color: 0x00e676,
+          color: 0xD9954B,
           side: THREE.DoubleSide,
           transparent: true,
           opacity: 0.95
@@ -548,7 +554,7 @@
         // Origin Halo Ring
         const originRingGeo = new THREE.RingGeometry(1.6, 2.8, 32);
         const originRingMat = new THREE.MeshBasicMaterial({
-          color: 0x00d2ff,
+          color: 0x83AFCB,
           side: THREE.DoubleSide,
           transparent: true,
           opacity: 0.8
