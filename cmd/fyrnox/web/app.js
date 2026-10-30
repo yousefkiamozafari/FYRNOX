@@ -688,15 +688,15 @@ function applyLatencyStyling(valEl, badgeEl, ms) {
 // Rolling Telemetry Sparkline Buffers (16 data points each)
 const SPARK_POINTS = 16;
 const sparkData = {
-  down: [8.2, 9.5, 11.0, 10.4, 12.1, 11.8, 12.4, 10.9, 11.5, 12.8, 12.0, 12.4, 11.7, 12.1, 12.5, 12.4],
-  up: [6.1, 6.8, 7.5, 8.2, 8.0, 7.8, 8.5, 8.7, 8.1, 8.4, 8.9, 8.5, 8.6, 8.7, 8.6, 8.7],
-  latency: [44, 43, 42, 45, 43, 42, 41, 44, 43, 42, 43, 42, 41, 42, 43, 42],
-  loss: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  down: new Array(SPARK_POINTS).fill(0),
+  up: new Array(SPARK_POINTS).fill(0),
+  latency: new Array(SPARK_POINTS).fill(0),
+  loss: new Array(SPARK_POINTS).fill(0),
   session: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 };
 
 function generateSparklinePath(arr, minVal, maxVal, width = 80, height = 18) {
-  if (!arr || arr.length < 2) return `M 0 ${height - 4} L ${width} ${height - 4}`;
+  if (!arr || arr.length < 2 || arr.every(v => v === 0)) return `M 0 ${height - 1} L ${width} ${height - 1}`;
   const range = (maxVal - minVal) || 1;
   const stepX = width / (arr.length - 1);
   const pts = arr.map((v, i) => {
@@ -957,11 +957,15 @@ function updateUI(status) {
       sparkData.loss.push(loss);
     }
   } else {
-    if (bDown) bDown.textContent = '12.4 MB/s';
-    if (bUp) bUp.textContent = '8.7 MB/s';
-    if (bPing) bPing.textContent = '42 ms';
+    if (bDown) bDown.textContent = '0 B/s';
+    if (bUp) bUp.textContent = '0 B/s';
+    if (bPing) bPing.textContent = '0 ms';
     if (bLoss) bLoss.textContent = '0%';
     if (bSession) bSession.textContent = '00:00:00';
+    sparkData.down.fill(0);
+    sparkData.up.fill(0);
+    sparkData.latency.fill(0);
+    sparkData.loss.fill(0);
   }
   updateTelemetrySparklines();
 
@@ -1255,8 +1259,12 @@ function updateUI(status) {
       telemPing.textContent = `${status.server.ping_ms} ms`;
       if (telemPingBadge) telemPingBadge.textContent = isConnected ? 'Live RTT' : 'TCP SYN';
       applyLatencyStyling(telemPing, telemPingBadge, status.server.ping_ms);
+    } else if (status.server && status.server.ping_ms === -1) {
+      telemPing.textContent = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
+      if (telemPingBadge) telemPingBadge.textContent = 'Timeout';
+      applyLatencyStyling(telemPing, telemPingBadge, -1);
     } else {
-      telemPing.textContent = '-- ms';
+      telemPing.textContent = '--';
       if (telemPingBadge) telemPingBadge.textContent = isConnected ? 'Live RTT' : 'Idle';
       applyLatencyStyling(telemPing, telemPingBadge, null);
     }
@@ -1757,15 +1765,18 @@ function renderServerList(servers) {
     const recFlag = getFlag(recServer.country_code);
 
     let recPingPillClass = 'unavailable';
-    let recPingText = '-- ms';
+    let recPingText = '--';
     if (recServer.ping_ms > 0) {
       recPingText = `${recServer.ping_ms} ms`;
       if (recServer.ping_ms <= 200) recPingPillClass = 'fast';
       else if (recServer.ping_ms <= 500) recPingPillClass = 'medium';
       else recPingPillClass = 'slow';
     } else if (recServer.ping_ms === -1) {
-      recPingText = 'Timeout';
+      recPingText = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
       recPingPillClass = 'slow';
+    } else {
+      recPingText = '--';
+      recPingPillClass = 'unavailable';
     }
 
     const recTypeBadge = recServer.is_anycast
@@ -1821,15 +1832,18 @@ function renderServerList(servers) {
     const flag = getFlag(srv.country_code);
 
     let pingPillClass = 'unavailable';
-    let pingText = '-- ms';
+    let pingText = '--';
     if (srv.ping_ms > 0) {
       pingText = `${srv.ping_ms} ms`;
       if (srv.ping_ms <= 200) pingPillClass = 'fast';
       else if (srv.ping_ms <= 500) pingPillClass = 'medium';
       else pingPillClass = 'slow';
     } else if (srv.ping_ms === -1) {
-      pingText = 'Timeout';
+      pingText = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
       pingPillClass = 'slow';
+    } else {
+      pingText = '--';
+      pingPillClass = 'unavailable';
     }
 
     const typeBadge = srv.is_anycast
@@ -1926,25 +1940,26 @@ async function selectServer(hostname) {
 }
 
 function updateServerPingBadge(hostname, pingMs) {
-  const pill = document.querySelector(`.ping-latency-pill[data-host="${hostname}"]`);
-  if (!pill) return;
-  pill.className = 'ping-latency-pill';
-  if (pingMs === 0) {
-    pill.classList.add('testing');
-    pill.textContent = currentLang === 'fa' ? 'سنجش...' : 'Testing...';
-  } else if (pingMs > 0 && pingMs <= 200) {
-    pill.classList.add('fast');
-    pill.textContent = `${pingMs} ms`;
-  } else if (pingMs > 200 && pingMs <= 500) {
-    pill.classList.add('medium');
-    pill.textContent = `${pingMs} ms`;
-  } else if (pingMs > 500) {
-    pill.classList.add('slow');
-    pill.textContent = `${pingMs} ms`;
-  } else {
-    pill.classList.add('slow');
-    pill.textContent = 'Timeout';
-  }
+  const pills = document.querySelectorAll(`.ping-latency-pill[data-host="${hostname}"]`);
+  pills.forEach(pill => {
+    pill.className = 'ping-latency-pill';
+    if (pingMs <= 0 && pingMs !== -1) {
+      pill.classList.add('unavailable');
+      pill.textContent = '--';
+    } else if (pingMs === -1) {
+      pill.classList.add('slow');
+      pill.textContent = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
+    } else if (pingMs > 0 && pingMs <= 200) {
+      pill.classList.add('fast');
+      pill.textContent = `${pingMs} ms`;
+    } else if (pingMs > 200 && pingMs <= 500) {
+      pill.classList.add('medium');
+      pill.textContent = `${pingMs} ms`;
+    } else if (pingMs > 500) {
+      pill.classList.add('slow');
+      pill.textContent = `${pingMs} ms`;
+    }
+  });
 }
 
 // ==========================================================================
@@ -1965,23 +1980,27 @@ function renderRecommendedServers(servers) {
 
   if (list.length === 0) {
     list = [
-      { hostname: 'iad.m1.fastly-masque.net', country_name: 'United States', country_code: 'US', ping_ms: 42, is_anycast: true },
-      { hostname: 'fra.m1.fastly-masque.net', country_name: 'Germany', country_code: 'DE', ping_ms: 56, is_anycast: true },
-      { hostname: 'yyz.m1.fastly-masque.net', country_name: 'Canada', country_code: 'CA', ping_ms: 68, is_anycast: true },
-      { hostname: 'lhr.m1.fastly-masque.net', country_name: 'United Kingdom', country_code: 'GB', ping_ms: 74, is_anycast: true },
-      { hostname: 'cdg.m1.fastly-masque.net', country_name: 'France', country_code: 'FR', ping_ms: 82, is_anycast: true }
+      { hostname: 'iad.m1.fastly-masque.net', country_name: 'United States', country_code: 'US', ping_ms: 0, is_anycast: true },
+      { hostname: 'fra.m1.fastly-masque.net', country_name: 'Germany', country_code: 'DE', ping_ms: 0, is_anycast: true },
+      { hostname: 'yyz.m1.fastly-masque.net', country_name: 'Canada', country_code: 'CA', ping_ms: 0, is_anycast: true },
+      { hostname: 'lhr.m1.fastly-masque.net', country_name: 'United Kingdom', country_code: 'GB', ping_ms: 0, is_anycast: true },
+      { hostname: 'cdg.m1.fastly-masque.net', country_name: 'France', country_code: 'FR', ping_ms: 0, is_anycast: true }
     ];
   }
 
   container.innerHTML = list.map(s => {
     const isSelected = currentSelectedHost === s.hostname;
-    let pingDisplay = '-- ms';
-    let pingClass = 'good';
+    let pingDisplay = '--';
+    let pingClass = 'unavailable';
     if (s.ping_ms > 0) {
       pingDisplay = `${s.ping_ms} ms`;
       pingClass = s.ping_ms < 150 ? 'good' : (s.ping_ms <= 350 ? 'medium' : 'poor');
+    } else if (s.ping_ms === -1) {
+      pingDisplay = (I18N[currentLang] && I18N[currentLang].ping_timeout) || 'Timeout';
+      pingClass = 'poor';
     } else {
-      pingDisplay = '42 ms';
+      pingDisplay = '--';
+      pingClass = 'unavailable';
     }
 
     return `

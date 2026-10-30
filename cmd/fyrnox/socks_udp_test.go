@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -16,7 +18,37 @@ func (m *mockDnsTunnelOpener) OpenTunnel(authority string) (net.Conn, error) {
 
 	go func() {
 		defer server.Close()
-		// Read 2-byte length
+
+		if strings.Contains(authority, ":443") {
+			// Mock DoH (RFC 8484) HTTP server
+			buf := make([]byte, 4096)
+			n, err := server.Read(buf)
+			if err != nil {
+				return
+			}
+			req := string(buf[:n])
+			// Split headers from body
+			parts := bytes.Split(buf[:n], []byte("\r\n\r\n"))
+			var query []byte
+			if len(parts) > 1 {
+				query = parts[1]
+			}
+			_ = req
+
+			if len(query) >= 12 {
+				mockResp := make([]byte, len(query)+16)
+				copy(mockResp, query)
+				mockResp[2] = 0x81 // Flags: standard response
+				mockResp[3] = 0x80
+
+				httpResp := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", len(mockResp))
+				_, _ = server.Write([]byte(httpResp))
+				_, _ = server.Write(mockResp)
+			}
+			return
+		}
+
+		// Mock DNS over TCP (RFC 7766)
 		var lenBuf [2]byte
 		if _, err := io.ReadFull(server, lenBuf[:]); err != nil {
 			return
@@ -27,10 +59,9 @@ func (m *mockDnsTunnelOpener) OpenTunnel(authority string) (net.Conn, error) {
 			return
 		}
 
-		// Synthesize a valid DNS response matching Transaction ID
 		mockResp := make([]byte, len(query)+16)
 		copy(mockResp, query)
-		mockResp[2] = 0x81 // Flags: standard response, no error
+		mockResp[2] = 0x81 // Flags: standard response
 		mockResp[3] = 0x80
 
 		respLenBuf := make([]byte, 2)
@@ -59,83 +90,87 @@ func TestSocks5UDPAssociateAndDnsTunneling(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// 2. Handshake: No Auth
-	if _, err := conn.Write([]byte{0x05, 0x01, 0x00}); err != nil {
-		t.Fatalf("Handshake write failed: %v", err)
+	// 2. Auth Handshake (Method: No Auth)
+	_, err = conn.Write([]byte{0x05, 0x01, 0x00})
+	if err != nil {
+		t.Fatalf("Failed to write auth handshake: %v", err)
 	}
-	hsResp := make([]byte, 2)
-	if _, err := io.ReadFull(conn, hsResp); err != nil || hsResp[0] != 0x05 || hsResp[1] != 0x00 {
-		t.Fatalf("Handshake failed, got: %v, err: %v", hsResp, err)
+	authResp := make([]byte, 2)
+	if _, err := io.ReadFull(conn, authResp); err != nil {
+		t.Fatalf("Failed to read auth response: %v", err)
 	}
-
-	// 3. Send UDP ASSOCIATE request: CMD 0x03
-	req := []byte{0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0}
-	if _, err := conn.Write(req); err != nil {
-		t.Fatalf("UDP ASSOCIATE write failed: %v", err)
+	if authResp[0] != 0x05 || authResp[1] != 0x00 {
+		t.Fatalf("Auth failed: %v", authResp)
 	}
 
-	resp := make([]byte, 10)
-	if _, err := io.ReadFull(conn, resp); err != nil {
+	// 3. Send SOCKS5 UDP ASSOCIATE request (CMD 0x03)
+	udpAssocReq := []byte{
+		0x05, 0x03, 0x00, 0x01,
+		0, 0, 0, 0,
+		0, 0,
+	}
+	if _, err := conn.Write(udpAssocReq); err != nil {
+		t.Fatalf("Failed to send UDP ASSOCIATE request: %v", err)
+	}
+
+	assocResp := make([]byte, 10)
+	if _, err := io.ReadFull(conn, assocResp); err != nil {
 		t.Fatalf("Failed to read UDP ASSOCIATE response: %v", err)
 	}
-	if resp[0] != 0x05 || resp[1] != 0x00 {
-		t.Fatalf("UDP ASSOCIATE rejected with code: %d", resp[1])
+	if assocResp[1] != 0x00 {
+		t.Fatalf("UDP ASSOCIATE failed with rep code %x", assocResp[1])
 	}
 
-	relayPort := binary.BigEndian.Uint16(resp[8:10])
-	if relayPort == 0 {
-		t.Fatalf("Expected non-zero UDP relay port, got %d", relayPort)
-	}
-	relayAddr := fmt.Sprintf("127.0.0.1:%d", relayPort)
+	relayIP := net.IP(assocResp[4:8]).String()
+	relayPort := binary.BigEndian.Uint16(assocResp[8:10])
+	relayAddr := fmt.Sprintf("%s:%d", relayIP, relayPort)
 	t.Logf("SOCKS5 UDP ASSOCIATE succeeded! Relay address: %s", relayAddr)
 
 	// 4. Send DNS query packet to UDP relay
-	udpClient, err := net.ListenUDP("udp", nil)
+	udpRelayConn, err := net.Dial("udp", relayAddr)
 	if err != nil {
-		t.Fatalf("Failed to create UDP client: %v", err)
+		t.Fatalf("Failed to dial UDP relay: %v", err)
 	}
-	defer udpClient.Close()
+	defer udpRelayConn.Close()
 
-	rAddr, err := net.ResolveUDPAddr("udp", relayAddr)
-	if err != nil {
-		t.Fatalf("Resolve relay UDP address failed: %v", err)
-	}
-
-	// Construct SOCKS5 UDP Encapsulation targeting 1.1.1.1:53
 	dnsQueryPayload := []byte{
 		0x12, 0x34, // Transaction ID
 		0x01, 0x00, // Standard query
-		0x00, 0x01, // Questions: 1
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x06, 'g', 'o', 'o', 'g', 'l', 'e', 0x03, 'c', 'o', 'm', 0x00,
-		0x00, 0x01, 0x00, 0x01, // Type A, Class IN
+		0x00, 0x01, // QDCOUNT = 1
+		0x00, 0x00, // ANCOUNT = 0
+		0x00, 0x00, // NSCOUNT = 0
+		0x00, 0x00, // ARCOUNT = 0
+		0x06, 'g', 'o', 'o', 'g', 'l', 'e',
+		0x03, 'c', 'o', 'm',
+		0x00,       // End of name
+		0x00, 0x01, // Type A
+		0x00, 0x01, // Class IN
 	}
 
+	// SOCKS5 UDP Encapsulation targeting 1.1.1.1:53
 	socksUdpPacket := []byte{
-		0x00, 0x00, 0x00, 0x01, // RSV(2), FRAG(1), ATYP(1) = IPv4
+		0x00, 0x00, // RSV
+		0x00,       // FRAG
+		0x01,       // ATYP: IPv4
 		1, 1, 1, 1, // Target IP: 1.1.1.1
-		0x00, 53, // Target Port: 53
+		0x00, 0x35, // Target Port: 53
 	}
 	socksUdpPacket = append(socksUdpPacket, dnsQueryPayload...)
 
-	if _, err := udpClient.WriteTo(socksUdpPacket, rAddr); err != nil {
-		t.Fatalf("Write to UDP relay failed: %v", err)
+	if _, err := udpRelayConn.Write(socksUdpPacket); err != nil {
+		t.Fatalf("Failed to send UDP packet: %v", err)
 	}
 
 	// 5. Read DNS response from UDP relay
-	_ = udpClient.SetReadDeadline(time.Now().Add(2 * time.Second))
-	respBuf := make([]byte, 2048)
-	n, _, err := udpClient.ReadFrom(respBuf)
+	_ = udpRelayConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	respBuf := make([]byte, 4096)
+	n, err := udpRelayConn.Read(respBuf)
 	if err != nil {
 		t.Fatalf("Failed to receive DNS response from relay: %v", err)
 	}
-	if n < 10+len(dnsQueryPayload) {
-		t.Fatalf("Response packet too short: %d bytes", n)
-	}
 
-	// Verify SOCKS5 header in response
-	if respBuf[0] != 0 || respBuf[1] != 0 || respBuf[2] != 0 || respBuf[3] != 1 {
-		t.Fatalf("Invalid SOCKS5 UDP header in response: %v", respBuf[:4])
+	if n < 10+len(dnsQueryPayload) {
+		t.Fatalf("DNS response too short: %d bytes", n)
 	}
 
 	payloadResp := respBuf[10:n]

@@ -632,6 +632,13 @@ func (s *h2ProxySession) UpdateToken(token string) error {
 	return nil
 }
 
+func (s *h2ProxySession) RemoteAddr() net.Addr {
+	if s.raw != nil {
+		return s.raw.RemoteAddr()
+	}
+	return nil
+}
+
 func (s *h2ProxySession) Close() error {
 	s.closeOnce.Do(func() {
 		s.alive.Store(false)
@@ -760,6 +767,13 @@ func (s *h3ProxySession) UpdateToken(token string) error {
 	s.tokenMu.Lock()
 	s.token = token
 	s.tokenMu.Unlock()
+	return nil
+}
+
+func (s *h3ProxySession) RemoteAddr() net.Addr {
+	if s.conn != nil {
+		return (*s.conn).RemoteAddr()
+	}
 	return nil
 }
 
@@ -904,6 +918,26 @@ func (c *proxyController) OpenTunnel(authority string) (net.Conn, error) {
 		c.fallbackMgr.RecordUDPResult(err == nil, 0)
 	}
 	return conn, err
+}
+
+func (c *proxyController) RemoteIP() string {
+	c.mu.Lock()
+	sess := c.session
+	c.mu.Unlock()
+	if sess == nil {
+		return ""
+	}
+	if r, ok := sess.(interface{ RemoteAddr() net.Addr }); ok {
+		addr := r.RemoteAddr()
+		if addr != nil {
+			host, _, err := net.SplitHostPort(addr.String())
+			if err == nil && host != "" {
+				return host
+			}
+			return addr.String()
+		}
+	}
+	return ""
 }
 
 func (c *proxyController) GetFallbackStatus() (active bool, state string, lossRate float64) {

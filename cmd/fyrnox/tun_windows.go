@@ -53,7 +53,7 @@ func FlushDNSCache() {
 const (
 	tunDeviceName = "FyrnoxTun"
 	tunIPAddr     = "10.254.1.2"
-	tunNetmask    = "255.255.255.252"
+	tunNetmask    = "255.255.255.0"
 	tunGateway    = "10.254.1.1"
 	tunMTU        = 1500
 )
@@ -168,7 +168,7 @@ func getPhysicalDefaultGateway() (string, int, error) {
 }
 
 // EnableTunMode sets up Layer-3 Wintun routing (when Administrator) and WinHTTP + user environment proxies
-func EnableTunMode(socksAddr, httpAddr, remoteHost, ipProtocol string) error {
+func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string) error {
 	tunMu.Lock()
 	defer tunMu.Unlock()
 
@@ -237,22 +237,35 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, ipProtocol string) error {
 	defaultIfaceIdx = ifaceIdx
 	LogInfo("Physical Default Gateway identified: %s (Interface Index: %d)", gw, ifaceIdx)
 
-	// Resolve remote VPN server IP to add explicit host route
+	// Add explicit host routes for the active tunnel server to prevent routing loops
 	remoteServerIPs = nil
+	addHostRoute := func(ipStr string) {
+		if ipStr == "" || ipStr == "127.0.0.1" || strings.HasPrefix(ipStr, "10.") {
+			return
+		}
+		for _, existing := range remoteServerIPs {
+			if existing == ipStr {
+				return
+			}
+		}
+		remoteServerIPs = append(remoteServerIPs, ipStr)
+		routeCmd := newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "metric", "1")
+		if ifaceIdx > 0 {
+			routeCmd = newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "if", strconv.Itoa(ifaceIdx), "metric", "1")
+		}
+		_ = routeCmd.Run()
+		LogInfo("Routing loop prevention route added for %s -> %s", ipStr, gw)
+	}
+
+	if remoteIP != "" {
+		addHostRoute(remoteIP)
+	}
 	if remoteHost != "" {
 		resolvedIPs, err := net.LookupIP(remoteHost)
 		if err == nil {
 			for _, ip := range resolvedIPs {
 				if ip4 := ip.To4(); ip4 != nil {
-					ipStr := ip4.String()
-					remoteServerIPs = append(remoteServerIPs, ipStr)
-					// Add explicit host route via physical gateway
-					routeCmd := newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "metric", "1")
-					if ifaceIdx > 0 {
-						routeCmd = newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "if", strconv.Itoa(ifaceIdx), "metric", "1")
-					}
-					_ = routeCmd.Run()
-					LogInfo("Routing loop prevention route added for %s -> %s", ipStr, gw)
+					addHostRoute(ip4.String())
 				}
 			}
 		}
@@ -307,8 +320,7 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, ipProtocol string) error {
 		"source=static",
 		fmt.Sprintf("addr=%s", tunIPAddr),
 		fmt.Sprintf("mask=%s", tunNetmask),
-		fmt.Sprintf("gateway=%s", tunGateway),
-		"gwmetric=1",
+		"gateway=none",
 	).Run()
 
 	_ = newSilentCmd("netsh", "interface", "ipv4", "set", "dnsservers",

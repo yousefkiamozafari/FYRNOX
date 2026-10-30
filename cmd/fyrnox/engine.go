@@ -524,7 +524,7 @@ func (e *VpnEngine) refreshServers() {
 						CityName:    city.Name,
 						CityCode:    city.Code,
 						Port:        port,
-						PingMs:      -1,
+						PingMs:      0,
 						IsAnycast:   isAny,
 					})
 				}
@@ -1433,7 +1433,11 @@ func (e *VpnEngine) Connect() error {
 		}
 
 		if settings.EnableTunMode {
-			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname, settings.IPProtocol); err != nil {
+			remoteIP := ""
+			if controller != nil {
+				remoteIP = controller.RemoteIP()
+			}
+			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname, remoteIP, settings.IPProtocol); err != nil {
 				LogWarn("Could not activate TUN mode: %v", err)
 			} else {
 				LogInfo("System TUN mode activated")

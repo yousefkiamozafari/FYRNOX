@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -459,53 +463,154 @@ func (s *SocksProxyServer) handleUDPAssociate(clientConn net.Conn, header []byte
 	}
 }
 
-// forwardDNSOverTunnel sends a UDP DNS query over the encrypted TCP tunnel (RFC 7766) and returns the answer
-func (s *SocksProxyServer) forwardDNSOverTunnel(udpConn *net.UDPConn, clientAddr net.Addr, dnsHost string, dnsPort int, query []byte) {
-	if dnsHost == "" || dnsHost == "0.0.0.0" {
-		dnsHost = "1.1.1.1"
+// queryDoH executes an RFC 8484 DNS-over-HTTPS request over the encrypted MASQUE tunnel (port 443)
+func (s *SocksProxyServer) queryDoH(query []byte) ([]byte, error) {
+	endpoints := []struct {
+		target string
+		host   string
+		path   string
+	}{
+		{"1.1.1.1:443", "cloudflare-dns.com", "/dns-query"},
+		{"8.8.8.8:443", "dns.google", "/dns-query"},
+		{"9.9.9.9:443", "dns.quad9.net", "/dns-query"},
 	}
-	target := fmt.Sprintf("%s:%d", dnsHost, dnsPort)
 
-	// Connect via upstream tunnel opener
+	for _, ep := range endpoints {
+		conn, err := s.opener.OpenTunnel(ep.target)
+		if err != nil {
+			continue
+		}
+
+		tlsCfg := &tls.Config{
+			ServerName: ep.host,
+			MinVersion: tls.VersionTLS12,
+		}
+		tlsConn := tls.Client(conn, tlsCfg)
+		_ = tlsConn.SetDeadline(time.Now().Add(4 * time.Second))
+		if err := tlsConn.Handshake(); err != nil {
+			_ = conn.Close()
+			continue
+		}
+
+		reqStr := fmt.Sprintf("POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/dns-message\r\nAccept: application/dns-message\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", ep.path, ep.host, len(query))
+		if _, err := tlsConn.Write([]byte(reqStr)); err != nil {
+			_ = tlsConn.Close()
+			continue
+		}
+		if _, err := tlsConn.Write(query); err != nil {
+			_ = tlsConn.Close()
+			continue
+		}
+
+		resp, err := http.ReadResponse(bufio.NewReader(tlsConn), nil)
+		if err != nil {
+			_ = tlsConn.Close()
+			continue
+		}
+		body, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		_ = tlsConn.Close()
+
+		if resp.StatusCode == http.StatusOK && len(body) >= 12 {
+			return body, nil
+		}
+	}
+	return nil, errors.New("all DoH endpoints failed")
+}
+
+// queryTcpDns executes an RFC 7766 DNS-over-TCP query
+func (s *SocksProxyServer) queryTcpDns(dnsHost string, dnsPort int, query []byte) ([]byte, error) {
+	target := fmt.Sprintf("%s:%d", dnsHost, dnsPort)
 	conn, err := s.opener.OpenTunnel(target)
 	if err != nil {
 		conn, err = s.opener.OpenTunnel("1.1.1.1:53")
 		if err != nil {
-			conn, err = s.opener.OpenTunnel("8.8.8.8:53")
-			if err != nil {
-				return
-			}
+			return nil, err
 		}
 	}
 	defer conn.Close()
 
-	_ = conn.SetDeadline(time.Now().Add(4 * time.Second))
-
-	// In DNS over TCP, message is prefixed with 2-byte big-endian length
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
 	reqLen := uint16(len(query))
 	reqBuf := make([]byte, 2+len(query))
 	binary.BigEndian.PutUint16(reqBuf[:2], reqLen)
 	copy(reqBuf[2:], query)
 
 	if _, err := conn.Write(reqBuf); err != nil {
-		return
+		return nil, err
 	}
 
 	var respLenBuf [2]byte
 	if _, err := io.ReadFull(conn, respLenBuf[:]); err != nil {
-		return
+		return nil, err
 	}
 	respLen := binary.BigEndian.Uint16(respLenBuf[:])
 	if respLen == 0 || respLen > 4096 {
-		return
+		return nil, errors.New("invalid tcp dns length")
 	}
 
 	dnsResp := make([]byte, respLen)
 	if _, err := io.ReadFull(conn, dnsResp); err != nil {
+		return nil, err
+	}
+	return dnsResp, nil
+}
+
+// queryDirectUdpDns attempts direct UDP query to public resolver
+func (s *SocksProxyServer) queryDirectUdpDns(dnsHost string, dnsPort int, query []byte) ([]byte, error) {
+	rAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", dnsHost, dnsPort))
+	if err != nil {
+		rAddr, _ = net.ResolveUDPAddr("udp", "1.1.1.1:53")
+	}
+	conn, err := net.DialUDP("udp", nil, rAddr)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	if _, err := conn.Write(query); err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, 4096)
+	n, err := conn.Read(buf)
+	if err != nil || n < 12 {
+		return nil, errors.New("direct udp dns failed")
+	}
+	return buf[:n], nil
+}
+
+// forwardDNSOverTunnel sends a UDP DNS query with RFC 8484 DoH, TCP fallback, and returns SOCKS5 UDP answer
+func (s *SocksProxyServer) forwardDNSOverTunnel(udpConn *net.UDPConn, clientAddr net.Addr, dnsHost string, dnsPort int, query []byte) {
+	if dnsHost == "" || dnsHost == "0.0.0.0" {
+		dnsHost = "1.1.1.1"
+	}
+	if dnsPort <= 0 {
+		dnsPort = 53
+	}
+
+	var dnsResp []byte
+	var err error
+
+	// 1. Primary: RFC 8484 DNS-over-HTTPS (DoH) via MASQUE tunnel (port 443 - 100% open & unfiltered)
+	dnsResp, err = s.queryDoH(query)
+
+	// 2. Fallback: RFC 7766 DNS-over-TCP via MASQUE tunnel (port 53)
+	if err != nil || len(dnsResp) == 0 {
+		dnsResp, err = s.queryTcpDns(dnsHost, dnsPort, query)
+	}
+
+	// 3. Fallback: Direct UDP to public resolver
+	if err != nil || len(dnsResp) == 0 {
+		dnsResp, err = s.queryDirectUdpDns(dnsHost, dnsPort, query)
+	}
+
+	if err != nil || len(dnsResp) == 0 {
 		return
 	}
 
-	// Pack DNS response in SOCKS5 UDP encapsulation
+	// Pack DNS response in SOCKS5 UDP encapsulation (RFC 1928)
 	respHeader := []byte{0x00, 0x00, 0x00, 0x01}
 	ipBytes := net.ParseIP(dnsHost).To4()
 	if ipBytes == nil {
@@ -518,7 +623,8 @@ func (s *SocksProxyServer) forwardDNSOverTunnel(udpConn *net.UDPConn, clientAddr
 
 	fullPacket := append(respHeader, dnsResp...)
 	if s.meter != nil {
-		s.meter.AddUp(int64(len(query))); s.meter.AddDown(int64(len(dnsResp)))
+		s.meter.AddUp(int64(len(query)))
+		s.meter.AddDown(int64(len(dnsResp)))
 	}
 	_, _ = udpConn.WriteTo(fullPacket, clientAddr)
 }
