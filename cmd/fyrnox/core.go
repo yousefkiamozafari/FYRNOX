@@ -661,6 +661,7 @@ type h3ProxySession struct {
 	conn      *quic.Conn
 	udpConn   *net.UDPConn
 	rt        *http3.Transport
+	cc        *http3.ClientConn
 	proxyHost string
 	token     string
 	timeout   time.Duration
@@ -710,10 +711,12 @@ func newH3ProxySession(proxyURL *url.URL, token string, timeout time.Duration, a
 	}
 
 	rt := &http3.Transport{}
+	cc := rt.NewClientConn(qConn)
 	return &h3ProxySession{
 		conn:      qConn,
 		udpConn:   udpConn,
 		rt:        rt,
+		cc:        cc,
 		proxyHost: proxyHost,
 		token:     token,
 		timeout:   timeout,
@@ -740,7 +743,7 @@ func (s *h3ProxySession) OpenTunnel(authority string) (net.Conn, error) {
 	s.tokenMu.RUnlock()
 	req.Header.Set("Proxy-Authorization", "Bearer "+tok)
 
-	resp, err := s.rt.RoundTrip(req)
+	resp, err := s.cc.RoundTrip(req)
 	if err != nil {
 		cancel()
 		reqBody.failRead(io.ErrClosedPipe)

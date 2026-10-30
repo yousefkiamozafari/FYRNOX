@@ -107,3 +107,27 @@ func TestMeasureServerPingBreakdown(t *testing.T) {
 		t.Errorf("Expected positive TCP connect time on local listener, got %d", tc)
 	}
 }
+
+func TestResetSettingsToDefault(t *testing.T) {
+	engine := NewVpnEngine()
+	// Change some settings
+	s := engine.GetSettings()
+	s.GamingMode = true
+	s.EnableTunMode = true
+	s.UseSystemProxy = false
+	s.KillSwitch = true
+	engine.UpdateSettings(s)
+
+	if !engine.GetSettings().GamingMode || !engine.GetSettings().EnableTunMode {
+		t.Fatalf("Failed to update test settings")
+	}
+
+	// Reset to default
+	res := engine.ResetSettingsToDefault()
+	if res.GamingMode != false || res.EnableTunMode != false || res.UseSystemProxy != true || res.KillSwitch != false {
+		t.Fatalf("ResetSettingsToDefault did not restore default settings: %+v", res)
+	}
+	if engine.GetSettings().GamingMode != false {
+		t.Fatalf("Engine settings state not restored: %+v", engine.GetSettings())
+	}
+}

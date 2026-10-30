@@ -793,6 +793,28 @@
               </div>
             </div>
 
+                        <!-- Reset to Defaults Card -->
+            <div class="settings-group-card reset-defaults-card">
+              <div class="settings-group-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div class="settings-group-icon" style="background: rgba(255, 75, 75, 0.15); color: #ff5555; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 16px;">🔄</div>
+                <div>
+                  <h3 class="settings-group-heading" style="margin: 0; font-size: 15px;" data-i18n="set_reset_title">Reset to Default</h3>
+                  <div class="settings-item-sub" data-i18n="set_reset_desc">Restore network routing, protocol selections, proxies, and bypass rules to initial pristine settings.</div>
+                </div>
+              </div>
+              <div class="settings-item-row" style="margin-top: 10px;">
+                <div class="settings-item-desc">
+                  <div class="settings-item-title" data-i18n="set_reset_action_title">Restore Factory Defaults</div>
+                  <div class="settings-item-sub" data-i18n="set_reset_action_sub">Reverts routing to System Proxy, disables TUN, turns off Gaming Mode, and clears custom configs.</div>
+                </div>
+                <div class="settings-item-control">
+                  <button type="button" class="btn-danger-reset" onclick="resetSettingsToDefault()" style="background: rgba(255, 75, 75, 0.18); border: 1px solid rgba(255, 75, 75, 0.4); color: #ff6b6b; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 75, 75, 0.3)'" onmouseout="this.style.background='rgba(255, 75, 75, 0.18)'">
+                    <span data-i18n="btn_reset_defaults">Reset to Default</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- About Card -->
             <div class="settings-group-card">
               <h3 class="settings-group-heading" data-i18n="set_heading_about">About FYRNOX for Windows</h3>

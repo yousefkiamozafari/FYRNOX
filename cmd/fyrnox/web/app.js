@@ -196,6 +196,11 @@ const I18N = {
     gaming_jitter: 'Jitter',
     gaming_loss: 'Packet Loss',
     btn_disable: 'Turn Off',
+    set_reset_title: 'Reset to Default',
+    set_reset_desc: 'Restore network routing, protocol selections, proxies, and bypass rules to initial pristine settings.',
+    set_reset_action_title: 'Restore Factory Defaults',
+    set_reset_action_sub: 'Reverts routing to System Proxy, disables TUN, turns off Gaming Mode, and clears custom configs.',
+    btn_reset_defaults: 'Reset to Default',
     set_iran_bypass_title: 'Direct Routing for Iran Domestic Traffic (Zero-Config)',
     set_iran_bypass_sub: 'Bypass domestic banking networks, Shetab gateways, and .ir domains directly without consuming VPN quota',
     set_gaming_title: 'Dedicated Low-Latency Gaming Accelerator',
@@ -3445,3 +3450,54 @@ function copyExitInfo() {
   }
 }
 window.copyExitInfo = copyExitInfo;
+
+async function resetSettingsToDefault() {
+  const confirmMsg = currentLang === 'fa' 
+    ? 'آیا از بازنشانی تمام تنظیمات به حالت اولیه پیش‌فرض اطمینان دارید؟' 
+    : 'Are you sure you want to restore all settings to their original factory defaults?';
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const res = await fetch('/api/settings/reset', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.settings) {
+        const tunToggle = document.getElementById('setting-tun-mode');
+        if (tunToggle) tunToggle.checked = !!data.settings.enable_tun_mode;
+
+        const h3Toggle = document.getElementById('setting-h3');
+        if (h3Toggle) h3Toggle.checked = !!data.settings.use_h3;
+
+        const gamingToggle = document.getElementById('setting-gaming-mode');
+        if (gamingToggle) gamingToggle.checked = !!data.settings.gaming_mode;
+
+        const killswitchToggle = document.getElementById('setting-killswitch');
+        if (killswitchToggle) killswitchToggle.checked = !!data.settings.killswitch;
+
+        const autoReconnToggle = document.getElementById('setting-auto-reconnect');
+        if (autoReconnToggle) autoReconnToggle.checked = !!data.settings.auto_reconnect;
+
+        const iranDirectToggle = document.getElementById('setting-iran-direct');
+        if (iranDirectToggle) iranDirectToggle.checked = !!data.settings.direct_iran_traffic;
+
+        const tlsFragToggle = document.getElementById('setting-tls-frag');
+        if (tlsFragToggle) tlsFragToggle.checked = true;
+
+        const bypassInput = document.getElementById('setting-bypass-rules');
+        if (bypassInput) bypassInput.value = data.settings.bypass_rules || '';
+
+        const apiProxyInput = document.getElementById('setting-api-proxy');
+        if (apiProxyInput) apiProxyInput.value = data.settings.api_proxy || '';
+
+        const gamingCard = document.getElementById('dash-gaming-card');
+        if (gamingCard) gamingCard.style.display = 'none';
+      }
+      showToast(currentLang === 'fa' ? 'تمام تنظیمات به حالت پیش‌فرض بازگردانده شدند' : 'All settings restored to factory defaults', 'success');
+      if (typeof fetchStatus === 'function') fetchStatus();
+    }
+  } catch (err) {
+    console.error('Failed to reset settings:', err);
+    showToast(currentLang === 'fa' ? 'خطا در بازنشانی تنظیمات' : 'Failed to reset settings', 'error');
+  }
+}
+window.resetSettingsToDefault = resetSettingsToDefault;

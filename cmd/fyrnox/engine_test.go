@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+func TestPhysicalGateway(t *testing.T) {
+	gw, idx, err := getPhysicalDefaultGateway()
+	t.Logf("getPhysicalDefaultGateway: gw=%s, idx=%d, err=%v", gw, idx, err)
+}
+
 func TestConnectionProgressSteps(t *testing.T) {
 	engine := NewVpnEngine()
 	status := engine.GetStatus()

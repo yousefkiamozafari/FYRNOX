@@ -54,7 +54,7 @@ const (
 	tunDeviceName = "FyrnoxTun"
 	tunIPAddr     = "10.254.1.2"
 	tunNetmask    = "255.255.255.0"
-	tunGateway    = "10.254.1.1"
+	tunGateway    = "10.254.1.2"
 	tunMTU        = 1500
 )
 

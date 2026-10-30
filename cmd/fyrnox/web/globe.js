@@ -483,9 +483,9 @@
       });
 
       this.activeBorderMat = new THREE.LineBasicMaterial({
-        color: 0xD97732,
+        color: 0xFF7A00,
         transparent: true,
-        opacity: 0.92,
+        opacity: 1.0,
         depthWrite: false
       });
 
@@ -554,17 +554,17 @@
         const uDest = latLonToVector3(this.destGeo.lat, this.destGeo.lon, 1.0).normalize();
         const vDest = uDest.clone().multiplyScalar(surfaceR + h0);
 
-        // Destination Sphere Pin
-        const destDotGeo = new THREE.SphereGeometry(1.6, 16, 16);
-        const destDotMat = new THREE.MeshBasicMaterial({ color: 0xD9954B });
+        // Destination Sphere Pin (Luminous Fire Core)
+        const destDotGeo = new THREE.SphereGeometry(2.2, 16, 16);
+        const destDotMat = new THREE.MeshBasicMaterial({ color: 0xFF7A00 });
         const destDot = new THREE.Mesh(destDotGeo, destDotMat);
         destDot.position.copy(vDest);
         this.markerGroup.add(destDot);
 
-        // Destination Pulse Ring
-        const destRingGeo = new THREE.RingGeometry(2.0, 3.8, 32);
+        // Destination Pulse Ring (Outer Beacon Ring)
+        const destRingGeo = new THREE.RingGeometry(2.6, 5.0, 32);
         const destRingMat = new THREE.MeshBasicMaterial({
-          color: 0xD9954B,
+          color: 0xFF9E3D,
           side: THREE.DoubleSide,
           transparent: true,
           opacity: 0.95
@@ -695,8 +695,10 @@
         if (!mesh) return;
         if (activeSet.has(code)) {
           mesh.material = this.activeBorderMat;
+          mesh.scale.set(1.004, 1.004, 1.004);
         } else {
           mesh.material = this.defaultBorderMat;
+          mesh.scale.set(1.0, 1.0, 1.0);
         }
       });
     }
@@ -814,14 +816,10 @@
 
         // Smooth transition to target when server changed or connection initiated
         if (destChanged || stateChanged) {
-          if (this.originGeo && this.destGeo) {
-            this.centerOnCoordinates(
-              (this.originGeo.lat + this.destGeo.lat) / 2,
-              (this.originGeo.lon + this.destGeo.lon) / 2,
-              true
-            );
-          } else if (this.destGeo) {
+          if (this.destGeo) {
             this.centerOnCoordinates(this.destGeo.lat, this.destGeo.lon, true);
+          } else if (this.originGeo) {
+            this.centerOnCoordinates(this.originGeo.lat, this.originGeo.lon, true);
           }
         }
       }

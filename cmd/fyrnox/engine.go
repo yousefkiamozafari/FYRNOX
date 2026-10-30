@@ -1311,7 +1311,13 @@ func (e *VpnEngine) Connect() error {
 		// 2. Setup Upstream Controller
 		e.setConnectStep("connecting_upstream")
 		targetURL, _ := url.Parse(fmt.Sprintf("https://%s:%d", selected.Hostname, selected.Port))
-		controller, err := newProxyController(e.guardian, targetURL, 30*time.Second, auth, pass, settings.UseH3, settings.ApiProxy, settings.TlsFragmentation, settings.IPProtocol)
+		useH3 := settings.UseH3
+		if settings.EnableTunMode {
+			// Enforce rock-solid TCP HTTP/2 with TLS fragmentation for Wintun TUN mode
+			// to guarantee zero UDP drops and avoid DPI blackholing in Iran!
+			useH3 = false
+		}
+		controller, err := newProxyController(e.guardian, targetURL, 30*time.Second, auth, pass, useH3, settings.ApiProxy, settings.TlsFragmentation, settings.IPProtocol)
 		if err != nil {
 			if connectCtx.Err() != nil {
 				LogInfo("Connection aborted by user during controller setup")
@@ -1965,4 +1971,11 @@ func (e *VpnEngine) performAutoReconnect(cid int64, srvIP string) {
 	}
 	e.mu.Unlock()
 	e.notifyTray()
+}
+
+func (e *VpnEngine) ResetSettingsToDefault() VpnSettings {
+	def := defaultSettings()
+	e.UpdateSettings(def)
+	LogInfo("All VPN settings restored to pristine defaults.")
+	return def
 }

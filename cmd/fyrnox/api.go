@@ -48,6 +48,7 @@ func (s *ApiServer) Start() error {
 	mux.HandleFunc("/api/ip", s.handleIP)
 	mux.HandleFunc("/api/ip/refresh", s.handleIPRefresh)
 	mux.HandleFunc("/api/settings", s.handleSettings)
+	mux.HandleFunc("/api/settings/reset", s.handleSettingsReset)
 	mux.HandleFunc("/api/routing-mode", s.handleRoutingMode)
 	mux.HandleFunc("/api/apps/running", s.handleRunningApps)
 	mux.HandleFunc("/api/apps/installed", s.handleInstalledApps)
@@ -508,5 +509,18 @@ func (s *ApiServer) handleGameQoS(w http.ResponseWriter, r *http.Request) {
 		"game_detected": stats.GameDetected,
 		"detected_game": stats.DetectedGame,
 		"signatures":    globalPingShield.GetGameSignatures(),
+	})
+}
+
+func (s *ApiServer) handleSettingsReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	newSettings := s.engine.ResetSettingsToDefault()
+	s.jsonResponse(w, map[string]any{
+		"status":   "ok",
+		"message":  "Settings restored to defaults",
+		"settings": newSettings,
 	})
 }
