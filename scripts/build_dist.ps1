@@ -62,6 +62,7 @@ Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.4.exe" "$repoRoot\
 Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.4.exe" "$repoRoot\build\dist\Fyrnox-Setup-Windows-11-10-x64.exe"
 Copy-Item -Force $zipX64 "$repoRoot\build\dist\Fyrnox-v1.0.4-Windows-x64-Portable.zip"
 Copy-Item -Force $zipX86 "$repoRoot\build\dist\Fyrnox-v1.0.4-Windows-x86-Portable.zip"
+Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\build\dist\fyrnox.exe"
 
 Write-Host "=== 9. Building x86 Installer for build/dist ==="
 Copy-Item -Force "$repoRoot\build\Fyrnox-x86.exe" "$repoRoot\cmd\installer\payload\Fyrnox.exe"

@@ -155,3 +155,59 @@ func TestEngineStatusIncludesCurrentIP(t *testing.T) {
 		t.Fatal("expected status.CurrentIP to be non-empty")
 	}
 }
+
+func TestConnectAtomicRollback(t *testing.T) {
+	engine := NewVpnEngine()
+	if engine.auth == nil {
+		t.Skip("Not logged in; skipping atomic rollback test")
+	}
+	// Avoid modifying host system proxy during test
+	engine.settings.UseSystemProxy = false
+	engine.settings.EnableTunMode = false
+
+	err := engine.Connect()
+	if err != nil {
+		t.Fatalf("Connect initiation failed: %v", err)
+	}
+
+	// Wait up to 12 seconds for StateConnected
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		status := engine.GetStatus()
+		if status.State == "connected" {
+			break
+		}
+		if status.State == "error" {
+			t.Fatalf("Connection reached error state: %s", status.ErrorMessage)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	status := engine.GetStatus()
+	if status.State != "connected" {
+		t.Fatalf("Timed out waiting for StateConnected; current: %s", status.State)
+	}
+	if status.ExitIP == "" {
+		t.Fatalf("Expected non-empty ExitIP on connected status")
+	}
+
+	// Now test atomic disconnect
+	err = engine.Disconnect()
+	if err != nil {
+		t.Fatalf("Disconnect failed: %v", err)
+	}
+
+	// Verify status is disconnected within short grace period
+	deadlineDisc := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadlineDisc) {
+		status = engine.GetStatus()
+		if status.State == "disconnected" {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if status.State != "disconnected" {
+		t.Fatalf("Expected StateDisconnected after Disconnect(), got %s", status.State)
+	}
+}

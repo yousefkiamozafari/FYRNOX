@@ -147,6 +147,7 @@ type VpnEngine struct {
 
 	connectCancel       context.CancelFunc
 	connectID           int64
+	cachedPass          *vpnclient.ProxyPassInfo
 }
 
 func checkLocalIPFamilies() (hasV4 bool, hasV6 bool) {
@@ -258,9 +259,21 @@ func NewVpnEngine() *VpnEngine {
 		engine.servers = defaultServers
 	}
 	engine.selected = &engine.servers[0]
+	if settings.SelectedServer != "" {
+		for i := range engine.servers {
+			if engine.servers[i].Hostname == settings.SelectedServer {
+				engine.selected = &engine.servers[i]
+				break
+			}
+		}
+	}
 
-	// Setup custom DNS / direct transport with TLS fragmentation by default
-	_ = configureAPIProxy("", true)
+	// Setup custom DNS or saved upstream API proxy with TLS fragmentation
+	if settings.ApiProxy != "" {
+		_ = configureAPIProxy(settings.ApiProxy, settings.TlsFragmentation)
+	} else {
+		_ = configureAPIProxy("", true)
+	}
 
 	// Try loading saved auth tokens
 	saved, err := vpnclient.LoadTokens()
@@ -528,6 +541,15 @@ func (e *VpnEngine) refreshServers() {
 		if e.selected != nil {
 			for i := range list {
 				if list[i].Hostname == e.selected.Hostname {
+					e.selected = &list[i]
+					found = true
+					break
+				}
+			}
+		}
+		if !found && e.settings.SelectedServer != "" {
+			for i := range list {
+				if list[i].Hostname == e.settings.SelectedServer {
 					e.selected = &list[i]
 					found = true
 					break
@@ -1024,9 +1046,21 @@ func (e *VpnEngine) SelectServer(hostname string) error {
 		}
 	}
 	if found == nil {
+		for _, s := range e.servers {
+			if strings.EqualFold(s.CountryCode, hostname) || strings.EqualFold(s.CountryName, hostname) || strings.EqualFold(s.CityCode, hostname) {
+				sel := s
+				e.selected = &sel
+				e.settings.SelectedServer = s.Hostname
+				found = &sel
+				break
+			}
+		}
+	}
+	if found == nil {
 		e.mu.Unlock()
 		return fmt.Errorf("server not found: %s", hostname)
 	}
+	_ = saveSettings(e.settings)
 
 	currentState := e.state
 	LogInfo("Selected server: %s (%s, %s) [current state: %s]", found.Hostname, found.CityName, found.CountryName, currentState)
@@ -1053,14 +1087,21 @@ func (e *VpnEngine) SelectServer(hostname string) error {
 func (e *VpnEngine) getOrRenewProxyPass(ctx context.Context) (*vpnclient.ProxyPassInfo, error) {
 	e.mu.RLock()
 	auth := e.auth
+	cached := e.cachedPass
 	e.mu.RUnlock()
 	if auth == nil || auth.Token == nil {
 		return nil, fmt.Errorf("not logged in")
+	}
+	if cached != nil && time.Now().Before(cached.ExpiresAt().Add(-2*time.Minute)) {
+		return cached, nil
 	}
 
 	// 1. Try with current access token
 	pass, err := vpnclient.FetchProxyPass(ctx, e.guardian, auth.Token.AccessToken)
 	if err == nil {
+		e.mu.Lock()
+		e.cachedPass = pass
+		e.mu.Unlock()
 		return pass, nil
 	}
 
@@ -1222,6 +1263,14 @@ func (e *VpnEngine) Connect() error {
 	auth := e.auth
 	selected := *e.selected
 	settings := e.settings
+	if settings.EnableTunMode && !IsAdmin() {
+		LogWarn("TUN mode requested but process lacks Administrator privileges. Falling back to System Proxy mode.")
+		settings.UseSystemProxy = true
+		settings.EnableTunMode = false
+	}
+	if !settings.UseSystemProxy && !settings.EnableTunMode {
+		settings.UseSystemProxy = true
+	}
 	e.mu.Unlock()
 	e.notifyTray()
 
@@ -1332,7 +1381,7 @@ func (e *VpnEngine) Connect() error {
 		// 5. Test real end-to-end connectivity through the tunnel before declaring Connected!
 		e.setConnectStep("verifying_exit")
 		LogInfo("Verifying tunnel connectivity and exit IP...")
-		probe, err := VerifyExit(controller, 12*time.Second)
+		probe, err := VerifyExit(controller, 20*time.Second)
 		if err != nil {
 			if connectCtx.Err() != nil {
 				_ = socksSrv.Close()
@@ -1353,6 +1402,10 @@ func (e *VpnEngine) Connect() error {
 				e.setError(fmt.Sprintf("Tunnel established but exit verification failed: %v", err))
 			}
 			return
+		}
+
+		if probe.CountryCode == "" && selected.CountryCode != "" {
+			probe.CountryCode = selected.CountryCode
 		}
 
 		LogInfo("Exit verified: IP %s, Country %s (latency: %dms)", probe.IP, probe.CountryCode, probe.LatencyMs)
@@ -1527,6 +1580,7 @@ func (e *VpnEngine) Login(email, password, proxyAddr string) (need2FA bool, err 
 		} else {
 			e.mu.Lock()
 			e.settings.ApiProxy = proxyAddr
+			_ = saveSettings(e.settings)
 			e.mu.Unlock()
 		}
 	} else if e.settings.ApiProxy != "" {

@@ -2,9 +2,9 @@ package vpnclient
 
 import "net/http"
 
-const mozillaVPNUserAgent = "MozillaVPN/2.35.0 (sys:linux; iap:true)"
+const mozillaVPNUserAgent = fastlySolverUserAgent
 
 func applyMozillaVPNHeaders(req *http.Request) {
-	req.Header.Set("User-Agent", mozillaVPNUserAgent)
+	req.Header.Set("User-Agent", fastlySolverUserAgent)
 	req.Header.Set("Accept", "application/json")
 }

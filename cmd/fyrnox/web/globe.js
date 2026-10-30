@@ -168,8 +168,8 @@
       this.connected = false;
       this.isConnecting = false;
       this.connectionState = 'disconnected';
-      this.originGeo = { lat: 32.4279, lon: 53.6880, city: 'Tehran', country: 'Iran', code: 'IR' };
-      this.destGeo = { lat: 50.1109, lon: 8.6821, city: 'Frankfurt', country: 'Germany', code: 'DE' };
+      this.originGeo = { lat: 50.1109, lon: 8.6821, city: 'Frankfurt', country: 'Germany', code: 'DE' };
+      this.destGeo = { lat: -26.1392, lon: 28.2460, city: 'Johannesburg', country: 'South Africa', code: 'ZA' };
       this.exitLatency = 0;
 
       this.cachedOriginKey = '';
@@ -183,10 +183,10 @@
     }
 
     init() {
-      const width = Math.max(this.container.clientWidth || 0, 520);
-      const height = Math.max(this.container.clientHeight || 0, 480);
+      const width = this.container.clientWidth || 600;
+      const height = this.container.clientHeight || 500;
 
-      // 1. Scene, Camera, Renderer
+      // 1. Scene, Camera, Renderer (Strictly synchronized with container aspect ratio)
       this.scene = new THREE.Scene();
 
       this.camera = new THREE.PerspectiveCamera(38, width / height, 1, 2500);
@@ -209,8 +209,14 @@
       // 2. Atmospheric Fresnel Rim Glow (Glassy 3D depth, crystal clear center, zero background disc)
       this.createAtmosphere();
 
+      // 2b. Luminous Orbital Rings matching Reference Image
+      this.createGridRings();
+
       // 3. Dense Cybernetic Holographic Particle Matrix (Continents strictly formed by glowing dots)
       this.loadLandmassParticles();
+
+      // 4. Offline Vector Country Boundaries from GeoJSON
+      this.createCountryBoundaries();
 
       // 7. Dynamic Markers & Route Group
       this.markerGroup = new THREE.Group();
@@ -245,34 +251,16 @@
 
     createGridRings() {
       const gridGroup = new THREE.Group();
-      const r = this.radius * 0.995;
+      const r = this.radius;
 
-      const ringMaterial = new THREE.LineBasicMaterial({
-        color: 0x00d2ff,
+      // Subtle fine meridian circles
+      const gridMat = new THREE.LineBasicMaterial({
+        color: 0x83AFCB,
         transparent: true,
-        opacity: 0.07
+        opacity: 0.08
       });
 
-      // Latitude circles
-      const latSteps = [-60, -40, -20, 0, 20, 40, 60];
-      latSteps.forEach(lat => {
-        const phi = (90 - lat) * (Math.PI / 180);
-        const ringRadius = r * Math.sin(phi);
-        const y = r * Math.cos(phi);
-
-        const circleGeo = new THREE.BufferGeometry();
-        const points = [];
-        const segments = 64;
-        for (let i = 0; i <= segments; i++) {
-          const theta = (i / segments) * Math.PI * 2;
-          points.push(new THREE.Vector3(Math.cos(theta) * ringRadius, y, Math.sin(theta) * ringRadius));
-        }
-        circleGeo.setFromPoints(points);
-        gridGroup.add(new THREE.Line(circleGeo, ringMaterial));
-      });
-
-      // Longitude meridian circles (every 30 degrees)
-      for (let lon = 0; lon < 180; lon += 30) {
+      for (let lon = 0; lon < 180; lon += 45) {
         const circleGeo = new THREE.BufferGeometry();
         const points = [];
         const segments = 64;
@@ -281,10 +269,47 @@
           points.push(new THREE.Vector3(Math.sin(theta) * r, Math.cos(theta) * r, 0));
         }
         circleGeo.setFromPoints(points);
-        const line = new THREE.Line(circleGeo, ringMaterial);
+        const line = new THREE.Line(circleGeo, gridMat);
         line.rotation.y = lon * (Math.PI / 180);
         gridGroup.add(line);
       }
+
+      // 3 Luminous Tilted Orbital Rings matching Reference Image
+      const orbitalConfigs = [
+        { radius: r * 1.15, rotX: 0.65, rotY: 0.35, color: 0x83AFCB, opacity: 0.38 },
+        { radius: r * 1.22, rotX: -0.55, rotY: 0.82, color: 0xD9954B, opacity: 0.35 },
+        { radius: r * 1.30, rotX: 0.28, rotY: -0.65, color: 0x5fa3c9, opacity: 0.30 }
+      ];
+
+      orbitalConfigs.forEach(cfg => {
+        const ringGeo = new THREE.BufferGeometry();
+        const pts = [];
+        const segs = 96;
+        for (let i = 0; i <= segs; i++) {
+          const theta = (i / segs) * Math.PI * 2;
+          pts.push(new THREE.Vector3(Math.cos(theta) * cfg.radius, 0, Math.sin(theta) * cfg.radius));
+        }
+        ringGeo.setFromPoints(pts);
+
+        const ringMat = new THREE.LineBasicMaterial({
+          color: cfg.color,
+          transparent: true,
+          opacity: cfg.opacity
+        });
+        const orbitLine = new THREE.Line(ringGeo, ringMat);
+        orbitLine.rotation.set(cfg.rotX, cfg.rotY, 0);
+        gridGroup.add(orbitLine);
+
+        // Orbital particle nodes on the ring
+        const nodeGeo = new THREE.SphereGeometry(0.8, 8, 8);
+        const nodeMat = new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.85 });
+        for (let n = 0; n < 3; n++) {
+          const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
+          const angle = (n * (Math.PI * 2 / 3)) + cfg.rotX;
+          nodeMesh.position.set(Math.cos(angle) * cfg.radius, 0, Math.sin(angle) * cfg.radius);
+          orbitLine.add(nodeMesh);
+        }
+      });
 
       this.globeGroup.add(gridGroup);
     }
@@ -332,10 +357,10 @@
     }
 
     loadLandmassParticles() {
-      // High-Accuracy Natural Earth GeoJSON Continent Dot-Matrix
-      // Guaranteed zero distortion, authentic continent coastlines and borders
-      const w = 480;
-      const h = 240;
+      // True Spherical Fibonacci Sampling + High-Resolution Polygon Rasterization
+      // Uniform surface area density worldwide - zero equatorial or polar distortion!
+      const w = 1440;
+      const h = 720;
       const offCanvas = document.createElement('canvas');
       offCanvas.width = w;
       offCanvas.height = h;
@@ -374,46 +399,54 @@
       const colors = [];
       const dotTexture = createCircleTexture();
 
-      // Premium Cybernetic Palette: Deep Blue & Warm Amber
-      const cAmberBase   = new THREE.Color(0xD9954B); // #D9954B Brand Amber
-      const cAmberWarm   = new THREE.Color(0xC47F35);
-      const cBlueBase    = new THREE.Color(0x83AFCB); // #83AFCB Brand Blue
-      const cBlueDeep    = new THREE.Color(0x4F7894);
-      const cBlueMuted   = new THREE.Color(0x3B627D);
+      // Authentic Night Lights & Atmosphere Palette matching Reference Image
+      const cAmberBase   = new THREE.Color(0xEEA050); // Luminous Amber City Light
+      const cAmberWarm   = new THREE.Color(0xD97732); // Brand Amber Core
+      const cGold        = new THREE.Color(0xFFCC66); // Dense Urban Cluster
+      const cBlueBase    = new THREE.Color(0x4B6E88); // Subtle Coastal Rim
+      const cBlueDeep    = new THREE.Color(0x243545); // Deep Continent Interior
 
       const r = this.radius;
 
-      // Sample points uniformly across latitude and longitude
-      for (let y = 0; y < h; y += 1) {
-        const lat = 90 - (y / h) * 180;
+      // Spherical Fibonacci Lattice: 26,000 points uniformly distributed over sphere area
+      const N = 26000;
+      const goldenRatio = (1 + Math.sqrt(5)) / 2;
+
+      for (let i = 0; i < N; i++) {
+        const yNorm = 1 - (i / (N - 1)) * 2;
+        const radiusAtY = Math.sqrt(Math.max(0, 1 - yNorm * yNorm));
+        const phi = 2 * Math.PI * i / goldenRatio;
+        const xNorm = radiusAtY * Math.sin(phi);
+        const zNorm = radiusAtY * Math.cos(phi);
+
+        // Convert 3D spherical direction to lat/lon for landmass polygon lookup
+        const phiAngle = Math.acos(Math.max(-1, Math.min(1, yNorm)));
+        const lat = 90 - (phiAngle * 180 / Math.PI);
         if (lat < -72 || lat > 82) continue; // Skip polar extremities
 
-        const cosLat = Math.cos(lat * (Math.PI / 180));
-        const stepX = Math.max(1, Math.round(1 / Math.max(cosLat, 0.28)));
+        const lon = Math.atan2(xNorm, zNorm) * (180 / Math.PI);
+        const px = Math.min(w - 1, Math.max(0, Math.floor(((lon + 180) / 360) * w)));
+        const py = Math.min(h - 1, Math.max(0, Math.floor(((90 - lat) / 180) * h)));
+        const index = (py * w + px) * 4;
 
-        for (let x = 0; x < w; x += stepX) {
-          const index = (y * w + x) * 4;
-          // Alpha > 120 means pixel is inside continent
-          if (imgData[index + 3] > 120) {
-            const lon = (x / w) * 360 - 180;
-            const pt = latLonToVector3(lat, lon, r);
-            positions.push(pt.x, pt.y, pt.z);
+        // If point falls inside continent polygon, place dot on sphere
+        if (imgData[index + 3] > 120) {
+          positions.push(xNorm * r, yNorm * r, zNorm * r);
 
-            const rand = Math.random();
-            let pColor;
-            if (rand < 0.15) {
-              pColor = cAmberBase;
-            } else if (rand < 0.25) {
-              pColor = cAmberWarm;
-            } else if (rand < 0.65) {
-              pColor = cBlueBase;
-            } else if (rand < 0.85) {
-              pColor = cBlueDeep;
-            } else {
-              pColor = cBlueMuted;
-            }
-            colors.push(pColor.r, pColor.g, pColor.b);
+          const rand = Math.random();
+          let pColor;
+          if (rand < 0.22) {
+            pColor = cGold;
+          } else if (rand < 0.50) {
+            pColor = cAmberBase;
+          } else if (rand < 0.70) {
+            pColor = cAmberWarm;
+          } else if (rand < 0.88) {
+            pColor = cBlueBase;
+          } else {
+            pColor = cBlueDeep;
           }
+          colors.push(pColor.r, pColor.g, pColor.b);
         }
       }
 
@@ -433,6 +466,67 @@
 
       const particles = new THREE.Points(particleGeo, particleMat);
       this.globeGroup.add(particles);
+    }
+
+    createCountryBoundaries() {
+      if (!window.WORLD_GEOJSON || !Array.isArray(window.WORLD_GEOJSON.features)) {
+        return;
+      }
+
+      this.countryBordersGroup = new THREE.Group();
+      this.defaultBorderMat = new THREE.LineBasicMaterial({
+        color: 0x3d6482,
+        transparent: true,
+        opacity: 0.38,
+        depthWrite: false,
+        depthTest: true
+      });
+
+      this.activeBorderMat = new THREE.LineBasicMaterial({
+        color: 0xD97732,
+        transparent: true,
+        opacity: 0.92,
+        depthWrite: false
+      });
+
+      const r = this.radius * 1.002;
+
+      window.WORLD_GEOJSON.features.forEach(feat => {
+        const code = (feat.properties && feat.properties.code || '').toUpperCase();
+        const geom = feat.geometry;
+        if (!geom) return;
+
+        const rings = [];
+        if (geom.type === 'Polygon') {
+          rings.push(...geom.coordinates);
+        } else if (geom.type === 'MultiPolygon') {
+          geom.coordinates.forEach(poly => rings.push(...poly));
+        }
+
+        const pts = [];
+        rings.forEach(ring => {
+          if (!ring || ring.length < 2) return;
+          for (let i = 0; i < ring.length - 1; i++) {
+            const p1 = latLonToVector3(ring[i][1], ring[i][0], r);
+            const p2 = latLonToVector3(ring[i + 1][1], ring[i + 1][0], r);
+            pts.push(p1, p2);
+          }
+        });
+
+        if (pts.length > 0) {
+          const borderGeo = new THREE.BufferGeometry().setFromPoints(pts);
+          const lineMesh = new THREE.LineSegments(borderGeo, this.defaultBorderMat);
+          this.countryBordersGroup.add(lineMesh);
+          if (code) {
+            this.countryMeshes[code] = lineMesh;
+          }
+        }
+      });
+
+      this.globeGroup.add(this.countryBordersGroup);
+      if (this.destGeo && this.destGeo.code) {
+        this.highlightCountryBorders([this.destGeo.code]);
+      }
     }
 
     updateConnectionRoute() {
@@ -583,11 +677,28 @@
         }
       }
 
-      // Highlight active borders
-      this.highlightCountryBorders(activeCountries);
+      // Highlight active borders (clean particle-only aesthetic)
+      if (typeof this.highlightCountryBorders === 'function') {
+        this.highlightCountryBorders(activeCountries);
+      }
 
       // Update Floating Exit Badge
       this.updateFloatingExitBadge();
+    }
+
+    highlightCountryBorders(activeCountries) {
+      if (!this.countryMeshes || !this.activeBorderMat || !this.defaultBorderMat) return;
+      const activeSet = new Set((activeCountries || []).map(c => String(c).toUpperCase()));
+
+      Object.keys(this.countryMeshes).forEach(code => {
+        const mesh = this.countryMeshes[code];
+        if (!mesh) return;
+        if (activeSet.has(code)) {
+          mesh.material = this.activeBorderMat;
+        } else {
+          mesh.material = this.defaultBorderMat;
+        }
+      });
     }
 
     centerOnCoordinates(lat, lon, animate = true) {
@@ -678,7 +789,7 @@
 
       // Default destination if not set
       if (!newDestGeo) {
-        newDestGeo = { lat: 50.1109, lon: 8.6821, city: 'Frankfurt', country: 'Germany', code: 'DE' };
+        newDestGeo = { lat: -26.1392, lon: 28.2460, city: 'Johannesburg', country: 'South Africa', code: 'ZA' };
       }
 
       const originKey = newOriginGeo ? newOriginGeo.code : '';
@@ -720,20 +831,22 @@
 
     updateFloatingExitBadge() {
       const flagEl = document.getElementById('badge-flag');
+      const codeEl = document.getElementById('badge-code');
       const cityEl = document.getElementById('badge-city');
       const latEl = document.getElementById('badge-latency');
       const badgeWrap = document.getElementById('globe-exit-badge');
 
       if (!badgeWrap || !this.destGeo) return;
 
-      const cityName = (this.destGeo.city || this.destGeo.name || 'Frankfurt').toUpperCase();
-      const countryCode = (this.destGeo.code || 'DE').toUpperCase();
+      const cityName = (this.destGeo.city || this.destGeo.name || 'JOHANNESBURG').toUpperCase();
+      const countryCode = (this.destGeo.code || 'ZA').toUpperCase();
 
       if (cityEl) cityEl.textContent = `${cityName}, ${countryCode}`;
+      if (codeEl) codeEl.textContent = countryCode;
 
       if (flagEl) {
-        if (window.FyrnoxFlags && typeof window.FyrnoxFlags.getFlagEmoji === 'function') {
-          flagEl.textContent = window.FyrnoxFlags.getFlagEmoji(countryCode);
+        if (typeof getFlag === 'function') {
+          flagEl.innerHTML = getFlag(countryCode);
         } else {
           const codePoints = countryCode
             .toUpperCase()
@@ -808,8 +921,9 @@
 
     handleResize() {
       if (!this.container || !this.renderer || !this.camera) return;
-      const width = Math.max(this.container.clientWidth || 0, Math.round(window.innerWidth * 0.58));
-      const height = Math.max(this.container.clientHeight || 0, Math.round(window.innerHeight - 60));
+      const width = this.container.clientWidth;
+      const height = this.container.clientHeight;
+      if (width <= 0 || height <= 0) return;
 
       const aspect = width / height;
       this.camera.aspect = aspect;
@@ -820,7 +934,6 @@
       const dVert = (visualRadius * 1.22) / Math.tan(vFOV / 2);
       const dHoriz = dVert / Math.max(aspect, 0.5);
 
-      // Scaled up by ~15% for dominant holographic presence in right pane
       const targetZ = Math.max(dVert, dHoriz) * 0.86;
       this.camera.position.set(0, 0, targetZ);
       this.camera.updateProjectionMatrix();
@@ -830,6 +943,11 @@
 
     animate() {
       requestAnimationFrame(this.animate);
+
+      // Performance: completely pause WebGL draw passes when globe is not visible
+      if (this.container && this.container.offsetParent === null) {
+        return;
+      }
 
       const now = performance.now();
       const elapsedTime = this.clock.getElapsedTime();

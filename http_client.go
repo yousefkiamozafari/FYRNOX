@@ -2,11 +2,14 @@ package vpnclient
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"time"
+
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -25,9 +28,14 @@ var controlPlaneHTTPClient = func() *http.Client {
 	if err != nil {
 		panic(fmt.Sprintf("creating control plane cookie jar: %v", err))
 	}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+	}
+	_ = http2.ConfigureTransport(tr)
 	return &http.Client{
-		Timeout: controlPlaneHTTPTimeout,
-		Jar:     jar,
+		Timeout:   controlPlaneHTTPTimeout,
+		Jar:       jar,
+		Transport: tr,
 	}
 }()
 
@@ -35,6 +43,9 @@ var controlPlaneHTTPClient = func() *http.Client {
 // Settings requests through transport. It must be called before any control
 // plane request is issued, because the client is shared process-wide.
 func SetControlPlaneTransport(transport http.RoundTripper) {
+	if tr, ok := transport.(*http.Transport); ok {
+		_ = http2.ConfigureTransport(tr)
+	}
 	controlPlaneHTTPClient.Transport = transport
 }
 

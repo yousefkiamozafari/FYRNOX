@@ -22,7 +22,17 @@ var (
 	procSetProcessDpiAwarenessContext = modUser32.NewProc("SetProcessDpiAwarenessContext")
 	modShcore                         = syscall.NewLazyDLL("shcore.dll")
 	procSetProcessDpiAwareness        = modShcore.NewProc("SetProcessDpiAwareness")
+	procGetConsoleWindow              = kernel32Mod.NewProc("GetConsoleWindow")
 )
+
+func hideConsoleWindow() {
+	if procGetConsoleWindow.Find() == nil && procShowWindow.Find() == nil {
+		if hwnd, _, _ := procGetConsoleWindow.Call(); hwnd != 0 {
+			const swHide = 0
+			procShowWindow.Call(hwnd, swHide)
+		}
+	}
+}
 
 const (
 	dwmwaUseImmersiveDarkModeBefore20H1 = 19
@@ -79,6 +89,7 @@ func terminateOldInstances(exeName string) {
 }
 
 func main() {
+	hideConsoleWindow()
 	initAppUserModelID()
 	enableHighDpiAwareness()
 

@@ -312,30 +312,6 @@ func createProxyTLSConfig(serverHostname string, nextProtos []string) *tls.Confi
 func createProxyDialer(timeout time.Duration) *net.Dialer {
 	return &net.Dialer{
 		Timeout: timeout,
-		Resolver: &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{Timeout: 4 * time.Second}
-				dnsServers := []string{
-					"1.1.1.1:53",
-					"8.8.8.8:53",
-					"9.9.9.9:53",
-					"1.0.0.1:53",
-					"8.8.4.4:53",
-				}
-				for _, dns := range dnsServers {
-					conn, err := d.DialContext(ctx, "udp", dns)
-					if err == nil {
-						return conn, nil
-					}
-					conn, err = d.DialContext(ctx, "tcp", dns)
-					if err == nil {
-						return conn, nil
-					}
-				}
-				return d.DialContext(ctx, network, address)
-			},
-		},
 	}
 }
 
@@ -427,7 +403,19 @@ func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, tim
 	var rawConn net.Conn
 	var err error
 
-	if apiProxy != "" {
+	// 1. First attempt: Direct connection with fast timeout (Fastly MASQUE edge reachable in <2s)
+	directDialer := createProxyDialer(6 * time.Second)
+	network := "tcp"
+	switch strings.ToLower(ipProtocol) {
+	case "ipv4":
+		network = "tcp4"
+	case "ipv6":
+		network = "tcp6"
+	}
+	directConn, dErr := directDialer.DialContext(ctx, network, proxyHost)
+	if dErr == nil {
+		rawConn = directConn
+	} else if apiProxy != "" {
 		formatted := apiProxy
 		if !strings.Contains(formatted, "://") {
 			if strings.Contains(formatted, ":1080") || strings.Contains(formatted, ":10808") {
@@ -818,6 +806,13 @@ func newProxyController(guardian string, proxyURL *url.URL, timeout time.Duratio
 	}
 
 	sess, err := factory(pass.RawToken)
+	if err != nil && useH3 {
+		LogWarn("HTTP/3 (QUIC) initialization failed (%v); proactively falling back to HTTP/2 over TLS...", err)
+		factory = func(token string) (proxySession, error) {
+			return newH2ProxySession(proxyURL, token, timeout, apiProxy, tlsFrag, ipProtocol)
+		}
+		sess, err = factory(pass.RawToken)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1006,91 +1001,118 @@ type ExitProbeResult struct {
 }
 
 func VerifyExit(opener tunnelOpener, timeout time.Duration) (ExitProbeResult, error) {
-	var streamLatency int64
-	transport := &http.Transport{
-		DisableKeepAlives:   true,
-		TLSHandshakeTimeout: timeout,
-		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS12},
-		DialContext: func(ctx context.Context, _, authority string) (net.Conn, error) {
-			t0 := time.Now()
-			c, err := opener.OpenTunnel(authority)
-			if err == nil {
-				streamLatency = time.Since(t0).Milliseconds()
-			}
-			return c, err
-		},
-	}
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: timeout}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	// 1. Try 1.1.1.1/cdn-cgi/trace directly (no DNS lookup delay over newly established tunnel)
-	probeTrace := func(targetURL string) (ExitProbeResult, bool) {
-		r, err := client.Get(targetURL)
-		if err != nil {
-			return ExitProbeResult{}, false
-		}
-		defer r.Body.Close()
-		body, rErr := io.ReadAll(io.LimitReader(r.Body, 16384))
-		if rErr != nil {
-			return ExitProbeResult{}, false
-		}
-		ip := ""
-		country := ""
-		for _, line := range strings.Split(string(body), "\n") {
-			k, v, ok := strings.Cut(strings.TrimSpace(line), "=")
-			if ok {
-				switch strings.ToLower(k) {
-				case "ip":
-					ip = v
-				case "loc":
-					country = v
+	type probeResult struct {
+		res ExitProbeResult
+		err error
+	}
+
+	endpoints := []struct {
+		url     string
+		isTrace bool
+	}{
+		{url: "http://api.ipify.org", isTrace: false},
+		{url: "https://api.ipify.org", isTrace: false},
+		{url: "https://icanhazip.com", isTrace: false},
+		{url: defaultExitCheckURL, isTrace: true},
+	}
+
+	resChan := make(chan probeResult, len(endpoints))
+
+	for _, ep := range endpoints {
+		go func(targetURL string, isTrace bool) {
+			var streamLatency int64
+			transport := &http.Transport{
+				DisableKeepAlives:   true,
+				TLSHandshakeTimeout: 10 * time.Second,
+				TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS12},
+				DialContext: func(dCtx context.Context, _, authority string) (net.Conn, error) {
+					t0 := time.Now()
+					c, err := opener.OpenTunnel(authority)
+					if err == nil {
+						streamLatency = time.Since(t0).Milliseconds()
+					}
+					return c, err
+				},
+			}
+			defer transport.CloseIdleConnections()
+			client := &http.Client{Transport: transport, Timeout: timeout}
+
+			req, rErr := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
+			if rErr != nil {
+				resChan <- probeResult{err: rErr}
+				return
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				resChan <- probeResult{err: err}
+				return
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 16384))
+			if err != nil {
+				resChan <- probeResult{err: err}
+				return
+			}
+
+			ip := ""
+			country := ""
+			if isTrace {
+				for _, line := range strings.Split(string(body), "\n") {
+					k, v, ok := strings.Cut(strings.TrimSpace(line), "=")
+					if ok {
+						switch strings.ToLower(k) {
+						case "ip":
+							ip = v
+						case "loc":
+							country = v
+						}
+					}
+				}
+			} else {
+				trimmed := strings.TrimSpace(string(body))
+				if net.ParseIP(trimmed) != nil {
+					ip = trimmed
 				}
 			}
-		}
-		if ip != "" {
-			lat := streamLatency
-			if lat <= 0 {
-				lat = 1
-			}
-			return ExitProbeResult{
-				IP:          ip,
-				CountryCode: country,
-				LatencyMs:   lat,
-			}, true
-		}
-		return ExitProbeResult{}, false
-	}
 
-	if res, ok := probeTrace("https://1.1.1.1/cdn-cgi/trace"); ok {
-		return res, nil
-	}
-	if res, ok := probeTrace(defaultExitCheckURL); ok {
-		return res, nil
-	}
-
-	// 2. Fallback to icanhazip.com through tunnel
-	resp2, err2 := client.Get("https://icanhazip.com")
-	if err2 == nil {
-		defer resp2.Body.Close()
-		body, rErr := io.ReadAll(io.LimitReader(resp2.Body, 128))
-		if rErr == nil {
-			ip := strings.TrimSpace(string(body))
 			if ip != "" {
 				lat := streamLatency
 				if lat <= 0 {
 					lat = 1
 				}
-				return ExitProbeResult{
-					IP:          ip,
-					CountryCode: "",
-					LatencyMs:   lat,
-				}, nil
+				resChan <- probeResult{
+					res: ExitProbeResult{
+						IP:          ip,
+						CountryCode: country,
+						LatencyMs:   lat,
+					},
+				}
+				return
 			}
+			resChan <- probeResult{err: fmt.Errorf("no IP found in response from %s", targetURL)}
+		}(ep.url, ep.isTrace)
+	}
+
+	var lastErr error
+	for i := 0; i < len(endpoints); i++ {
+		select {
+		case r := <-resChan:
+			if r.err == nil && r.res.IP != "" {
+				return r.res, nil
+			}
+			lastErr = r.err
+		case <-ctx.Done():
+			return ExitProbeResult{}, fmt.Errorf("exit verification timed out: %w", ctx.Err())
 		}
 	}
 
-	if err2 != nil {
-		return ExitProbeResult{}, err2
+	if lastErr != nil {
+		return ExitProbeResult{}, lastErr
 	}
 	return ExitProbeResult{}, fmt.Errorf("exit verification failed to detect IP")
 }

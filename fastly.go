@@ -94,19 +94,16 @@ func solveFastlyChallenge(ctx context.Context) error {
 	ctx, cancel := contextWithMinDeadline(ctx, fastlySolveTimeout)
 	defer cancel()
 
-	// Prefer the host that actually rejected the API request, but fall
-	// back to the site host: the API host usually serves no challenge
-	// page at all and the cookie it needs is issued with Domain=firefox.com.
+	// Solve challenge on the site host (accounts.firefox.com) which serves
+	// the interactive challenge page; cookies issued with Domain=.firefox.com
+	// cover api.accounts.firefox.com.
 	var lastErr error
-	for _, base := range []string{fxaAPIHost, strings.TrimRight(fxaSiteURL, "/")} {
+	for _, base := range []string{strings.TrimRight(fxaSiteURL, "/"), fxaAPIHost} {
 		err := solveChallengeOnHost(ctx, base)
 		if err == nil {
 			return nil
 		}
 		lastErr = err
-		if errors.Is(err, errNoChallengePage) {
-			continue
-		}
 	}
 	if lastErr == nil {
 		lastErr = errNoChallengePage
@@ -143,7 +140,7 @@ func solveChallengeOnHost(ctx context.Context, base string) error {
 		return fmt.Errorf("challenge asset prefix not found on %s", base)
 	}
 
-	script, err := fetchText(ctx, client, base+prefix+"/script.js?reload=true")
+	script, err := fetchText(ctx, client, base+prefix+"/script.js?reload=true", pageURL)
 	if err != nil {
 		return fmt.Errorf("fetching challenge script: %w", err)
 	}
@@ -156,7 +153,7 @@ func solveChallengeOnHost(ctx context.Context, base string) error {
 	for round := 0; round < maxPostBackRounds; round++ {
 		answers := make([]interface{}, 0, len(challenges))
 		for _, ch := range challenges {
-			answer, err := answerChallenge(ctx, client, base+prefix, token, ch)
+			answer, err := answerChallenge(ctx, client, base+prefix, token, pageURL, ch)
 			if err != nil {
 				return err
 			}
@@ -174,7 +171,11 @@ func solveChallengeOnHost(ctx context.Context, base string) error {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("User-Agent", fastlySolverUserAgent)
+		req.Header.Set("Referer", pageURL)
 		req.Header.Set("Origin", baseOrigin(base+prefix))
+		req.Header.Set("Sec-Fetch-Dest", "empty")
+		req.Header.Set("Sec-Fetch-Mode", "cors")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -215,7 +216,7 @@ func solveChallengeOnHost(ctx context.Context, base string) error {
 // fetchChallengePage fetches pageURL and reports whether the response is a
 // Fastly client-challenge page.
 func fetchChallengePage(ctx context.Context, client *http.Client, pageURL string) (string, bool, error) {
-	body, err := fetchText(ctx, client, pageURL)
+	body, err := fetchText(ctx, client, pageURL, "")
 	if err != nil {
 		return "", false, err
 	}
@@ -223,13 +224,24 @@ func fetchChallengePage(ctx context.Context, client *http.Client, pageURL string
 	return body, isChallenge, nil
 }
 
-func fetchText(ctx context.Context, client *http.Client, rawURL string) (string, error) {
+func fetchText(ctx context.Context, client *http.Client, rawURL string, referer string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", fastlySolverUserAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	if referer != "" {
+		req.Header.Set("Referer", referer)
+		req.Header.Set("Accept", "*/*")
+		req.Header.Set("Sec-Fetch-Dest", "script")
+		req.Header.Set("Sec-Fetch-Mode", "no-cors")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+	} else {
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Sec-Fetch-Dest", "document")
+		req.Header.Set("Sec-Fetch-Mode", "navigate")
+		req.Header.Set("Sec-Fetch-Site", "none")
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -267,7 +279,7 @@ func parseChallengeInit(script string) ([]fastlyChallenge, string, error) {
 
 // answerChallenge produces the fst-post-back answer payload for one
 // challenge task.
-func answerChallenge(ctx context.Context, client *http.Client, prefixURL, token string, ch fastlyChallenge) (interface{}, error) {
+func answerChallenge(ctx context.Context, client *http.Client, prefixURL, token, referer string, ch fastlyChallenge) (interface{}, error) {
 	switch ch.Ty {
 	case "pow":
 		var d fastlyPowData
@@ -286,7 +298,7 @@ func answerChallenge(ctx context.Context, client *http.Client, prefixURL, token 
 			"expires": d.Expires,
 		}, nil
 	case "pat":
-		auth, err := fetchPAT(ctx, client, prefixURL, token)
+		auth, err := fetchPAT(ctx, client, prefixURL, token, referer)
 		if err != nil {
 			return nil, err
 		}
@@ -325,16 +337,22 @@ func solvePow(base, targetHex string) (string, bool) {
 // with a PrivateToken header means the client cannot mint a PAT (a browser
 // platform feature); the challenge script aborts in that case and posts
 // back an empty auth, which makes Fastly fall back to solvable challenges.
-func fetchPAT(ctx context.Context, client *http.Client, prefixURL, token string) (string, error) {
+func fetchPAT(ctx context.Context, client *http.Client, prefixURL, token, referer string) (string, error) {
 	patURL := prefixURL + "/pat?token=" + url.QueryEscape(token)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, patURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, patURL, strings.NewReader(""))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Accept", "text/plain")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", fastlySolverUserAgent)
+	if referer != "" {
+		req.Header.Set("Referer", referer)
+	}
 	req.Header.Set("Origin", baseOrigin(prefixURL))
+	req.Header.Set("Sec-Fetch-Dest", "empty")
+	req.Header.Set("Sec-Fetch-Mode", "cors")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -392,6 +410,11 @@ func installChallengeCookies(solverJar http.CookieJar, pageURL string) error {
 	cookies := solverJar.Cookies(parsed)
 	if len(cookies) == 0 {
 		return fmt.Errorf("challenge completed but no cookies were issued")
+	}
+
+	for _, c := range cookies {
+		c.Domain = ".firefox.com"
+		c.Path = "/"
 	}
 
 	if controlPlaneHTTPClient.Jar == nil {

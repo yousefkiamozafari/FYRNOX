@@ -45,7 +45,6 @@
     
     <!-- DYNAMIC CONTENT VIEW PANE (Layered Hardware-Accelerated Views) -->
     <main class="app-view-container">
-      <div class="view-slider-track" id="view-slider-track">
 
         <!-- ============================================================== -->
         <!-- VIEW 1: DASHBOARD (MODERN GLASS / PREMIUM HYBRID LAYOUT) -->
@@ -77,9 +76,9 @@
                   <div class="connection-status-header">
                     <div class="status-title-row">
                       <span class="status-indicator-dot" id="dash-status-dot"></span>
-                      <h2 class="status-title-text" id="hero-status-title">Disconnected</h2>
+                      <h2 class="status-title-text" id="hero-status-title">DISCONNECTED</h2>
                     </div>
-                    <p class="status-subtitle-text" id="hero-status-sub">Your traffic is not protected</p>
+                    <p class="status-subtitle-text" id="hero-status-sub">Traffic is currently unprotected</p>
                     <span id="hero-status-label" style="display: none;">DISCONNECTED</span>
                   </div>
 
@@ -129,73 +128,71 @@
                 <div class="reference-card selected-server-card">
                   <div class="card-caption">Selected Server</div>
                   <div class="server-info-row">
-                    <div class="server-flag" id="dash-target-flag">🇩🇪</div>
+                    <div class="server-flag" id="dash-target-flag">🇿🇦</div>
                     <div class="server-text-wrap">
-                      <div class="server-name" id="dash-target-name">Germany</div>
-                      <div class="server-city" id="dash-target-city">Frankfurt am Main</div>
-                      <div class="server-tag" id="dash-target-sub" style="display: none;">Anycast - BGP</div>
+                      <div class="server-name" id="dash-target-name">South Africa</div>
+                      <div class="server-city" id="dash-target-city">Ready to Connect</div>
+                      <div class="server-tag" id="dash-target-sub" style="display: none;">FAOR</div>
                     </div>
                     <button type="button" class="card-action-btn" onclick="switchNav('servers')">Change</button>
                   </div>
                   <div class="server-routing-row">
                     <span class="routing-dot">●</span>
-                    <span class="routing-label" id="dash-routing-label">Anycast - BGP</span>
+                    <span class="routing-label" id="dash-routing-label">FAOR</span>
                   </div>
                 </div>
 
-                <!-- CARD 3: Monthly 50 GB Allowance Card -->
+                <!-- CARD 3: Monthly 50 GB Allowance Card (Matching Authoritative Reference) -->
                 <div class="reference-card monthly-quota-card" id="home-quota-card">
                   <div class="quota-card-header">
-                    <span class="card-caption" data-i18n="quota_card_title">Monthly VPN Allowance</span>
-                    <span class="quota-source-badge estimated" id="quota-source-badge">Estimated local usage</span>
+                    <span class="card-caption" data-i18n="quota_card_title">MONTHLY VPN ALLOWANCE</span>
+                    <span class="quota-source-badge premium" id="quota-source-badge">PREMIUM</span>
                   </div>
                   <div class="quota-metrics-row">
                     <div class="quota-used-col">
                       <span class="quota-label" data-i18n="quota_used_lbl">Used:</span>
-                      <span class="quota-val font-mono" id="quota-used-val">0 B</span>
+                      <span class="quota-val font-mono" id="quota-used-val">8.7</span>
                       <span class="quota-max-lbl" id="quota-max-val">/ 50.0 GB</span>
                     </div>
                     <div class="quota-rem-col">
                       <span class="quota-label" data-i18n="quota_rem_lbl">Remaining:</span>
-                      <span class="quota-rem-val font-mono" id="quota-rem-val">50.0 GB</span>
+                      <span class="quota-rem-val font-mono cyan-highlight" id="quota-rem-val">41.3 GB</span>
                     </div>
                   </div>
                   <div class="quota-progress-track">
-                    <div class="quota-progress-fill" id="quota-progress-fill" style="width: 0%;"></div>
+                    <div class="quota-progress-fill" id="quota-progress-fill" style="width: 17%;"></div>
                   </div>
                   <div class="quota-footer-row">
                     <span class="quota-reset-text" id="quota-reset-text">Resets: 1st of next month</span>
-                    <span class="quota-pct-text font-mono" id="quota-pct-val">0%</span>
+                    <span class="quota-pct-text font-mono" id="quota-pct-val">17%</span>
                   </div>
                 </div>
 
               </div>
 
-              <!-- RIGHT COLUMN: 3D Interactive Earth Hero -->
+              <!-- RIGHT COLUMN: 3D Interactive Earth Hero (Clean & Dominant) -->
               <div class="dash-right-column">
                 <div class="globe-hero-panel" id="globe-hero-panel">
                   <div id="globe-3d-wrap" class="globe-3d-wrap">
-                    <!-- Three.js Canvas injected dynamically here -->
-                    
-                    <!-- Floating Glass Exit Location Badge matching Reference Image -->
-                    <div class="globe-floating-badge" id="globe-exit-badge">
-                      <div class="badge-status-row">
-                        <span class="badge-status-dot">●</span>
-                        <span class="badge-status-title">EXIT LOCATION</span>
-                      </div>
-                      <div class="badge-location-row">
-                        <span class="badge-country-flag" id="badge-flag">🇩🇪</span>
-                        <span class="badge-city-text" id="badge-city">FRANKFURT, DE</span>
-                      </div>
-                      <div class="badge-metric-row">
-                        <span class="badge-metric-label">
-                          <svg class="badge-bolt-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                          </svg>
-                          Latency
-                        </span>
-                        <span class="badge-metric-val font-mono" id="badge-latency">42 ms</span>
-                      </div>
+  <!-- Three.js WebGL Earth Canvas dynamically mounted here -->
+                  </div>
+
+                  <!-- Floating Glass Exit Location Badge matching reference -->
+                  <div class="globe-floating-badge" id="floating-exit-badge" onclick="copyExitInfo()">
+                    <div class="badge-status-row">
+                      <span class="badge-status-dot">●</span>
+                      <span class="badge-status-title" data-i18n="badge_exit_loc">EXIT LOCATION</span>
+                      <span class="badge-copy-hint" title="Copy">❐</span>
+                    </div>
+                    <div class="badge-location-row">
+                      <span class="badge-country-flag" id="badge-flag"></span>
+                      <span class="badge-city-text" id="badge-city">JOHANNESBURG, ZA</span>
+                    </div>
+                    <div class="badge-metric-row">
+                      <span class="badge-metric-label">
+                        <span class="badge-bolt-icon">⚡</span> <span data-i18n="badge_latency">Latency</span>
+                      </span>
+                      <span class="badge-metric-val font-mono" id="badge-latency">42 ms</span>
                     </div>
                   </div>
                 </div>
@@ -323,113 +320,6 @@
 
         <!-- ============================================================== -->
         <!-- VIEW: SPLIT TUNNEL (PER-APP PROCESS ROUTING) -->
-        <!-- ============================================================== -->
-        <section id="view-split-tunnel" class="view-panel">
-          
-          <!-- Top Control Header for Split Tunnel -->
-          <div class="split-controls-card">
-            
-            <div class="split-header-row">
-              <div class="split-title-group">
-                <h3 class="split-card-title" data-i18n="page_split_tunnel">App Split Tunneling</h3>
-                <p class="split-card-sub" data-i18n="split_desc">Route or bypass traffic for specific desktop applications and binaries.</p>
-              </div>
-              <div class="split-enable-switch">
-                <span class="split-status-text" id="split-status-label">Enabled</span>
-                <label class="switch-toggle">
-                  <input type="checkbox" id="split-master-toggle" onchange="toggleSplitTunnel(this.checked)">
-                  <span class="switch-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Mode Selector: Bypass vs Proxy Only -->
-            <div class="split-mode-selector-row">
-              <span class="split-mode-caption" data-i18n="split_mode_label">Tunnel Behavior:</span>
-              <div class="split-mode-buttons">
-                <button type="button" class="split-mode-btn active" id="btn-split-bypass" onclick="setSplitMode('bypass')">
-                  <span class="s-icon">🚫</span>
-                  <span class="s-label" data-i18n="split_mode_bypass">Bypass Selected Apps (Direct)</span>
-                </button>
-                <button type="button" class="split-mode-btn" id="btn-split-proxy" onclick="setSplitMode('proxy_only')">
-                  <span class="s-icon">🛡️</span>
-                  <span class="s-label" data-i18n="split_mode_proxy">Tunnel Selected Apps Only (Proxy)</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Preset Filters Bar -->
-            <div class="split-presets-row">
-              <span class="split-presets-caption" data-i18n="split_presets_caption">Quick Presets:</span>
-              <div class="split-preset-chips">
-                <button type="button" class="split-preset-chip" onclick="applySplitPreset('browsers')">
-                  🌐 <span data-i18n="split_preset_browsers">Browsers</span>
-                </button>
-                <button type="button" class="split-preset-chip" onclick="applySplitPreset('messaging')">
-                  💬 <span data-i18n="split_preset_messaging">Telegram & Chat</span>
-                </button>
-                <button type="button" class="split-preset-chip" onclick="applySplitPreset('gaming')">
-                  🎮 <span data-i18n="split_preset_games">Game Launchers</span>
-                </button>
-                <button type="button" class="split-preset-chip clear" onclick="clearSplitApps()">
-                  🗑️ <span data-i18n="split_btn_clear">Clear All</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Add App & Search Row -->
-            <div class="split-search-action-row">
-              <div class="split-search-input-wrap">
-                <span class="search-glass-icon">🔍</span>
-                <input type="text" id="split-search-input" class="search-text-field" placeholder="Search running or installed apps..." data-i18n-placeholder="split_search_placeholder" oninput="filterProcessList(this.value)">
-              </div>
-              <div class="split-custom-add-wrap">
-                <input type="text" id="split-custom-exe-input" class="settings-text-input" placeholder="e.g. C:\Games\game.exe" style="width: 220px;">
-                <button type="button" class="split-action-btn primary" onclick="addCustomSplitApp()" data-i18n="split_btn_add">+ Add Binary</button>
-                <button type="button" class="split-action-btn secondary" onclick="refreshProcessList()" title="Refresh Running Processes">↻</button>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Apps Grid & Selection Container -->
-          <div class="split-list-section">
-            
-            <!-- Configured Apps Card -->
-            <div class="split-section-card">
-              <div class="split-section-header">
-                <span class="sec-title" data-i18n="split_active_rules">Configured Routing Rules</span>
-                <span class="sec-count" id="split-configured-count">0 Apps</span>
-              </div>
-              <div class="split-configured-chips" id="split-configured-container">
-                <!-- Dynamically populated chips -->
-                <div class="split-empty-msg" id="split-empty-msg" data-i18n="split_no_apps">No applications configured for split tunneling.</div>
-              </div>
-            </div>
-
-            <!-- Active Running / Detected Apps Table -->
-            <div class="split-section-card">
-              <div class="split-section-header">
-                <span class="sec-title" data-i18n="split_running_processes">Detected System Applications & Processes</span>
-                <span class="sec-count" id="split-detected-count">Loading...</span>
-              </div>
-              
-              <div class="split-processes-table-header">
-                <span class="col-app-name" data-i18n="split_table_name">Application</span>
-                <span class="col-app-path" data-i18n="split_table_path">Process Binary</span>
-                <span class="col-app-status" data-i18n="split_table_status">Status</span>
-                <span class="col-app-action" data-i18n="split_table_action">Rule</span>
-              </div>
-
-              <div class="split-process-rows-container" id="split-process-rows">
-                <!-- Dynamically populated process rows -->
-              </div>
-            </div>
-
-          </div>
-
-        </section>
-
         <!-- ============================================================== -->
         <!-- VIEW 3: DIAGNOSTICS -->
         <!-- ============================================================== -->
@@ -752,6 +642,111 @@
 
             </div>
 
+            <!-- App Split Tunneling Card -->
+            <div class="settings-group-card split-tunnel-settings-card" id="settings-split-tunnel-card">
+              <!-- Top Control Header for Split Tunnel -->
+          <div class="split-controls-card">
+            
+            <div class="split-header-row">
+              <div class="split-title-group">
+                <h3 class="split-card-title" data-i18n="page_split_tunnel">App Split Tunneling</h3>
+                <p class="split-card-sub" data-i18n="split_desc">Route or bypass traffic for specific desktop applications and binaries.</p>
+              </div>
+              <div class="split-enable-switch">
+                <span class="split-status-text" id="split-status-label">Enabled</span>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="split-master-toggle" onchange="toggleSplitTunnel(this.checked)">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Mode Selector: Bypass vs Proxy Only -->
+            <div class="split-mode-selector-row">
+              <span class="split-mode-caption" data-i18n="split_mode_label">Tunnel Behavior:</span>
+              <div class="split-mode-buttons">
+                <button type="button" class="split-mode-btn active" id="btn-split-bypass" onclick="setSplitMode('bypass')">
+                  <span class="s-icon">🚫</span>
+                  <span class="s-label" data-i18n="split_mode_bypass">Bypass Selected Apps (Direct)</span>
+                </button>
+                <button type="button" class="split-mode-btn" id="btn-split-proxy" onclick="setSplitMode('proxy_only')">
+                  <span class="s-icon">🛡️</span>
+                  <span class="s-label" data-i18n="split_mode_proxy">Tunnel Selected Apps Only (Proxy)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Preset Filters Bar -->
+            <div class="split-presets-row">
+              <span class="split-presets-caption" data-i18n="split_presets_caption">Quick Presets:</span>
+              <div class="split-preset-chips">
+                <button type="button" class="split-preset-chip" onclick="applySplitPreset('browsers')">
+                  🌐 <span data-i18n="split_preset_browsers">Browsers</span>
+                </button>
+                <button type="button" class="split-preset-chip" onclick="applySplitPreset('messaging')">
+                  💬 <span data-i18n="split_preset_messaging">Telegram & Chat</span>
+                </button>
+                <button type="button" class="split-preset-chip" onclick="applySplitPreset('gaming')">
+                  🎮 <span data-i18n="split_preset_games">Game Launchers</span>
+                </button>
+                <button type="button" class="split-preset-chip clear" onclick="clearSplitApps()">
+                  🗑️ <span data-i18n="split_btn_clear">Clear All</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Add App & Search Row -->
+            <div class="split-search-action-row">
+              <div class="split-search-input-wrap">
+                <span class="search-glass-icon">🔍</span>
+                <input type="text" id="split-search-input" class="search-text-field" placeholder="Search running or installed apps..." data-i18n-placeholder="split_search_placeholder" oninput="filterProcessList(this.value)">
+              </div>
+              <div class="split-custom-add-wrap">
+                <input type="text" id="split-custom-exe-input" class="settings-text-input" placeholder="e.g. C:\Games\game.exe" style="width: 220px;">
+                <button type="button" class="split-action-btn primary" onclick="addCustomSplitApp()" data-i18n="split_btn_add">+ Add Binary</button>
+                <button type="button" class="split-action-btn secondary" onclick="refreshProcessList()" title="Refresh Running Processes">↻</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Apps Grid & Selection Container -->
+          <div class="split-list-section">
+            
+            <!-- Configured Apps Card -->
+            <div class="split-section-card">
+              <div class="split-section-header">
+                <span class="sec-title" data-i18n="split_active_rules">Configured Routing Rules</span>
+                <span class="sec-count" id="split-configured-count">0 Apps</span>
+              </div>
+              <div class="split-configured-chips" id="split-configured-container">
+                <!-- Dynamically populated chips -->
+                <div class="split-empty-msg" id="split-empty-msg" data-i18n="split_no_apps">No applications configured for split tunneling.</div>
+              </div>
+            </div>
+
+            <!-- Active Running / Detected Apps Table -->
+            <div class="split-section-card">
+              <div class="split-section-header">
+                <span class="sec-title" data-i18n="split_running_processes">Detected System Applications & Processes</span>
+                <span class="sec-count" id="split-detected-count">Loading...</span>
+              </div>
+              
+              <div class="split-processes-table-header">
+                <span class="col-app-name" data-i18n="split_table_name">Application</span>
+                <span class="col-app-path" data-i18n="split_table_path">Process Binary</span>
+                <span class="col-app-status" data-i18n="split_table_status">Status</span>
+                <span class="col-app-action" data-i18n="split_table_action">Rule</span>
+              </div>
+
+              <div class="split-process-rows-container" id="split-process-rows">
+                <!-- Dynamically populated process rows -->
+              </div>
+            </div>
+
+          </div>
+            </div>
+
             <!-- Appearance & Language -->
             <div class="settings-group-card">
               <h3 class="settings-group-heading" data-i18n="set_heading_appearance">Appearance & Interface Language</h3>
@@ -789,11 +784,11 @@
               <h3 class="settings-group-heading" data-i18n="set_heading_account">Mozilla Account & Subscription</h3>
               <div class="settings-item-row">
                 <div class="settings-item-desc">
-                  <div class="settings-item-title" id="settings-user-email" data-i18n="not_logged_in">Not logged in</div>
+                  <div class="settings-item-title" id="settings-user-email">Not logged in</div>
                   <div class="settings-item-sub" data-i18n="quota_desc">50.0 GB/month high-speed Mozilla VPN quota</div>
                 </div>
                 <div class="settings-item-control">
-                  <button class="settings-btn-primary" id="settings-auth-btn" onclick="handleAuthClick()" data-i18n="sign_in">Sign In</button>
+                  <button class="settings-btn-primary" id="settings-auth-btn" onclick="handleAuthClick()">Sign In</button>
                 </div>
               </div>
             </div>
@@ -814,16 +809,26 @@
 
         </section>
 
-            </div><!-- /view-slider-track -->
     </main>
 
-    <!-- UNIFIED SMOKED GLASS BOTTOM DOCK & TELEMETRY ROW (Matching Reference Design) -->
-    <footer class="bottom-bar-unified" id="bottom-bar-unified">
+        <!-- INDEPENDENT FLOATING BOTTOM COMPONENTS (Matching Final Reference Image) -->
+    <div class="bottom-floating-layer" id="bottom-floating-layer">
 
+      <!-- 1. Independent User Profile Card (Bottom Left) -->
+      <div class="user-profile-badge" id="dash-user-badge">
+        <div class="user-avatar-wrap">
+          <img src="favicon.png" alt="Avatar" class="user-avatar-img">
+        </div>
+        <div class="user-info-wrap">
+          <span class="user-email-text" id="user-email-label">user@fyrnox.app</span>
+          <div class="user-tier-row">
+            <span class="user-tier-pill">Premium</span>
+          </div>
+        </div>
+      </div>
 
-      <!-- 2. Navigation Dock Horizontally Centered Under Left Column -->
-      <div class="dock-left-alignment-wrapper">
-        <nav class="nav-dock-pill" id="main-nav-dock">
+      <!-- 2. Independent Navigation Capsule -->
+      <nav class="nav-dock-pill" id="main-nav-dock" aria-label="Main Navigation">
         <div class="nav-dock-indicator" id="nav-dock-indicator"></div>
         <button type="button" class="dock-item active" data-tab="dashboard" onclick="switchNav('dashboard')" title="Home">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -839,7 +844,7 @@
             <line x1="6" y1="17" x2="6" y2="17" stroke-width="3" />
           </svg>
         </button>
-        <button type="button" class="dock-item" data-tab="diagnostics" onclick="switchNav('diagnostics')" title="Diagnostics">
+        <button type="button" class="dock-item" data-tab="diagnostics" onclick="switchNav('diagnostics')" title="Tools">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
           </svg>
@@ -851,59 +856,73 @@
           </svg>
         </button>
       </nav>
+
+      <!-- 3. Five Visually Independent Floating Telemetry Cards (No Enclosing Common Bar) -->
+      <div class="telemetry-cluster" id="telemetry-cluster">
+        
+        <!-- 1. Download Card -->
+        <div class="telemetry-card telem-down-card">
+          <div class="telem-header">
+            <span class="telem-icon telem-down-icon">↓</span>
+            <span class="telem-label" data-i18n="traffic_download">Download</span>
+          </div>
+          <div class="telem-value font-mono" id="bottom-down-speed">12.4 MB/s</div>
+          <svg class="telem-sparkline" viewBox="0 0 80 18" preserveAspectRatio="none">
+            <path id="sparkline-down" class="spark-path-down" d="M 0 14 Q 20 8, 40 14 T 80 11" />
+          </svg>
+        </div>
+
+        <!-- 2. Upload Card -->
+        <div class="telemetry-card telem-up-card">
+          <div class="telem-header">
+            <span class="telem-icon telem-up-icon">↑</span>
+            <span class="telem-label" data-i18n="traffic_upload">Upload</span>
+          </div>
+          <div class="telem-value font-mono" id="bottom-up-speed">8.7 MB/s</div>
+          <svg class="telem-sparkline" viewBox="0 0 80 18" preserveAspectRatio="none">
+            <path id="sparkline-up" class="spark-path-up" d="M 0 14 Q 20 10, 40 14 T 80 12" />
+          </svg>
+        </div>
+
+        <!-- 3. Latency Card -->
+        <div class="telemetry-card telem-ping-card" onclick="triggerManualPing()" title="Click to measure real-time latency">
+          <div class="telem-header">
+            <span class="telem-icon telem-ping-icon">⚡</span>
+            <span class="telem-label" data-i18n="traffic_ping">Latency</span>
+          </div>
+          <div class="telem-value font-mono" id="bottom-ping-val">42 ms</div>
+          <svg class="telem-sparkline" viewBox="0 0 80 18" preserveAspectRatio="none">
+            <path id="sparkline-latency" class="spark-path-latency" d="M 0 14 Q 20 11, 40 14 T 80 12" />
+          </svg>
+        </div>
+
+        <!-- 4. Packet Loss Card -->
+        <div class="telemetry-card telem-loss-card">
+          <div class="telem-header">
+            <span class="telem-icon telem-loss-icon">🛡</span>
+            <span class="telem-label">Packet Loss</span>
+          </div>
+          <div class="telem-value font-mono" id="bottom-loss-val">0%</div>
+          <svg class="telem-sparkline" viewBox="0 0 80 18" preserveAspectRatio="none">
+            <path id="sparkline-loss" class="spark-path-loss" d="M 0 14 Q 20 14, 40 14 T 80 14" />
+          </svg>
+        </div>
+
+        <!-- 5. Session Duration Card -->
+        <div class="telemetry-card telem-session-card">
+          <div class="telem-header">
+            <span class="telem-icon telem-session-icon">⏱</span>
+            <span class="telem-label" data-i18n="traffic_session">Session</span>
+          </div>
+          <div class="telem-value font-mono" id="bottom-session-duration">00:00:00</div>
+          <svg class="telem-sparkline" viewBox="0 0 80 18" preserveAspectRatio="none">
+            <path id="sparkline-session" class="spark-path-session" d="M 0 14 Q 20 14, 40 14 T 80 14" />
+          </svg>
+        </div>
+
       </div>
 
-      <!-- 3. Right Telemetry Indicators -->
-      <div class="bottom-telemetry-row">
-        <!-- Download (Brand Amber #D9954B) -->
-        <div class="telemetry-chip down-chip">
-          <div class="chip-top">
-            <span class="chip-arrow down">↓</span>
-            <span class="chip-label" data-i18n="traffic_download">Download</span>
-          </div>
-          <div class="chip-val font-mono" id="bottom-down-speed">—</div>
-        </div>
-
-        <!-- Upload (Brand Blue #83AFCB) -->
-        <div class="telemetry-chip up-chip">
-          <div class="chip-top">
-            <span class="chip-arrow up">↑</span>
-            <span class="chip-label" data-i18n="traffic_upload">Upload</span>
-          </div>
-          <div class="chip-val font-mono" id="bottom-up-speed">—</div>
-        </div>
-
-        <!-- Latency (Interactive Real-Time Check) -->
-        <div class="telemetry-chip ping-chip" id="chip-latency" onclick="triggerManualPing()" title="Click to measure real-time latency">
-          <div class="chip-top">
-            <span class="chip-icon">⚡</span>
-            <span class="chip-label" data-i18n="traffic_ping">Latency</span>
-          </div>
-          <div class="chip-val font-mono" id="bottom-ping-val">—</div>
-        </div>
-
-        <!-- Packet Loss -->
-        <div class="telemetry-chip">
-          <div class="chip-top">
-            <span class="chip-icon">🛡</span>
-            <span class="chip-label">Packet Loss</span>
-          </div>
-          <div class="chip-val font-mono" id="bottom-loss-val">0%</div>
-        </div>
-
-        <!-- Session Duration -->
-        <div class="telemetry-chip session-chip">
-          <div class="chip-top">
-            <span class="chip-icon">🗄</span>
-            <span class="chip-label" data-i18n="traffic_session">Session</span>
-          </div>
-          <div class="chip-val font-mono" id="bottom-session-duration">00:00:00</div>
-        </div>
-
-        <!-- Real-Time Waveform Canvas in Background -->
-        <canvas id="traffic-curve-canvas" class="traffic-curve-canvas" style="display: none;"></canvas>
-      </div>
-    </footer>
+    </div>
 
   </div>
 

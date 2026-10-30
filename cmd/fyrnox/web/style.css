@@ -2152,6 +2152,17 @@ a {
   color: #120A08;
 }
 
+.settings-btn-primary.btn-signout {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.settings-btn-primary.btn-signout:hover {
+  background: rgba(239, 68, 68, 0.85);
+  color: #ffffff;
+}
+
 /* Switch Toggle Component */
 .switch-toggle {
   position: relative;
@@ -5476,53 +5487,38 @@ body.is-dashboard .app-topbar,
   position: relative;
   overflow: hidden;
   width: 100%;
-  height: calc(100% - 68px);
+  height: calc(100vh - 38px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .view-panel {
-  position: absolute;
-  inset: 0;
-  display: flex;
+  display: none;
   flex-direction: column;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(12px) scale(0.98);
-  transition: opacity 320ms var(--ease-ios), 
-              transform 320ms var(--ease-ios), 
-              filter 320ms var(--ease-ios);
-  contain: paint;
-  backface-visibility: hidden;
-  will-change: transform, opacity;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
 .view-panel.active {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-  z-index: 2;
-}
-
-.view-panel.outgoing {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.97);
-  filter: blur(4px);
-  z-index: 1;
+  display: flex;
 }
 
 #view-dashboard {
   overflow: hidden;
   padding: 0;
+  max-width: none;
 }
 
 #view-servers,
-#view-split-tunnel,
 #view-diagnostics,
 #view-settings {
-  padding: 16px 24px;
+  padding: 20px 28px 110px 28px;
+  max-width: 1240px;
+  margin: 0 auto;
 }
 
 /* Dashboard Top Grid: Left Cards Snapped Flush, Right Borderless Globe */
@@ -5559,21 +5555,22 @@ body.is-dashboard .app-topbar,
 }
 
 .hero-connect-card {
-  padding: 14px 16px 12px !important;
+  padding: 12px 16px 10px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: space-between !important;
-  flex: 1 1 auto !important;
+  flex: 1 1 0 !important;
+  min-height: 280px !important;
 }
 
 .selected-server-card {
-  padding: 12px 16px !important;
+  padding: 10px 16px !important;
   flex: 0 0 auto !important;
 }
 
 .monthly-quota-card {
-  padding: 12px 16px !important;
+  padding: 10px 16px !important;
   flex: 0 0 auto !important;
 }
 
@@ -5690,16 +5687,12 @@ body.is-dashboard .app-topbar,
 
 .nav-dock-indicator {
   position: absolute;
-  top: 4px;
-  left: 6px;
-  width: 40px;
-  height: 40px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(217, 149, 75, 0.35) 0%, rgba(217, 149, 75, 0.12) 65%, transparent 100%);
   box-shadow: 0 0 16px rgba(217, 149, 75, 0.40), inset 0 0 8px rgba(217, 149, 75, 0.30);
   border: 1px solid rgba(217, 149, 75, 0.40);
   pointer-events: none;
-  transition: transform 280ms cubic-bezier(0.2, 0.9, 0.1, 1), width 200ms ease;
+  transition: left 240ms cubic-bezier(0.2, 0.9, 0.1, 1), top 240ms cubic-bezier(0.2, 0.9, 0.1, 1), width 200ms ease, height 200ms ease;
   z-index: 1;
 }
 
@@ -5801,12 +5794,13 @@ body.is-dashboard .app-topbar,
 .nav-dock-pill,
 .user-profile-badge,
 .globe-floating-badge {
-  background: rgba(38, 39, 43, 0.62) !important;
-  backdrop-filter: blur(28px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(140%) !important;
-  border: 1px solid rgba(229, 227, 223, 0.08) !important;
-  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.37) !important;
-  border-radius: 20px !important;
+  background: rgba(30, 32, 38, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+  border: 1px solid rgba(229, 227, 223, 0.12) !important;
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.45) !important;
+  border-radius: 16px !important;
+  pointer-events: auto !important;
 }
 
 .globe-hero-panel,
@@ -5883,62 +5877,83 @@ body.is-dashboard .app-topbar,
   margin: 0 !important;
 }
 
-.view-slider-track {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-  transform: none !important;
-  overflow: visible !important;
+/* Clean Deterministic SPA View Panel Visibility & Clearance */
+.app-view-container {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: calc(100vh - 38px) !important;
+  max-height: calc(100vh - 38px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: relative !important;
+  width: 100vw !important;
+  box-sizing: border-box !important;
 }
 
 .view-panel {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
+  display: none !important;
   width: 100% !important;
   height: 100% !important;
-  display: block !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  contain: none !important;
+  box-sizing: border-box !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  padding-bottom: 96px !important; /* clearance for floating 32px dock */
-  box-sizing: border-box !important;
-  will-change: transform;
-  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  contain: none !important;
   filter: none !important;
+  position: relative !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
-#view-dashboard {
+.view-panel.active {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#view-dashboard.active {
+  display: flex !important;
   overflow: hidden !important;
   padding: 0 !important;
   max-width: none !important;
   margin: 0 !important;
 }
 
-#view-servers,
-#view-diagnostics,
-#view-settings {
-  padding: 20px 28px 100px 28px !important;
+#view-servers.active,
+#view-diagnostics.active,
+#view-settings.active {
+  display: flex !important;
+  padding: 20px 28px 110px 28px !important;
   max-width: 1240px !important;
   margin: 0 auto !important;
+  overflow-y: auto !important;
+}
+
+/* Split Tunneling inside Settings */
+.split-tunnel-settings-card {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  gap: 16px !important;
+}
+
+.split-tunnel-settings-card .split-controls-card {
+  margin-bottom: 0 !important;
 }
 
 /* 3D Globe Right Column & WebGL Container Guarantees */
 .dash-hero-grid {
   display: grid !important;
   grid-template-columns: 310px 1fr !important;
-  gap: 20px !important;
+  gap: 16px !important;
   width: 100% !important;
-  height: 100% !important;
-  min-height: 100vh !important;
-  padding: 16px 24px 0 24px !important;
+  height: calc(100vh - 38px) !important;
+  max-height: calc(100vh - 38px) !important;
+  min-height: 0 !important;
+  padding: 14px 24px 84px 24px !important;
   box-sizing: border-box !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .dash-right-column,
@@ -5946,14 +5961,14 @@ body.is-dashboard .app-topbar,
   position: relative !important;
   width: 100% !important;
   height: 100% !important;
-  min-height: 100vh !important;
+  min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   flex: 1 1 auto !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .globe-3d-wrap {
@@ -6003,8 +6018,8 @@ body.is-dashboard .app-topbar,
 /* 1. Isolated Floating Navigation Dock (Left) */
 .nav-dock-pill {
   position: fixed !important;
-  bottom: 32px !important;
-  left: 32px !important;
+  bottom: 28px !important;
+  left: 230px !important;
   z-index: 9999 !important;
   border-radius: 24px !important;
   background: rgba(38, 39, 43, 0.62) !important;
@@ -6046,4 +6061,605 @@ body.is-dashboard .app-topbar,
 .telemetry-chip.up-chip .chip-arrow,
 .telemetry-chip.up-chip .chip-val {
   color: #83AFCB !important;
+}
+
+/* ========================================================================== */
+/* REFERENCE MATCH REFINEMENT: RIGHT DOCK, USER BADGE & EXIT BADGE            */
+/* ========================================================================== */
+
+/* 1. Right Secondary Navigation Menu (Servers, Diagnostics, Settings) */
+.dash-right-nav-dock {
+  position: absolute !important;
+  right: 28px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 100 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  padding: 10px 8px !important;
+  background: rgba(30, 32, 38, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+  border: 1px solid rgba(229, 227, 223, 0.12) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.45) !important;
+}
+
+.right-dock-item {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(229, 227, 223, 0.65) !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.right-dock-item:hover {
+  color: #E5E3DF !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.right-dock-item.active {
+  color: #D9954B !important;
+  background: rgba(217, 149, 75, 0.15) !important;
+}
+
+/* 2. User Profile Badge (Bottom Left, matching Reference Image) */
+.user-profile-badge {
+  position: fixed !important;
+  bottom: 28px !important;
+  left: 28px !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 14px !important;
+  background: rgba(30, 32, 38, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+  border: 1px solid rgba(229, 227, 223, 0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.45) !important;
+}
+
+.user-avatar-wrap {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  background: #2a2c33 !important;
+  border: 1px solid rgba(229, 227, 223, 0.15) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.user-avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.user-info-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.user-email-text {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #E5E3DF !important;
+  line-height: 1.1 !important;
+}
+
+.user-tier-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.user-tier-pill {
+  font-size: 10px !important;
+  color: #D9954B !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+}
+
+.user-tier-indicator {
+  width: 18px !important;
+  height: 3px !important;
+  background: #D9954B !important;
+  border-radius: 2px !important;
+}
+
+.app-version-caption {
+  position: absolute !important;
+  bottom: -18px !important;
+  left: 6px !important;
+  font-size: 11px !important;
+  color: rgba(229, 227, 223, 0.38) !important;
+  font-family: var(--font-mono, monospace) !important;
+}
+
+/* 3. Exit Location Badge Polish */
+.badge-status-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+}
+
+.badge-status-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.badge-copy-btn {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(229, 227, 223, 0.5) !important;
+  cursor: pointer !important;
+  padding: 2px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+  transition: color 0.15s ease !important;
+}
+
+.badge-copy-btn:hover {
+  color: #E5E3DF !important;
+}
+
+.badge-country-code {
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  color: #E5E3DF !important;
+  letter-spacing: 0.5px !important;
+  margin-right: 6px !important;
+}
+
+/* ========================================================================== */
+/* FYRNOX RESTRAINED LIQUID GLASS THEME & FLOATING ARCHITECTURE               */
+/* ========================================================================== */
+
+:root {
+  --bg-deep: #080B10;
+  --bg-card: rgba(17, 23, 32, 0.65);
+  --bg-card-hover: rgba(23, 30, 42, 0.75);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-focus: rgba(217, 119, 50, 0.45);
+  --accent-amber: #D97732;
+  --accent-cyan: #45B8D8;
+  --accent-purple: #9D7AE2;
+  --accent-slate: #5A738E;
+  --text-primary: #EDEBE8;
+  --text-muted: #8E98A5;
+}
+
+body {
+  background: #080B10 radial-gradient(circle at 75% 40%, rgba(20, 28, 42, 0.45) 0%, #080B10 70%) no-repeat !important;
+  color: var(--text-primary) !important;
+}
+
+/* Glass Panels with Restrained Blur and Thin Borders */
+.reference-card,
+.service-matrix-card,
+.diag-component-card,
+.settings-group-card,
+.server-card {
+  background: rgba(17, 23, 32, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Connect Card Styling */
+.circular-connect-btn.disconnected {
+  border: 2px solid #D97732 !important;
+  box-shadow: 0 0 28px rgba(217, 119, 50, 0.28), inset 0 0 18px rgba(217, 119, 50, 0.12) !important;
+}
+
+.circular-connect-btn.disconnected .connect-power-icon svg {
+  color: #D97732 !important;
+  filter: drop-shadow(0 0 8px rgba(217, 119, 50, 0.5));
+}
+
+.circular-connect-btn.connected {
+  border: 2px solid #38A169 !important;
+  box-shadow: 0 0 28px rgba(56, 161, 105, 0.32), inset 0 0 18px rgba(56, 161, 105, 0.15) !important;
+}
+
+/* Mode pill and Fallback pill */
+.mode-pill-btn,
+.transport-fallback-pill {
+  background: rgba(22, 29, 39, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 20px !important;
+  color: var(--text-muted) !important;
+  font-size: 11.5px !important;
+}
+
+.transport-fallback-pill .fallback-dot {
+  background: #687787 !important;
+}
+
+/* Selected Server Card */
+.selected-server-card .server-name {
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.selected-server-card .server-city {
+  color: var(--text-muted) !important;
+  font-size: 11.5px !important;
+}
+
+.selected-server-card .card-action-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #EDEBE8 !important;
+  border-radius: 8px !important;
+  padding: 5px 14px !important;
+  font-size: 12px !important;
+  transition: all 0.2s ease !important;
+}
+
+.selected-server-card .card-action-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Monthly Quota Card */
+.quota-source-badge.premium {
+  background: rgba(217, 119, 50, 0.14) !important;
+  border: 1px solid rgba(217, 119, 50, 0.35) !important;
+  color: #D97732 !important;
+  font-weight: 700 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.5px !important;
+  padding: 3px 8px !important;
+  border-radius: 8px !important;
+}
+
+.cyan-highlight {
+  color: #45B8D8 !important;
+}
+
+.quota-progress-track {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  height: 6px !important;
+  overflow: hidden !important;
+}
+
+.quota-progress-fill {
+  background: #45B8D8 !important;
+  border-radius: 6px !important;
+  height: 100% !important;
+}
+
+/* ========================================================================== */
+/* BOTTOM FLOATING LAYER (3 INDEPENDENT GROUPS, NO COMMON ENCLOSING BAR)      */
+/* ========================================================================== */
+
+.bottom-floating-layer {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  z-index: 1000 !important;
+}
+
+/* 1. Independent User Profile Card (Bottom Left) */
+.user-profile-badge {
+  position: fixed !important;
+  bottom: 24px !important;
+  left: 28px !important;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 14px !important;
+  background: rgba(17, 23, 32, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4) !important;
+}
+
+.user-avatar-wrap {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(217, 119, 50, 0.15) !important;
+  border: 1px solid rgba(217, 119, 50, 0.35) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+
+.user-avatar-img {
+  width: 22px !important;
+  height: 22px !important;
+}
+
+.user-info-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.user-email-text {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: #EDEBE8 !important;
+}
+
+.user-tier-pill {
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  color: #D97732 !important;
+}
+
+/* 2. Independent Navigation Capsule */
+.nav-dock-pill {
+  position: fixed !important;
+  bottom: 24px !important;
+  left: 205px !important;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 6px 10px !important;
+  gap: 6px !important;
+  background: rgba(17, 23, 32, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4) !important;
+  width: max-content !important;
+}
+
+.dock-item {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(237, 235, 232, 0.5) !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.dock-item:hover {
+  color: #EDEBE8 !important;
+}
+
+.dock-item.active {
+  color: #D97732 !important;
+}
+
+.nav-dock-indicator {
+  position: absolute !important;
+  background: rgba(217, 119, 50, 0.12) !important;
+  border: 1px solid rgba(217, 119, 50, 0.35) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 14px rgba(217, 119, 50, 0.25) !important;
+  transition: left 240ms cubic-bezier(0.16, 1, 0.3, 1), width 240ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+
+/* 3. Five Visually Independent Floating Telemetry Cards */
+.telemetry-cluster {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 28px !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.telemetry-card {
+  pointer-events: auto !important;
+  background: rgba(17, 23, 32, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  padding: 7px 11px 6px 11px !important;
+  min-width: 98px !important;
+  height: 56px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  transition: transform 0.2s ease, border-color 0.2s ease !important;
+}
+
+.telemetry-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.telem-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.telem-icon {
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+.telem-label {
+  font-size: 10.5px !important;
+  color: var(--text-muted) !important;
+  font-weight: 500 !important;
+}
+
+.telem-value {
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #EDEBE8 !important;
+  letter-spacing: 0.2px !important;
+}
+
+/* Telemetry Card Specific Accent Colors matching Reference */
+.telem-down-icon { color: #D97732 !important; }
+.telem-up-icon { color: #45B8D8 !important; }
+.telem-ping-icon { color: #D97732 !important; }
+.telem-loss-icon { color: #9D7AE2 !important; }
+.telem-session-icon { color: #5A738E !important; }
+
+/* SVG Sparklines */
+.telem-sparkline {
+  width: 100% !important;
+  height: 14px !important;
+  display: block !important;
+  overflow: visible !important;
+}
+
+.spark-path-down {
+  stroke: #D97732 !important;
+  stroke-width: 1.8 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.spark-path-up {
+  stroke: #45B8D8 !important;
+  stroke-width: 1.8 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.spark-path-latency {
+  stroke: #D97732 !important;
+  stroke-width: 1.8 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.spark-path-loss {
+  stroke: #9D7AE2 !important;
+  stroke-width: 1.8 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.spark-path-session {
+  stroke: #5A738E !important;
+  stroke-width: 1.8 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+/* ========================================================================== */
+/* SMOOTH NAVIGATION TRANSITIONS & REDUCED MOTION                             */
+/* ========================================================================== */
+
+@keyframes viewSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(28px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes viewSlideInLeft {
+  0% {
+    opacity: 0;
+    transform: translate3d(-28px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.view-panel {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.view-panel.active {
+  display: flex !important;
+  animation: viewSlideInRight 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.view-panel.active.slide-in-right {
+  animation: viewSlideInRight 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.view-panel.active.slide-in-left {
+  animation: viewSlideInLeft 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-panel.active {
+    animation: none !important;
+  }
+  .nav-dock-indicator {
+    transition: none !important;
+  }
+  .telemetry-card {
+    transition: none !important;
+  }
+}
+
+/* Server Selection Radio Indicator */
+.server-selection-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-right: 4px;
+}
+.server-selection-indicator.selected,
+.server-row-card.selected .server-selection-indicator {
+  border-color: var(--accent-gold, #ff9400);
+  background: radial-gradient(circle, #ff9400 48%, transparent 52%);
+  box-shadow: 0 0 8px rgba(255, 148, 0, 0.65);
 }
