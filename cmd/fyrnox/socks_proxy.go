@@ -91,6 +91,7 @@ func (s *SocksProxyServer) Start() error {
 		}
 	}
 	s.listener = ln
+	s.listenAddr = ln.Addr().String()
 	LogInfo("SOCKS5 Proxy listening on %s", s.listenAddr)
 
 	go func() {
@@ -168,13 +169,18 @@ func (s *SocksProxyServer) handleClient(clientConn net.Conn) {
 		return
 	}
 
-	// 2. Request Details
+	// 2. Request Details (supports CMD 0x01 CONNECT and CMD 0x03 UDP ASSOCIATE for Wintun TUN)
 	header := make([]byte, 4)
 	if _, err := io.ReadFull(clientConn, header); err != nil {
 		return
 	}
-	if header[0] != 0x05 || header[1] != 0x01 { // CMD != CONNECT
+	if header[0] != 0x05 || (header[1] != 0x01 && header[1] != 0x03) {
 		clientConn.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return
+	}
+
+	if header[1] == 0x03 {
+		s.handleUDPAssociate(clientConn, header)
 		return
 	}
 
@@ -313,4 +319,246 @@ func (s *SocksProxyServer) pipe(client, upstream net.Conn) {
 	}()
 
 	wg.Wait()
+}
+// handleUDPAssociate implements SOCKS5 UDP ASSOCIATE (RFC 1928) for full Wintun TUN mode
+func (s *SocksProxyServer) handleUDPAssociate(clientConn net.Conn, header []byte) {
+	// Read address and port specified by client in UDP ASSOCIATE request
+	var clientExpectedHost string
+	switch header[3] {
+	case 0x01: // IPv4
+		ip := make([]byte, 4)
+		if _, err := io.ReadFull(clientConn, ip); err != nil {
+			return
+		}
+		clientExpectedHost = net.IP(ip).String()
+	case 0x03: // Domain
+		var l [1]byte
+		if _, err := io.ReadFull(clientConn, l[:]); err != nil {
+			return
+		}
+		domain := make([]byte, int(l[0]))
+		if _, err := io.ReadFull(clientConn, domain); err != nil {
+			return
+		}
+		clientExpectedHost = string(domain)
+	case 0x04: // IPv6
+		ip := make([]byte, 16)
+		if _, err := io.ReadFull(clientConn, ip); err != nil {
+			return
+		}
+		clientExpectedHost = net.IP(ip).String()
+	default:
+		clientConn.Write([]byte{0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	_ = clientExpectedHost
+
+	portBuf := make([]byte, 2)
+	if _, err := io.ReadFull(clientConn, portBuf); err != nil {
+		return
+	}
+
+	// Listen for UDP datagrams on loopback
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		clientConn.Write([]byte{0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	defer udpConn.Close()
+
+	relayAddr := udpConn.LocalAddr().(*net.UDPAddr)
+	relayPort := uint16(relayAddr.Port)
+
+	// Send success response (0x00) with BND.ADDR and BND.PORT
+	resp := []byte{
+		0x05, 0x00, 0x00, 0x01,
+		127, 0, 0, 1,
+		byte(relayPort >> 8), byte(relayPort & 0xff),
+	}
+	if _, err := clientConn.Write(resp); err != nil {
+		return
+	}
+
+	// Association terminates when TCP stream closes
+	tcpDone := make(chan struct{})
+	go func() {
+		defer close(tcpDone)
+		buf := make([]byte, 256)
+		for {
+			if _, err := clientConn.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	packetBuf := make([]byte, 65535)
+	for {
+		select {
+		case <-tcpDone:
+			return
+		default:
+		}
+
+		_ = udpConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+		n, senderAddr, err := udpConn.ReadFrom(packetBuf)
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				continue
+			}
+			return
+		}
+
+		if n < 10 {
+			continue
+		}
+
+		// Check SOCKS5 UDP header: RSV(2) == 00 00, FRAG(1) == 00
+		if packetBuf[0] != 0 || packetBuf[1] != 0 || packetBuf[2] != 0 {
+			continue
+		}
+
+		atyp := packetBuf[3]
+		offset := 4
+		var dstHost string
+
+		switch atyp {
+		case 0x01: // IPv4
+			if n < offset+4+2 {
+				continue
+			}
+			dstHost = net.IP(packetBuf[offset : offset+4]).String()
+			offset += 4
+		case 0x03: // Domain
+			dLen := int(packetBuf[offset])
+			offset++
+			if n < offset+dLen+2 {
+				continue
+			}
+			dstHost = string(packetBuf[offset : offset+dLen])
+			offset += dLen
+		case 0x04: // IPv6
+			if n < offset+16+2 {
+				continue
+			}
+			dstHost = net.IP(packetBuf[offset : offset+16]).String()
+			offset += 16
+		default:
+			continue
+		}
+
+		dstPort := int(binary.BigEndian.Uint16(packetBuf[offset : offset+2]))
+		offset += 2
+		payload := packetBuf[offset:n]
+
+		// Port 53 -> Tunnel DNS query securely over MASQUE TCP stream
+		if dstPort == 53 {
+			go s.forwardDNSOverTunnel(udpConn, senderAddr, dstHost, dstPort, payload)
+		} else {
+			go s.forwardGenericUDP(udpConn, senderAddr, dstHost, dstPort, payload)
+		}
+	}
+}
+
+// forwardDNSOverTunnel sends a UDP DNS query over the encrypted TCP tunnel (RFC 7766) and returns the answer
+func (s *SocksProxyServer) forwardDNSOverTunnel(udpConn *net.UDPConn, clientAddr net.Addr, dnsHost string, dnsPort int, query []byte) {
+	if dnsHost == "" || dnsHost == "0.0.0.0" {
+		dnsHost = "1.1.1.1"
+	}
+	target := fmt.Sprintf("%s:%d", dnsHost, dnsPort)
+
+	// Connect via upstream tunnel opener
+	conn, err := s.opener.OpenTunnel(target)
+	if err != nil {
+		conn, err = s.opener.OpenTunnel("1.1.1.1:53")
+		if err != nil {
+			conn, err = s.opener.OpenTunnel("8.8.8.8:53")
+			if err != nil {
+				return
+			}
+		}
+	}
+	defer conn.Close()
+
+	_ = conn.SetDeadline(time.Now().Add(4 * time.Second))
+
+	// In DNS over TCP, message is prefixed with 2-byte big-endian length
+	reqLen := uint16(len(query))
+	reqBuf := make([]byte, 2+len(query))
+	binary.BigEndian.PutUint16(reqBuf[:2], reqLen)
+	copy(reqBuf[2:], query)
+
+	if _, err := conn.Write(reqBuf); err != nil {
+		return
+	}
+
+	var respLenBuf [2]byte
+	if _, err := io.ReadFull(conn, respLenBuf[:]); err != nil {
+		return
+	}
+	respLen := binary.BigEndian.Uint16(respLenBuf[:])
+	if respLen == 0 || respLen > 4096 {
+		return
+	}
+
+	dnsResp := make([]byte, respLen)
+	if _, err := io.ReadFull(conn, dnsResp); err != nil {
+		return
+	}
+
+	// Pack DNS response in SOCKS5 UDP encapsulation
+	respHeader := []byte{0x00, 0x00, 0x00, 0x01}
+	ipBytes := net.ParseIP(dnsHost).To4()
+	if ipBytes == nil {
+		ipBytes = net.IPv4(1, 1, 1, 1).To4()
+	}
+	respHeader = append(respHeader, ipBytes...)
+	portBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(portBytes, uint16(dnsPort))
+	respHeader = append(respHeader, portBytes...)
+
+	fullPacket := append(respHeader, dnsResp...)
+	if s.meter != nil {
+		s.meter.AddUp(int64(len(query))); s.meter.AddDown(int64(len(dnsResp)))
+	}
+	_, _ = udpConn.WriteTo(fullPacket, clientAddr)
+}
+
+// forwardGenericUDP dials direct UDP for non-DNS traffic (STUN, NTP, local network)
+func (s *SocksProxyServer) forwardGenericUDP(udpConn *net.UDPConn, clientAddr net.Addr, host string, port int, data []byte) {
+	rAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return
+	}
+	directConn, err := net.DialUDP("udp", nil, rAddr)
+	if err != nil {
+		return
+	}
+	defer directConn.Close()
+
+	_ = directConn.SetDeadline(time.Now().Add(3 * time.Second))
+	if _, err := directConn.Write(data); err != nil {
+		return
+	}
+
+	buf := make([]byte, 4096)
+	n, err := directConn.Read(buf)
+	if err != nil || n == 0 {
+		return
+	}
+
+	respHeader := []byte{0x00, 0x00, 0x00, 0x01}
+	ipBytes := rAddr.IP.To4()
+	if ipBytes == nil {
+		ipBytes = net.IPv4(0, 0, 0, 0).To4()
+	}
+	respHeader = append(respHeader, ipBytes...)
+	portBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(portBytes, uint16(port))
+	respHeader = append(respHeader, portBytes...)
+
+	fullPacket := append(respHeader, buf[:n]...)
+	if s.meter != nil {
+		s.meter.AddUp(int64(len(data))); s.meter.AddDown(int64(n))
+	}
+	_, _ = udpConn.WriteTo(fullPacket, clientAddr)
 }

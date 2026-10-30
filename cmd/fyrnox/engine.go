@@ -1503,7 +1503,6 @@ func (e *VpnEngine) Disconnect() error {
 	e.socksServer = nil
 	e.httpServer = nil
 	e.controller = nil
-	useSysProxy := e.settings.UseSystemProxy
 	e.mu.Unlock()
 	e.notifyTray()
 
@@ -1526,18 +1525,16 @@ func (e *VpnEngine) Disconnect() error {
 		_ = ctrl.Close()
 	}
 
-	// 2. Tear down TUN mode routes, interface and netstack with bounded timeouts
-	wasTun := IsTunModeActive()
+	// 2. Tear down TUN mode routes, interface and netstack if active
+	wasTun := IsTunModeActive() || IsWintunActive()
 	if wasTun {
 		_ = DisableTunMode()
 		LogInfo("System TUN mode deactivated")
 	}
 
-	// 3. Restore Windows system proxy to direct mode
-	if useSysProxy {
-		_ = RestoreSystemProxy()
-		LogInfo("Windows system proxy restored to direct")
-	}
+	// 3. Always restore Windows system proxy to direct mode to guarantee zero residual proxy
+	_ = RestoreSystemProxy()
+	LogInfo("Windows system proxy restored to direct")
 
 	// 4. Verify system routes and adapter state in background
 	if wasTun {
@@ -1706,15 +1703,27 @@ func (e *VpnEngine) Reconnect() {
 
 func (e *VpnEngine) SetTunMode(enable bool) {
 	e.mu.Lock()
+	if e.settings.EnableTunMode == enable && e.settings.UseSystemProxy == !enable {
+		e.mu.Unlock()
+		return
+	}
 	e.settings.EnableTunMode = enable
 	e.settings.UseSystemProxy = !enable
 	s := e.settings
 	state := e.state
 	e.mu.Unlock()
 
-	e.UpdateSettings(s)
+	_ = saveSettings(s)
+
 	if state == StateConnected {
-		go e.Reconnect()
+		LogInfo("Routing mode switched while connected (TUN: %v). Teardown previous route and hot-reconnecting...", enable)
+		go func() {
+			_ = e.Disconnect()
+			time.Sleep(300 * time.Millisecond)
+			_ = e.Connect()
+		}()
+	} else {
+		LogInfo("Routing mode updated to TUN: %v", enable)
 	}
 }
 

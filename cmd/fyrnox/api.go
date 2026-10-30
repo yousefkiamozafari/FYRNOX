@@ -48,6 +48,7 @@ func (s *ApiServer) Start() error {
 	mux.HandleFunc("/api/ip", s.handleIP)
 	mux.HandleFunc("/api/ip/refresh", s.handleIPRefresh)
 	mux.HandleFunc("/api/settings", s.handleSettings)
+	mux.HandleFunc("/api/routing-mode", s.handleRoutingMode)
 	mux.HandleFunc("/api/apps/running", s.handleRunningApps)
 	mux.HandleFunc("/api/apps/installed", s.handleInstalledApps)
 	mux.HandleFunc("/api/gaming-mode", s.handleGamingMode)
@@ -303,10 +304,30 @@ func (s *ApiServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req VpnSettings
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			oldTun := s.engine.GetSettings().EnableTunMode
 			s.engine.UpdateSettings(req)
+			if oldTun != req.EnableTunMode {
+				s.engine.SetTunMode(req.EnableTunMode)
+			}
 		}
 	}
 	s.jsonResponse(w, s.engine.GetStatus().Settings)
+}
+
+func (s *ApiServer) handleRoutingMode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		EnableTun bool `json:"enable_tun"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.jsonResponse(w, map[string]any{"ok": false, "error": "Invalid JSON payload"})
+		return
+	}
+	s.engine.SetTunMode(req.EnableTun)
+	s.jsonResponse(w, map[string]any{"ok": true, "enable_tun": req.EnableTun})
 }
 
 // handleEvents implements Server-Sent Events (SSE) for live, instant UI updates

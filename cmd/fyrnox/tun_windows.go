@@ -307,7 +307,8 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, ipProtocol string) error {
 		"source=static",
 		fmt.Sprintf("addr=%s", tunIPAddr),
 		fmt.Sprintf("mask=%s", tunNetmask),
-		"gateway=none",
+		fmt.Sprintf("gateway=%s", tunGateway),
+		"gwmetric=1",
 	).Run()
 
 	_ = newSilentCmd("netsh", "interface", "ipv4", "set", "dnsservers",

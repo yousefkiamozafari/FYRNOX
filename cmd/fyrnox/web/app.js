@@ -890,14 +890,13 @@ function updateUI(status) {
   if (modePillIcon && modePillLabel) {
     if (isTunModeActive) {
       modePillIcon.textContent = '🛡️';
-      modePillLabel.textContent = 'Wintun TUN';
+      modePillLabel.textContent = (currentLang === 'fa') ? 'تانل کل ویندوز' : 'Wintun TUN';
     } else {
       modePillIcon.textContent = '🌐';
-      modePillLabel.textContent = 'System Proxy';
+      modePillLabel.textContent = (currentLang === 'fa') ? 'پروکسی سیستم' : 'System Proxy';
     }
   }
 
-  // Strictly sync checkmarks and active states to matches the trigger label
   if (checkProxy && checkTun) {
     if (isTunModeActive) {
       checkTun.style.display = 'inline';
@@ -1573,7 +1572,7 @@ function showUACNotice(msg) {
 // ==========================================================================
 // Routing Mode & UAC Elevation
 // ==========================================================================
-function selectRoutingMode(enableTun) {
+async function selectRoutingMode(enableTun) {
   if (!currentStatus) return;
 
   if (enableTun) {
@@ -1584,11 +1583,24 @@ function selectRoutingMode(enableTun) {
     }
   }
 
-  // Update settings
-  const settings = currentStatus.settings || {};
-  settings.enable_tun_mode = enableTun;
-  settings.use_system_proxy = true;
-  saveSettingsPayload(settings);
+  // Update in-memory state optimistically
+  if (!currentStatus.settings) currentStatus.settings = {};
+  currentStatus.settings.enable_tun_mode = enableTun;
+  currentStatus.settings.use_system_proxy = !enableTun;
+  updateUI(currentStatus);
+
+  try {
+    const res = await fetch('/api/routing-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enable_tun: enableTun })
+    });
+    if (res.ok) {
+      setTimeout(() => fetchStatus(), 150);
+    }
+  } catch (err) {
+    console.error('Failed to change routing mode:', err);
+  }
 }
 
 function toggleTunMode(checked) {

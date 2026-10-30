@@ -33,6 +33,7 @@ Copy-Item -Force "$repoRoot\build\Fyrnox-x86.exe" "$repoRoot\build\portable-x86\
 Copy-Item -Force "$repoRoot\build\Uninstall-x86.exe" "$repoRoot\build\portable-x86\Fyrnox-Portable\Uninstall.exe"
 Copy-Item -Force "$repoRoot\icon.ico" "$repoRoot\build\portable-x86\Fyrnox-Portable\icon.ico"
 Copy-Item -Force "$repoRoot\README.md" "$repoRoot\build\portable-x86\Fyrnox-Portable\README.md"
+Copy-Item -Force "$repoRoot\build\wintun.dll" "$repoRoot\build\portable-x86\Fyrnox-Portable\wintun.dll"
 
 Write-Host "=== 6. Packaging Portable ZIPs ==="
 $zipX64 = "$repoRoot\build\Fyrnox-v1.0.4-Windows-x64-Portable.zip"

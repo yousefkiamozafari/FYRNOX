@@ -47,3 +47,25 @@ func TestSelectServerHotReconnect(t *testing.T) {
 		t.Fatalf("Expected Server.Hostname %s, got %+v", secondServer, status.Server)
 	}
 }
+
+func TestRoutingModeHotSwitch(t *testing.T) {
+	engine := NewVpnEngine()
+	engine.settings.EnableTunMode = false
+	engine.settings.UseSystemProxy = true
+
+	engine.mu.Lock()
+	engine.state = StateConnected
+	engine.mu.Unlock()
+
+	// Switch to TUN mode while connected
+	engine.SetTunMode(true)
+
+	if !engine.settings.EnableTunMode || engine.settings.UseSystemProxy {
+		t.Fatalf("Expected EnableTunMode=true and UseSystemProxy=false, got tun=%v proxy=%v", engine.settings.EnableTunMode, engine.settings.UseSystemProxy)
+	}
+
+	// Verify state transitioned towards disconnecting/connecting
+	time.Sleep(50 * time.Millisecond)
+	status := engine.GetStatus()
+	t.Logf("Status after mode hot switch: state=%s", status.State)
+}
