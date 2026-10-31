@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"context"
 	"encoding/json"
 	"errors"
@@ -167,6 +168,51 @@ func getPhysicalDefaultGateway() (string, int, error) {
 	return "", 0, fmt.Errorf("could not determine default physical gateway")
 }
 
+
+//go:embed wintun.dll
+var embeddedWintunDLL []byte
+
+// ensureWintunDLL guarantees that wintun.dll is present in the application directory
+// and System32 so that LoadLibraryEx can find it under all execution contexts.
+func ensureWintunDLL() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	exeDir := filepath.Dir(exePath)
+	targetDll := filepath.Join(exeDir, "wintun.dll")
+
+	// 1. Extract into application directory if missing or size differs
+	if fi, err := os.Stat(targetDll); err != nil || fi.Size() != int64(len(embeddedWintunDLL)) {
+		if len(embeddedWintunDLL) > 0 {
+			if err := os.WriteFile(targetDll, embeddedWintunDLL, 0644); err != nil {
+				LogWarn("Could not extract embedded wintun.dll to %s: %v", targetDll, err)
+			} else {
+				LogInfo("Successfully extracted embedded wintun.dll to application directory (%s, %d bytes)", targetDll, len(embeddedWintunDLL))
+			}
+		}
+	}
+
+	// 2. If running as Administrator, also sync to C:\Windows\System32\wintun.dll
+	if IsAdmin() {
+		windir := os.Getenv("WINDIR")
+		if windir == "" {
+			windir = `C:\Windows`
+		}
+		sys32Dll := filepath.Join(windir, "System32", "wintun.dll")
+		if fi, err := os.Stat(sys32Dll); err != nil || fi.Size() != int64(len(embeddedWintunDLL)) {
+			if len(embeddedWintunDLL) > 0 {
+				if err := os.WriteFile(sys32Dll, embeddedWintunDLL, 0644); err == nil {
+					LogInfo("Synchronized wintun.dll into System32: %s", sys32Dll)
+				}
+			}
+		}
+	}
+
+	_ = windows.SetDllDirectory(exeDir)
+	return nil
+}
+
 // EnableTunMode sets up Layer-3 Wintun routing (when Administrator) and WinHTTP + user environment proxies
 func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string) error {
 	tunMu.Lock()
@@ -176,10 +222,8 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	cleanupHostRoutes()
 	FlushDNSCache()
 
-	// Ensure DLL search path includes executable directory for wintun.dll
-	if exePath, err := os.Executable(); err == nil {
-		_ = windows.SetDllDirectory(filepath.Dir(exePath))
-	}
+	// Ensure wintun.dll is physically present in application directory and System32
+	_ = ensureWintunDLL()
 
 	// 1. Always configure WinHTTP system proxy (if elevated or available)
 	if httpAddr != "" {
@@ -251,7 +295,7 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 		remoteServerIPs = append(remoteServerIPs, ipStr)
 		routeCmd := newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "metric", "1")
 		if ifaceIdx > 0 {
-			routeCmd = newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "if", strconv.Itoa(ifaceIdx), "metric", "1")
+			routeCmd = newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "metric", "1", "if", strconv.Itoa(ifaceIdx))
 		}
 		_ = routeCmd.Run()
 		LogInfo("Routing loop prevention route added for %s -> %s", ipStr, gw)
@@ -274,11 +318,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	// Create and start tun2socks Wintun adapter
 	dev, err := tun.Open(tunDeviceName, tunMTU)
 	if err != nil {
-		LogWarn("Failed to create Wintun adapter: %v (using System Proxy mode)", err)
+		LogError("Failed to create Wintun adapter: %v", err)
 		cleanupHostRoutes()
-		tunModeActive = true
+		tunModeActive = false
 		wintunActive = false
-		return nil
+		return fmt.Errorf("failed to create Wintun adapter: %w", err)
 	}
 	tunDev = dev
 
@@ -311,17 +355,35 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	}
 	tunStack = netStack
 
-	// Wait briefly for Windows NDIS to register the newly created interface
-	time.Sleep(300 * time.Millisecond)
+	// Wait for Windows NDIS to register the newly created interface and resolve index
+	tunIfIndex := 0
+	for i := 0; i < 20; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if tunIface, err := net.InterfaceByName(tunDeviceName); err == nil {
+			tunIfIndex = tunIface.Index
+			break
+		}
+	}
 
-	// Configure IP and DNS on Wintun interface
-	_ = newSilentCmd("netsh", "interface", "ipv4", "set", "address",
-		fmt.Sprintf("name=%s", tunDeviceName),
-		"source=static",
-		fmt.Sprintf("addr=%s", tunIPAddr),
-		fmt.Sprintf("mask=%s", tunNetmask),
-		"gateway=none",
-	).Run()
+	// Configure IP on Wintun interface with retry loop
+	var netshOut []byte
+	var netshErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		netshOut, netshErr = newSilentCmd("netsh", "interface", "ipv4", "set", "address",
+			fmt.Sprintf("name=%s", tunDeviceName),
+			"source=static",
+			fmt.Sprintf("addr=%s", tunIPAddr),
+			fmt.Sprintf("mask=%s", tunNetmask),
+			"gateway=none",
+		).CombinedOutput()
+		if netshErr == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if netshErr != nil {
+		LogWarn("netsh set address notice: %v (%s)", netshErr, stringsTrim(string(netshOut)))
+	}
 
 	_ = newSilentCmd("netsh", "interface", "ipv4", "set", "dnsservers",
 		fmt.Sprintf("name=%s", tunDeviceName),
@@ -338,25 +400,20 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 		"validate=no",
 	).Run()
 
-	// Prioritize Wintun interface metric to 1
 	_ = newSilentCmd("netsh", "interface", "ipv4", "set", "interface",
 		fmt.Sprintf("name=%s", tunDeviceName),
 		"metric=1",
 	).Run()
 
-	// Find the interface index of FyrnoxTun for explicit route binding
-	tunIfIndex := 0
-	if tunIface, err := net.InterfaceByName(tunDeviceName); err == nil {
-		tunIfIndex = tunIface.Index
-	}
-
 	// Add split default routes (0.0.0.0/1 and 128.0.0.0/1) to redirect all traffic into TUN
+	// Note: Standard Windows syntax is 'METRIC metric IF interface'
 	if tunIfIndex > 0 {
-		_ = newSilentCmd("route", "add", "0.0.0.0", "mask", "128.0.0.0", tunGateway, "if", strconv.Itoa(tunIfIndex), "metric", "1").Run()
-		_ = newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunGateway, "if", strconv.Itoa(tunIfIndex), "metric", "1").Run()
+		out1, err1 := newSilentCmd("route", "add", "0.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1", "if", strconv.Itoa(tunIfIndex)).CombinedOutput()
+		out2, err2 := newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1", "if", strconv.Itoa(tunIfIndex)).CombinedOutput()
+		LogInfo("Wintun routes configured (IF: %d, r1: %v [%s], r2: %v [%s])", tunIfIndex, err1, stringsTrim(string(out1)), err2, stringsTrim(string(out2)))
 	} else {
-		_ = newSilentCmd("route", "add", "0.0.0.0", "mask", "128.0.0.0", tunGateway, "metric", "1").Run()
-		_ = newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunGateway, "metric", "1").Run()
+		_ = newSilentCmd("route", "add", "0.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1").Run()
+		_ = newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1").Run()
 	}
 
 	// IPv6 leak protection: blackhole non-tunnel IPv6 traffic when in IPv4-only mode

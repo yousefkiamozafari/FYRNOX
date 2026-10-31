@@ -16,8 +16,9 @@ $env:GOARCH = "386"
 go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\Fyrnox-x86.exe" ./cmd/fyrnox
 go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\Uninstall-x86.exe" ./cmd/uninstaller
 
-Write-Host "=== 3. Updating root Fyrnox.exe with new amd64 binary ==="
+Write-Host "=== 3. Updating root Fyrnox.exe with new amd64 binary and wintun.dll ==="
 Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\Fyrnox.exe"
+Copy-Item -Force "$repoRoot\build\wintun.dll" "$repoRoot\wintun.dll"
 
 Write-Host "=== 4. Updating portable x64 directory ==="
 New-Item -ItemType Directory -Force "$repoRoot\build\portable\Fyrnox-Portable" | Out-Null
@@ -64,6 +65,7 @@ Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.4.exe" "$repoRoot\
 Copy-Item -Force $zipX64 "$repoRoot\build\dist\Fyrnox-v1.0.4-Windows-x64-Portable.zip"
 Copy-Item -Force $zipX86 "$repoRoot\build\dist\Fyrnox-v1.0.4-Windows-x86-Portable.zip"
 Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\build\dist\fyrnox.exe"
+Copy-Item -Force "$repoRoot\build\wintun.dll" "$repoRoot\build\dist\wintun.dll"
 
 Write-Host "=== 9. Building x86 Installer for build/dist ==="
 Copy-Item -Force "$repoRoot\build\Fyrnox-x86.exe" "$repoRoot\cmd\installer\payload\Fyrnox.exe"
