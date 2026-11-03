@@ -1444,13 +1444,21 @@ func (e *VpnEngine) Connect() error {
 				remoteIP = controller.RemoteIP()
 			}
 			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname, remoteIP, settings.IPProtocol); err != nil {
-				LogError("Could not activate TUN mode: %v. Falling back to System Proxy mode...", err)
-				_ = SetSystemProxyWithBypass(true, actualHttpAddr, actualSocksAddr, settings.BypassRules)
-				_ = socksSrv.Close()
-				_ = httpSrv.Close()
-				_ = controller.Close()
-				e.setError(fmt.Sprintf("TUN error: %v", err))
-				return
+				LogWarn("Could not activate TUN mode (%v); falling back to System Proxy mode...", err)
+				if proxyErr := SetSystemProxyWithBypass(true, actualHttpAddr, actualSocksAddr, settings.BypassRules); proxyErr != nil {
+					LogError("Fallback to System Proxy also failed: %v", proxyErr)
+					_ = socksSrv.Close()
+					_ = httpSrv.Close()
+					_ = controller.Close()
+					_ = RestoreSystemProxy()
+					e.setError(fmt.Sprintf("VPN routing failure: TUN: %v, Proxy: %v", err, proxyErr))
+					return
+				}
+				e.mu.Lock()
+				e.settings.EnableTunMode = false
+				e.settings.UseSystemProxy = true
+				e.mu.Unlock()
+				LogInfo("Fallback to System Proxy activated successfully (HTTP: %s, SOCKS5: %s)", actualHttpAddr, actualSocksAddr)
 			} else {
 				LogInfo("System TUN mode activated successfully")
 			}

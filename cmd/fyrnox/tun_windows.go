@@ -169,9 +169,6 @@ func getPhysicalDefaultGateway() (string, int, error) {
 }
 
 
-//go:embed wintun.dll
-var embeddedWintunDLL []byte
-
 // ensureWintunDLL guarantees that wintun.dll is present in the application directory
 // and System32 so that LoadLibraryEx can find it under all execution contexts.
 func ensureWintunDLL() error {
@@ -209,7 +206,6 @@ func ensureWintunDLL() error {
 		}
 	}
 
-	_ = windows.SetDllDirectory(exeDir)
 	return nil
 }
 
@@ -272,10 +268,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	// Find physical gateway to prevent routing loop
 	gw, ifaceIdx, err := getPhysicalDefaultGateway()
 	if err != nil {
-		LogWarn("Could not determine physical gateway (%v); falling back to System Proxy mode", err)
-		tunModeActive = true
+		LogError("Could not determine physical gateway: %v", err)
+		cleanupHostRoutes()
+		tunModeActive = false
 		wintunActive = false
-		return nil
+		return fmt.Errorf("could not determine physical gateway: %w", err)
 	}
 	defaultGateway = gw
 	defaultIfaceIdx = ifaceIdx
@@ -329,13 +326,13 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	// Configure SOCKS5 upstream proxy for tun2socks
 	s5, err := socks5.New(socksAddr, "", "")
 	if err != nil {
-		LogWarn("Failed to initialize SOCKS5 upstream for TUN: %v", err)
+		LogError("Failed to initialize SOCKS5 upstream for TUN: %v", err)
 		closeDevice(dev)
 		tunDev = nil
 		cleanupHostRoutes()
-		tunModeActive = true
+		tunModeActive = false
 		wintunActive = false
-		return nil
+		return fmt.Errorf("failed to initialize SOCKS5 upstream for TUN: %w", err)
 	}
 	tunnel.T().SetProxy(s5)
 
@@ -345,13 +342,13 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 		TransportHandler: tunnel.T(),
 	})
 	if err != nil {
-		LogWarn("Failed to initialize gVisor netstack: %v", err)
+		LogError("Failed to initialize gVisor netstack: %v", err)
 		closeDevice(dev)
 		tunDev = nil
 		cleanupHostRoutes()
-		tunModeActive = true
+		tunModeActive = false
 		wintunActive = false
-		return nil
+		return fmt.Errorf("failed to initialize gVisor netstack: %w", err)
 	}
 	tunStack = netStack
 

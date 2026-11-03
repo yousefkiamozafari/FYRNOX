@@ -2,7 +2,7 @@
 build/
 *.exe
 *.dll
-!cmd/fyrnox/wintun.dll
+!cmd/fyrnox/wintun*.dll
 *.so
 *.dylib
 *.zip
