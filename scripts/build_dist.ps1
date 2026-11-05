@@ -1,9 +1,12 @@
 $ErrorActionPreference = "Stop"
-$repoRoot = "C:\Users\LouiNoor\.gemini\antigravity\scratch\FoxyVPN-Windows"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $scriptDir) { $scriptDir = $PSScriptRoot }
+if (-not $scriptDir) { $scriptDir = (Get-Location).Path }
+$repoRoot = (Resolve-Path "$scriptDir\..").Path
 Set-Location $repoRoot
 
-$env:GOCACHE = "C:\Users\LouiNoor\.gemini\antigravity\scratch\gocache"
-$env:GOPATH = "C:\Users\LouiNoor\.gemini\antigravity\scratch\gopath"
+if (-not $env:GOCACHE) { $env:GOCACHE = "$repoRoot\.gocache" }
+if (-not $env:GOPATH) { $env:GOPATH = "$repoRoot\.gopath" }
 $env:GOOS = "windows"
 
 Write-Host "=== 1. Building amd64 (x64) binaries ==="

@@ -257,10 +257,9 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	// 3. Layer-3 Wintun Routing
 	if !IsAdmin() {
 		LogWarn("Running as Standard User: Kernel TUN (Wintun) requires Administrator privileges.")
-		LogInfo("Full System Proxy (WinINet + WinHTTP + Environment Variables) is active.")
-		tunModeActive = true
+		tunModeActive = false
 		wintunActive = false
-		return nil
+		return fmt.Errorf("kernel TUN mode requires administrator privileges")
 	}
 
 	LogInfo("Administrator privileges confirmed: Initializing Wintun Layer-3 Network Stack...")
@@ -290,11 +289,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 			}
 		}
 		remoteServerIPs = append(remoteServerIPs, ipStr)
-		routeCmd := newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "metric", "1")
+		args := []string{"add", ipStr, "mask", "255.255.255.255", gw, "metric", "1"}
 		if ifaceIdx > 0 {
-			routeCmd = newSilentCmd("route", "add", ipStr, "mask", "255.255.255.255", gw, "metric", "1", "if", strconv.Itoa(ifaceIdx))
+			args = append(args, "if", strconv.Itoa(ifaceIdx))
 		}
-		_ = routeCmd.Run()
+		_ = newSilentCmd("route", args...).Run()
 		LogInfo("Routing loop prevention route added for %s -> %s", ipStr, gw)
 	}
 
