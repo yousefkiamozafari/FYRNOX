@@ -84,4 +84,14 @@ Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\cmd\installer\paylo
 Copy-Item -Force "$repoRoot\build\Uninstall.exe" "$repoRoot\cmd\installer\payload\Uninstall.exe"
 Copy-Item -Force "$repoRoot\build\wintun.dll" "$repoRoot\cmd\installer\payload\wintun.dll"
 
+Write-Host "=== 10. Generating SHA-256 Checksums ==="
+$checksums = @()
+Get-ChildItem "$repoRoot\build\dist\*" -File | Where-Object { $_.Name -notmatch "checksums" } | ForEach-Object {
+    $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash
+    $line = "$hash  $($_.Name)"
+    $checksums += $line
+    Write-Host "  $line"
+}
+$checksums | Out-File -FilePath "$repoRoot\build\dist\checksums-sha256.txt" -Encoding utf8
+
 Write-Host "=== Build and Packaging Complete! ==="

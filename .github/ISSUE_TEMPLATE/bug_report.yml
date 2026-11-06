@@ -1,0 +1,73 @@
+name: Bug Report / گزارش باگ
+description: Report a reproducible problem or unexpected behavior in FYRNOX
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please ensure you are testing on the latest release (`v1.0.4+`).
+  - type: input
+    id: version
+    attributes:
+      label: FYRNOX Version / نسخه برنامه
+      description: What version of FYRNOX are you using?
+      placeholder: "e.g. v1.0.4 (x64 Installer)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System / سیستم‌عامل
+      description: Select your Windows version and architecture
+      options:
+        - Windows 11 (64-bit)
+        - Windows 10 (64-bit)
+        - Windows 10 (32-bit)
+        - Windows 8.1 / 8
+        - Windows 7 (32-bit)
+        - Windows 7 (64-bit)
+    validations:
+      required: true
+  - type: dropdown
+    id: routing_mode
+    attributes:
+      label: Routing Mode / حالت هدایت ترافیک
+      options:
+        - System Proxy (Default)
+        - Wintun Layer-3 TUN
+        - Auto-Fallback
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description / شرح مشکل
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce / مراحل بازتولید باگ
+      description: How can we trigger this behavior?
+      placeholder: |
+        1. Open FYRNOX
+        2. Sign in with Firefox Account
+        3. Click Connect on Server X
+        4. See error ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior / رفتار مورد انتظار
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Error Messages
+      description: Please paste any console output or error dialog messages (ensure NO passwords or private tokens are included).
+      render: shell
