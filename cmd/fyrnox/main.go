@@ -1,14 +1,14 @@
 package main
 
 import (
-	"net/http"
-	"time"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/jchv/go-webview2"
@@ -35,10 +35,10 @@ func hideConsoleWindow() {
 }
 
 const (
-	dwmwaUseImmersiveDarkModeBefore20H1 = 19
-	dwmwaUseImmersiveDarkMode           = 20
-	dwmwaCaptionColor                   = 35
-	dwmwaTextColor                      = 36
+	dwmwaUseImmersiveDarkModeBefore20H1  = 19
+	dwmwaUseImmersiveDarkMode            = 20
+	dwmwaCaptionColor                    = 35
+	dwmwaTextColor                       = 36
 	dpiAwarenessContextPerMonitorAwareV2 = ^uintptr(3) // -4
 )
 
@@ -131,7 +131,7 @@ func main() {
 	CleanupStaleKillSwitchRules()
 
 	fmt.Println("==================================================")
-	fmt.Println("           Fyrnox for Windows v1.0.4              ")
+	fmt.Println("           Fyrnox for Windows v1.0.5              ")
 	fmt.Println("    Fast, Subscription-Free Firefox VPN Client    ")
 	fmt.Println("==================================================")
 

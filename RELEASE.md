@@ -1,5 +1,5 @@
-# FYRNOX for Windows (v1.0.4) — Release Documentation
-### راهنمای جامع و یادداشت‌های انتشار نسخه v1.0.4
+# FYRNOX for Windows (v1.0.5) — Release Documentation
+### راهنمای جامع و یادداشت‌های انتشار نسخه v1.0.5
 
 [English Overview](#-english-release-notes) | [مستندات و راهنمای فارسی](#-مستندات-و-راهنمای-فارسی)
 
@@ -12,38 +12,39 @@
 
 ## 🇬🇧 English Release Notes
 
-**FYRNOX v1.0.4** represents a major engineering and aesthetic overhaul of the Windows desktop client. This release introduces multi-architecture Wintun kernel driver embedding, self-healing routing fallback to System Proxy, an Apple-grade Liquid Glass dark interface with an interactive 3D Fibonacci globe, seamless server hot-reconnect, and complete Persian (fa-IR) RTL localization.
+**FYRNOX v1.0.5** represents a major reliability and anti-censorship hardening release. It introduces adaptive TLS ClientHello fragmentation with bounded timeout budgets, guaranteed OAuth refresh token preservation, hermetic test isolation, IPv6 test formatting fixes, and an aligned multi-architecture CI/release pipeline.
 
 ### 📦 Distributable Binaries
 
 | Package / Asset | Architecture | Target Operating Systems | Size |
 | :--- | :---: | :--- | :---: |
-| **`Fyrnox-Setup-v1.0.4.exe`** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB |
+| **`Fyrnox-Setup-v1.0.5.exe`** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB |
 | **`Fyrnox-Setup-Windows-11-10-x64.exe`** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB |
 | **`Fyrnox-Setup-Windows-7-8-10-x86.exe`** | 32-bit (`x86`) | Windows 7, 8, 8.1, 10 (32-bit) | ~19.8 MB |
-| **`Fyrnox-v1.0.4-Windows-x64-Portable.zip`** | 64-bit (`x64`) | Standalone portable (No install required) | ~7.8 MB |
-| **`Fyrnox-v1.0.4-Windows-x86-Portable.zip`** | 32-bit (`x86`) | Standalone portable 32-bit | ~7.8 MB |
+| **`Fyrnox-v1.0.5-Windows-x64-Portable.zip`** | 64-bit (`x64`) | Standalone portable (No install required) | ~7.8 MB |
+| **`Fyrnox-v1.0.5-Windows-x86-Portable.zip`** | 32-bit (`x86`) | Standalone portable 32-bit | ~7.8 MB |
 | **`fyrnox.exe`** | 64-bit (`x64`) | Standalone direct binary | ~15.5 MB |
 
 ### 🔐 SHA-256 Checksums
 ```text
-600158CF0BF57105CBD9E9B86EE09A0DA83A543CB862DD457B842E9D20ABEC4F  Fyrnox-Setup-v1.0.4.exe
-600158CF0BF57105CBD9E9B86EE09A0DA83A543CB862DD457B842E9D20ABEC4F  Fyrnox-Setup-Windows-11-10-x64.exe
-B44BE7664AE52926BF499DCFC3D3D638A74631037AD40454DAF5311133666B3E  Fyrnox-Setup-Windows-7-8-10-x86.exe
-9C42C936802A7A265D6C249B83527E7AD4B47E2736092E1F4B77EDB236E5AB8E  Fyrnox-v1.0.4-Windows-x64-Portable.zip
-BE02A2FC62EB883FA77543B34F3407D1D7B6D0987B77FC677CDE7E095CBAD403  Fyrnox-v1.0.4-Windows-x86-Portable.zip
-594DE6790C21FBE1FBC30018A2CCE33880B03716666A8B3310DCD30B27469DFB  fyrnox.exe
+27F1D50589783C24C8F7372C49646F38F8465D1B109CD74D678A07AC68BD3393  Fyrnox-Setup-v1.0.5.exe
+27F1D50589783C24C8F7372C49646F38F8465D1B109CD74D678A07AC68BD3393  Fyrnox-Setup-Windows-11-10-x64.exe
+C340FA7CAD232770096E27BA1F969E2E3F9581F7159CED7804ADC5930AA6717B  Fyrnox-Setup-Windows-7-8-10-x86.exe
+19926E9BBF75006B05A9051C837DE8FCE22878D16011817AD84D15B2271B0798  Fyrnox-v1.0.5-Windows-x64-Portable.zip
+392A15D883F9399B18B8A06172C6B0D4920E2552DFF00D151DCD6C7939E747AC  Fyrnox-v1.0.5-Windows-x86-Portable.zip
+5F77FBD4158D0886D8865D77E57D8E51E33CF2F6A4EE815215B1F0F93CE8E497  fyrnox.exe
+E5DA8447DC2C320EDC0FC52FA01885C103DE8C118481F683643CACC3220DAFCE  wintun.dll
 ```
 
 ---
 
 ## 🇮🇷 مستندات و راهنمای فارسی
 
-نسخه **v1.0.4** کلاینت ویندوز FYRNOX، پایدارترین و کامل‌ترین نسخه منتشرشده تا این لحظه است. این نسخه با هدف ارائه یک ارتباط پرسرعت، امن و ضد سانسور، بدون نیاز به خرید اشتراک و با تکیه بر ۵۰ گیگابایت سهمیه ماهانه رسمی موزیلا گاردین و شبکه ابری Fastly MASQUE توسعه داده شده است.
+نسخه **v1.0.5** کلاینت ویندوز FYRNOX، تمرکز ویژه‌ای بر پایداری ارتباط تحت شرایط شدید فیلترینگ و حملات DPI دارد. این نسخه با الگوریتم فرگمنتیشن تطبیقی TLS، از گیر کردن در مراحل اولیه اتصال جلوگیری کرده و چرخه حیات توکن‌ها را در برابر انقضای ناخواسته محافظت می‌نماید.
 
-### 🌟 مهم‌ترین بهبودهای نسخه v1.0.4:
-1. **جاسازی درایورهای ۳۲ بیتی و ۶۴ بیتی Wintun:** تفکیک درایورهای کرネル بر اساس معماری سیستم (`x64`, `x86`, `arm64`) جهت جلوگیری قطعی از خطای کرش ۱۹۳.
-2. **مکانیزم بازیابی و فال‌بک خودکار (Self-Healing Fallback):** در صورت عدم اجرای برنامه به عنوان Administrator، برنامه کاربر را قطع نمی‌کند، بلکه به صورت خودکار به حالت System Proxy تغییر وضعیت می‌دهد.
-3. **طراحی Liquid Glass و کره ۳ بعدی فیبوناچی:** رابط کاربری مدرن با تم ذغالی، داک شیشه‌ای معلق، انیمیشن‌های اسلایدی روان و مصرف صفر GPU در حالت پس‌زمینه.
-4. **سوییچ آنی میان ۳۵ سرور (Hot-Reconnect):** جابجایی سریع میان موقعیت‌ها بدون قطعی دستی، همراه با تخلیه کش DNS سیستم‌عامل.
-5. **پشتیبانی ۱۰۰٪ دو زبانه و چیدمان استاندارد RTL:** ترجمه روان تمام بخش‌ها، فرم‌ها و تنظیمات به زبان فارسی.
+### 🌟 مهم‌ترین بهبودهای نسخه v1.0.5:
+1. **فرگمنتیشن تطبیقی TLS (Adaptive TLS Fragmentation):** الگوریتم خودکار Fallback در دو مرحله ($T_1 = \min(4.5s, R/2, R-3s)$) جهت دور زدن اختلالات DPI در اتصال به لبه‌های Anycast فستلی.
+2. **محافظت از نشست و رفرش‌توکن حساب کاربری:** حفظ کامل رفرش‌توکن موزیلا در چرخه تجدید خودکار Access Token و جلوگیری از خروج ناگهانی حساب کاربر.
+3. **ایزولاسیون کامل تست‌های واحد و بازگشت از خطا:** تست‌های کاملاً محلی و سریع بدون نیاز به اتصال زنده اینترنت و پوشش تست بازگشت تمیز در زمان خطای احراز خروجی.
+4. **رفع اخطار فرمت IPv6 در تحلیل ایستا:** انطباق کامل کدهای شبکه با استاندارد RFC 3986 از طریق `net.JoinHostPort`.
+5. **یکپارچگی پایپ‌لاین CI و Release:** تنظیم خودکار نسخه Go به 1.27.4 در فرآیند بیلد و انتشار چند معماریه.

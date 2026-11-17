@@ -69,14 +69,14 @@ func main() {
 	installDir := filepath.Join(localAppData, "Programs", "Fyrnox")
 
 	if !*silent {
-		welcomeText := fmt.Sprintf("Welcome to Fyrnox for Windows v1.0.4 Setup!\n"+
+		welcomeText := fmt.Sprintf("Welcome to Fyrnox for Windows v1.0.5 Setup!\n"+
 			"Fast, Subscription-Free Firefox VPN Client\n"+
 			"Powered by Yousef Kia\n"+
 			"GitHub: https://github.com/yousefkiamozafari\n\n"+
 			"Installation Directory:\n%s\n\n"+
 			"Would you like to continue with the installation?\n\n"+
 			"به برنامه نصب Fyrnox خوش آمدید! آیا مایل به شروع نصب هستید؟", installDir)
-		resp := showMsg("Fyrnox Setup v1.0.4", welcomeText, mbYesNo|mbIconQuestion)
+		resp := showMsg("Fyrnox Setup v1.0.5", welcomeText, mbYesNo|mbIconQuestion)
 		if resp != idYes {
 			os.Exit(0)
 		}
@@ -133,7 +133,7 @@ func main() {
 	uninstallRegKey := `Software\Microsoft\Windows\CurrentVersion\Uninstall\Fyrnox`
 	if k, _, err := registry.CreateKey(registry.CURRENT_USER, uninstallRegKey, registry.SET_VALUE); err == nil {
 		_ = k.SetStringValue("DisplayName", "Fyrnox")
-		_ = k.SetStringValue("DisplayVersion", "1.0.4")
+		_ = k.SetStringValue("DisplayVersion", "1.0.5")
 		_ = k.SetStringValue("Publisher", "Powered by Yousef Kia")
 		_ = k.SetStringValue("DisplayIcon", targetIcon)
 		_ = k.SetStringValue("UninstallString", fmt.Sprintf("\"%s\"", targetUninstaller))
@@ -147,7 +147,7 @@ func main() {
 
 	if !*silent {
 		launchResp := showMsg("Fyrnox Setup Complete",
-			"Fyrnox v1.0.4 has been installed successfully!\n\n"+
+			"Fyrnox v1.0.5 has been installed successfully!\n\n"+
 				"Shortcuts have been created on your Desktop and Start Menu.\n\n"+
 				"Would you like to launch Fyrnox now?\n\n"+
 				"برنامه با موفقیت نصب شد! آیا مایلید اکنون Fyrnox اجرا شود؟",

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.5] - 2026-11-17
+
+### Added
+- **Adaptive TLS ClientHello Fragmentation:** 2-stage fallback connection strategy in `cmd/fyrnox/core.go`. Automatically attempts standard TLS with bounded timeout $T_1 = \min(4.5s, R/2, R-3s)$ and transparently falls back to fragmented ClientHello when transport DPI interference or connection resets are detected, reserving $\ge 3s$ for Stage 2.
+- **Strict TLS Error Classification:** `isEligibleTlsHandshakeFailure` filter distinguishes DPI handshake stalls/resets from terminal errors (certificate validation failure, hostname mismatch, context cancellation) to eliminate pointless retries.
+- **Thread-Safe OAuth Token Lifecycle:** Concurrency-guarded token persistence (`tokenMu`, `refreshMu`) in `tokens.go` preserving existing `refresh_token` when Mozilla OAuth refresh responses omit it, guaranteeing zero session drops.
+- **Hermetic Connection & Rollback Unit Tests:** In-memory mock doubles in `engine_test.go` allowing complete connection lifecycle and error-rollback testing without live network or external credentials.
+- **Deterministic Exit Probe Failure Rollback Test:** Dedicated unit test (`TestConnectExitVerificationFailureRollback`) verifying state rollback to `StateError`, clearance of `ExitIP`, release of local SOCKS5/HTTP listeners, and non-blocking retry connectivity.
+- **Aligned Multi-Architecture CI Toolchain:** Updated GitHub Actions CI and Release pipelines to Go `1.27.4`, matching repository `go.mod` specifications.
+
+### Fixed
+- **DPI Handshake Stalls on Anycast Endpoints:** Fixed connection hangs during initial TLS negotiation on Fastly edge servers across restrictive networks.
+- **Silent Refresh Token Eviction:** Resolved defect where renewing an access token caused `refresh_token` to be overwritten with an empty string.
+- **IPv6 Address Formatting in UDP Unit Tests:** Replaced `fmt.Sprintf("%s:%d", ...)` with `net.JoinHostPort` in `socks_udp_test.go` to eliminate `go vet` IPv6 diagnostics.
+
+---
+
 ## [1.0.4] - 2026-11-06
 
 ### Added

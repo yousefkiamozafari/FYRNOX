@@ -9,50 +9,50 @@ import (
 )
 
 var (
-	procShellNotifyIconW     = shell32Mod.NewProc("Shell_NotifyIconW")
-	procCreatePopupMenu      = user32Mod.NewProc("CreatePopupMenu")
-	procAppendMenuW          = user32Mod.NewProc("AppendMenuW")
-	procTrackPopupMenuEx     = user32Mod.NewProc("TrackPopupMenuEx")
-	procDestroyMenu          = user32Mod.NewProc("DestroyMenu")
-	procGetCursorPos         = user32Mod.NewProc("GetCursorPos")
-	procSetForegroundWindow  = user32Mod.NewProc("SetForegroundWindow")
+	procShellNotifyIconW    = shell32Mod.NewProc("Shell_NotifyIconW")
+	procCreatePopupMenu     = user32Mod.NewProc("CreatePopupMenu")
+	procAppendMenuW         = user32Mod.NewProc("AppendMenuW")
+	procTrackPopupMenuEx    = user32Mod.NewProc("TrackPopupMenuEx")
+	procDestroyMenu         = user32Mod.NewProc("DestroyMenu")
+	procGetCursorPos        = user32Mod.NewProc("GetCursorPos")
+	procSetForegroundWindow = user32Mod.NewProc("SetForegroundWindow")
 )
 
 const (
-	nimAdd        = 0x00000000
-	nimModify     = 0x00000001
-	nimDelete     = 0x00000002
-	nifMessage    = 0x00000001
-	nifIcon       = 0x00000002
-	nifTip        = 0x00000004
-	mfString      = 0x00000000
-	mfSeparator   = 0x00000800
-	mfDisabled    = 0x00000002
-	mfChecked     = 0x00000008
-	tpmRightalign = 0x0008
+	nimAdd         = 0x00000000
+	nimModify      = 0x00000001
+	nimDelete      = 0x00000002
+	nifMessage     = 0x00000001
+	nifIcon        = 0x00000002
+	nifTip         = 0x00000004
+	mfString       = 0x00000000
+	mfSeparator    = 0x00000800
+	mfDisabled     = 0x00000002
+	mfChecked      = 0x00000008
+	tpmRightalign  = 0x0008
 	tpmBottomalign = 0x0020
-	tpmReturncmd  = 0x0100
-	wmLButtonUp   = 0x0202
-	wmRButtonUp   = 0x0205
-	wmTrayMessage = 0x0400 + 101 // WM_USER + 101
+	tpmReturncmd   = 0x0100
+	wmLButtonUp    = 0x0202
+	wmRButtonUp    = 0x0205
+	wmTrayMessage  = 0x0400 + 101 // WM_USER + 101
 )
 
 type notifyIconDataW struct {
-	cbSize           uint32
-	hWnd             uintptr
-	uID              uint32
-	uFlags           uint32
-	uCallbackMessage uint32
-	hIcon            uintptr
-	szTip            [128]uint16
-	dwState          uint32
-	dwStateMask      uint32
-	szInfo           [256]uint16
+	cbSize            uint32
+	hWnd              uintptr
+	uID               uint32
+	uFlags            uint32
+	uCallbackMessage  uint32
+	hIcon             uintptr
+	szTip             [128]uint16
+	dwState           uint32
+	dwStateMask       uint32
+	szInfo            [256]uint16
 	uTimeoutOrVersion uint32
-	szInfoTitle      [64]uint16
-	dwInfoFlags      uint32
-	guidItem         [16]byte
-	hBalloonIcon     uintptr
+	szInfoTitle       [64]uint16
+	dwInfoFlags       uint32
+	guidItem          [16]byte
+	hBalloonIcon      uintptr
 }
 
 type point struct {
@@ -172,17 +172,17 @@ func (t *TrayManager) ShowTrayContextMenu() {
 
 	// Menu items IDs
 	const (
-		idTitle       = 201
-		idConnect     = 202
-		idModeProxy   = 203
-		idModeTun     = 204
-		idModeGame    = 205
-		idShowDash    = 206
-		idExit        = 207
+		idTitle     = 201
+		idConnect   = 202
+		idModeProxy = 203
+		idModeTun   = 204
+		idModeGame  = 205
+		idShowDash  = 206
+		idExit      = 207
 	)
 
 	// 1. Title Item
-	titleStr, _ := syscall.UTF16PtrFromString("FYRNOX Desktop v1.0.4")
+	titleStr, _ := syscall.UTF16PtrFromString("FYRNOX Desktop v1.0.5")
 	procAppendMenuW.Call(hMenu, mfString|mfDisabled, idTitle, uintptr(unsafe.Pointer(titleStr)))
 	procAppendMenuW.Call(hMenu, mfSeparator, 0, 0)
 
@@ -273,7 +273,6 @@ func (t *TrayManager) Remove() {
 		t.installed = false
 	}
 }
-
 
 // Restore re-attaches the notification tray icon if previously removed
 func (t *TrayManager) Restore() {
