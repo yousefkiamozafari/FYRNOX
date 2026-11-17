@@ -1,15 +1,23 @@
 package vpnclient
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
 const tokenFileName = ".firefox-vpn-tokens.json"
+
+var (
+	tokenMu         sync.Mutex
+	refreshMu       sync.Mutex
+	customTokenPath string
+)
 
 type SavedTokens struct {
 	AccessToken  string    `json:"access_token"`
@@ -29,6 +37,9 @@ func (s *SavedTokens) AccessTokenValid() bool {
 }
 
 func tokenFilePath() string {
+	if customTokenPath != "" {
+		return customTokenPath
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return tokenFileName
@@ -48,27 +59,59 @@ func loadTokens() (*SavedTokens, error) {
 	return &tokens, nil
 }
 
-func saveTokens(tok *TokenResponse) error {
+func saveTokensLocked(tok *TokenResponse, email string) error {
+	if tok == nil || tok.AccessToken == "" {
+		return errors.New("cannot save empty or nil token response")
+	}
+
 	var existingEmail string
+	var existingRefreshToken string
+	var existingScope string
 	if existing, err := loadTokens(); err == nil && existing != nil {
 		existingEmail = existing.UserEmail
+		existingRefreshToken = existing.RefreshToken
+		existingScope = existing.Scope
 	}
-	return saveTokensWithEmail(tok, existingEmail)
-}
 
-func saveTokensWithEmail(tok *TokenResponse, email string) error {
+	refreshToken := tok.RefreshToken
+	if refreshToken == "" {
+		if existingRefreshToken != "" {
+			refreshToken = existingRefreshToken
+		} else {
+			return errors.New("cannot save tokens without a valid refresh token")
+		}
+	}
+
+	userEmail := email
+	if userEmail == "" && existingEmail != "" {
+		userEmail = existingEmail
+	}
+
+	scope := tok.Scope
+	if scope == "" && existingScope != "" {
+		scope = existingScope
+	}
+
+	expiresIn := tok.ExpiresIn
+	if expiresIn <= 0 {
+		expiresIn = 86400
+	}
+
 	saved := SavedTokens{
 		AccessToken:  tok.AccessToken,
-		RefreshToken: tok.RefreshToken,
-		Scope:        tok.Scope,
+		RefreshToken: refreshToken,
+		Scope:        scope,
 		ObtainedAt:   time.Now(),
-		ExpiresIn:    tok.ExpiresIn,
-		UserEmail:    email,
+		ExpiresIn:    expiresIn,
+		UserEmail:    userEmail,
 	}
 	data, err := json.MarshalIndent(saved, "", "  ")
 	if err != nil {
 		return err
 	}
+
+	tok.RefreshToken = refreshToken
+
 	path := tokenFilePath()
 	if err := writePrivateFile(path, data); err != nil {
 		return fmt.Errorf("saving tokens to %s: %w", path, err)
@@ -109,6 +152,8 @@ func writePrivateFile(path string, data []byte) error {
 }
 
 func deleteTokens() {
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
 	os.Remove(tokenFilePath())
 }
 
@@ -117,15 +162,57 @@ func TokenFilePath() string {
 }
 
 func LoadTokens() (*SavedTokens, error) {
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
 	return loadTokens()
 }
 
 func SaveTokens(tok *TokenResponse) error {
-	return saveTokens(tok)
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	return saveTokensLocked(tok, "")
 }
 
 func SaveTokensWithEmail(tok *TokenResponse, email string) error {
-	return saveTokensWithEmail(tok, email)
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	return saveTokensLocked(tok, email)
+}
+
+// RefreshAndSaveTokens performs the complete thread-safe OAuth token refresh lifecycle:
+// 1. Reads the current valid refresh token under tokenMu lock.
+// 2. Executes the network OAuth token refresh without holding locks.
+// 3. Validates the resulting token response.
+// 4. Atomically persists the new access token while preserving the refresh token under lock.
+func RefreshAndSaveTokens(ctx context.Context) (*TokenResponse, error) {
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+
+	var currentRefreshToken string
+	tokenMu.Lock()
+	existing, err := loadTokens()
+	if err == nil && existing != nil {
+		currentRefreshToken = existing.RefreshToken
+	}
+	tokenMu.Unlock()
+
+	if currentRefreshToken == "" {
+		return nil, errors.New("no saved refresh token found")
+	}
+
+	newTok, err := fxaRefreshToken(ctx, currentRefreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("oauth token refresh: %w", err)
+	}
+	if newTok == nil || newTok.AccessToken == "" {
+		return nil, errors.New("received empty or nil token from oauth refresh")
+	}
+
+	if err := SaveTokens(newTok); err != nil {
+		return nil, fmt.Errorf("persisting refreshed token: %w", err)
+	}
+
+	return newTok, nil
 }
 
 func DeleteTokens() {

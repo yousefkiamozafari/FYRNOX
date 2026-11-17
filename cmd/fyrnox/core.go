@@ -251,7 +251,7 @@ type h2ProxySession struct {
 
 func createProxyTLSConfig(serverHostname string, nextProtos []string) *tls.Config {
 	return &tls.Config{
-		ServerName: serverHostname,
+		ServerName:         serverHostname,
 		InsecureSkipVerify: true, // Verification is performed securely in VerifyPeerCertificate
 		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 			if len(rawCerts) == 0 {
@@ -342,7 +342,11 @@ func (fc *fragmentingConn) Write(b []byte) (int, error) {
 		return fc.Conn.Write(b)
 	}
 	fc.firstWriteDone = true
-	fc.mu.Unlock()
+	return fc.writeInitial(b)
+}
+
+func (fc *fragmentingConn) writeInitial(b []byte) (int, error) {
+	defer fc.mu.Unlock()
 
 	// Check if this write looks like a TLS ClientHello
 	// TLS record header: 0x16 (Handshake), Version (0x03, 0x01..0x03)
@@ -398,13 +402,82 @@ func (fc *fragmentingConn) Write(b []byte) (int, error) {
 	return fc.Conn.Write(b)
 }
 
-func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, timeout time.Duration, apiProxy string, tlsFrag bool, ipProtocol string) (*tls.Conn, error) {
+// isEligibleTlsHandshakeFailure checks if a TLS handshake error is eligible for adaptive fragmentation retry.
+// Eligible: handshake timeout, connection reset during handshake, or unexpected EOF.
+// Strictly ineligible: certificate validation failure, hostname mismatch, TLS alert, or context cancellation.
+func isEligibleTlsHandshakeFailure(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Never retry if parent context was cancelled
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	// Never retry certificate validation or trust errors
+	var certErr *x509.CertificateInvalidError
+	var unknownAuthErr x509.UnknownAuthorityError
+	var hostnameErr x509.HostnameError
+	if errors.As(err, &certErr) || errors.As(err, &unknownAuthErr) || errors.As(err, &hostnameErr) {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	if strings.Contains(errStr, "certificate") || strings.Contains(errStr, "x509") || strings.Contains(errStr, "unknown authority") {
+		return false
+	}
+	// Never retry TCP dial failures (connection refused, no route, etc.)
+	if strings.Contains(errStr, "dialing") || strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "wsaconnrefused") {
+		return false
+	}
+	// Eligible ambiguous transport failures during handshake: timeout, reset, or unexpected EOF
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	if strings.Contains(errStr, "connection reset") || strings.Contains(errStr, "wsaconnreset") || strings.Contains(errStr, "forcibly closed") {
+		return true
+	}
+	return false
+}
+
+// computeTlsStageTimeouts calculates safe, mathematically bounded timeout budgets for Stage 1 and Stage 2.
+// For contexts with a deadline and remaining time R >= 5s: T1 = min(4.5s, R/2, R-3s), reserving >= 3s for Stage 2.
+// For contexts with remaining time R < 5s: fallback is disabled, Stage 1 uses remaining time.
+// For contexts without a deadline: Stage 1 = 4s, Stage 2 = 3s max, combined budget = 7s max.
+func computeTlsStageTimeouts(ctx context.Context) (time.Duration, time.Duration, bool) {
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining < 5*time.Second {
+			return remaining, 0, false
+		}
+		// T1 = min(4.5s, R/2, R-3s)
+		t1 := 4500 * time.Millisecond
+		if half := remaining / 2; half < t1 {
+			t1 = half
+		}
+		if reserve := remaining - 3*time.Second; reserve < t1 {
+			t1 = reserve
+		}
+		return t1, 0, true
+	}
+	// Explicit bounded behavior for context without deadline:
+	// Stage 1: 4s, Stage 2: 3s max, Combined: 7s max
+	return 4 * time.Second, 3 * time.Second, true
+}
+
+func dialSingleProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, timeout time.Duration, apiProxy string, tlsFrag bool, ipProtocol string) (*tls.Conn, error) {
 	apiProxy = strings.TrimSpace(apiProxy)
 	var rawConn net.Conn
 	var err error
 
 	// 1. First attempt: Direct connection with fast timeout (Fastly MASQUE edge reachable in <2s)
-	directDialer := createProxyDialer(6 * time.Second)
+	directTimeout := 6 * time.Second
+	if timeout > 0 && timeout < directTimeout {
+		directTimeout = timeout
+	}
+	directDialer := createProxyDialer(directTimeout)
 	network := "tcp"
 	switch strings.ToLower(ipProtocol) {
 	case "ipv4":
@@ -506,6 +579,60 @@ func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, tim
 	}
 
 	return tlsConn, nil
+}
+
+func dialProxyTLS(ctx context.Context, proxyHost string, tlsCfg *tls.Config, timeout time.Duration, apiProxy string, tlsFrag bool, ipProtocol string) (*tls.Conn, error) {
+	// If caller or user explicitly forced fragmentation (true), bypass Stage 1
+	if tlsFrag {
+		return dialSingleProxyTLS(ctx, proxyHost, tlsCfg, timeout, apiProxy, true, ipProtocol)
+	}
+
+	stage1Timeout, stage2Timeout, canFallback := computeTlsStageTimeouts(ctx)
+	if stage1Timeout <= 0 {
+		return nil, ctx.Err()
+	}
+
+	stage1Ctx, stage1Cancel := context.WithTimeout(ctx, stage1Timeout)
+	defer stage1Cancel()
+
+	// Stage 1: Standard unfragmented TLS attempt
+	conn, err := dialSingleProxyTLS(stage1Ctx, proxyHost, tlsCfg, stage1Timeout, apiProxy, false, ipProtocol)
+	if err == nil {
+		return conn, nil
+	}
+	stage1Cancel() // Explicitly release Stage 1 timer and context resources immediately upon failure
+
+	// Check fallback eligibility and ensure parent context is not cancelled
+	if !canFallback || !isEligibleTlsHandshakeFailure(err) || ctx.Err() != nil {
+		return nil, err
+	}
+
+	LogInfo("Standard TLS handshake to %s failed (%v); retrying with adaptive ClientHello fragmentation...", proxyHost, err)
+
+	// Stage 2: Fragmented fallback attempt
+	var stage2Ctx context.Context
+	var stage2Cancel context.CancelFunc
+	stage2Budget := stage2Timeout
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil, ctx.Err()
+		}
+		stage2Budget = remaining
+		stage2Ctx, stage2Cancel = context.WithCancel(ctx)
+	} else if stage2Timeout > 0 {
+		stage2Ctx, stage2Cancel = context.WithTimeout(ctx, stage2Timeout)
+	} else {
+		stage2Budget = 3 * time.Second
+		stage2Ctx, stage2Cancel = context.WithTimeout(ctx, stage2Budget)
+	}
+	defer stage2Cancel()
+
+	conn2, err2 := dialSingleProxyTLS(stage2Ctx, proxyHost, tlsCfg, stage2Budget, apiProxy, true, ipProtocol)
+	if err2 != nil {
+		return nil, fmt.Errorf("tls handshake with %s failed (direct: %v, fragmented: %w)", proxyHost, err, err2)
+	}
+	return conn2, nil
 }
 
 func newH2ProxySession(proxyURL *url.URL, token string, timeout time.Duration, apiProxy string, tlsFrag bool, ipProtocol string) (*h2ProxySession, error) {

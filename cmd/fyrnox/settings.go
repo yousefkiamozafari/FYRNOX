@@ -13,6 +13,7 @@ func defaultSettings() VpnSettings {
 		UseSystemProxy:     true,
 		EnableTunMode:      false,
 		UseH3:              false,
+		TlsFragmentation:   false, // false = Adaptive Fallback (Default); true = Forced Fragmentation
 		BypassRules:        "<local>;localhost;127.*;10.*;172.16.*;192.168.*",
 		DirectIranTraffic:  true,
 		SplitTunnelEnabled: false,

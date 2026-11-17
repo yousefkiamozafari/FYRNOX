@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -123,7 +124,7 @@ func TestSocks5UDPAssociateAndDnsTunneling(t *testing.T) {
 
 	relayIP := net.IP(assocResp[4:8]).String()
 	relayPort := binary.BigEndian.Uint16(assocResp[8:10])
-	relayAddr := fmt.Sprintf("%s:%d", relayIP, relayPort)
+	relayAddr := net.JoinHostPort(relayIP, strconv.Itoa(int(relayPort)))
 	t.Logf("SOCKS5 UDP ASSOCIATE succeeded! Relay address: %s", relayAddr)
 
 	// 4. Send DNS query packet to UDP relay

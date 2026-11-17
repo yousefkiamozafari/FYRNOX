@@ -119,17 +119,17 @@ type VpnStatus struct {
 }
 
 type VpnEngine struct {
-	mu             sync.RWMutex
-	state          VpnState
-	connectStep    string
-	errorMsg       string
-	settings       VpnSettings
-	servers        []ServerLocation
-	selected       *ServerLocation
-	auth           *runtimeAuth
-	userEmail      string
-	quota          *UserQuotaInfo
-	exitResult     *ExitProbeResult
+	mu          sync.RWMutex
+	state       VpnState
+	connectStep string
+	errorMsg    string
+	settings    VpnSettings
+	servers     []ServerLocation
+	selected    *ServerLocation
+	auth        *runtimeAuth
+	userEmail   string
+	quota       *UserQuotaInfo
+	exitResult  *ExitProbeResult
 
 	currentIP      string
 	currentCountry string
@@ -145,9 +145,14 @@ type VpnEngine struct {
 	guardian            string
 	pendingSessionToken string
 
-	connectCancel       context.CancelFunc
-	connectID           int64
-	cachedPass          *vpnclient.ProxyPassInfo
+	connectCancel context.CancelFunc
+	connectID     int64
+	cachedPass    *vpnclient.ProxyPassInfo
+
+	// Testing and dependency injection hooks (unexported; nil in production)
+	proxyPassFn            func(ctx context.Context) (*vpnclient.ProxyPassInfo, error)
+	proxyControllerFactory func(guardian string, proxyURL *url.URL, timeout time.Duration, auth *runtimeAuth, pass *vpnclient.ProxyPassInfo, useH3 bool, apiProxy string, tlsFrag bool, ipProtocol string) (*proxyController, error)
+	verifyExitFn           func(opener tunnelOpener, timeout time.Duration) (ExitProbeResult, error)
 }
 
 func checkLocalIPFamilies() (hasV4 bool, hasV6 bool) {
@@ -375,28 +380,43 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 	}
 
 	return VpnStatus{
-		Version:        "1.0.4",
-		State:          e.state,
-		ConnectStep:    e.connectStep,
-		ErrorMessage:   e.errorMsg,
-		Server:         e.selected,
-		Recommended:    e.getRecommendedLocked(),
-		CurrentIP:      ipInfo.IP,
+		Version:      "1.0.4",
+		State:        e.state,
+		ConnectStep:  e.connectStep,
+		ErrorMessage: e.errorMsg,
+		Server:       e.selected,
+		Recommended:  e.getRecommendedLocked(),
+		CurrentIP:    ipInfo.IP,
 		CurrentCountry: func() string {
 			if e.currentCountry != "" {
 				return e.currentCountry
 			}
 			return ipInfo.CountryCode
 		}(),
-		IsVPNIP:        ipInfo.IsVPN,
-		ExitIP:         func() string { if e.exitResult != nil { return e.exitResult.IP }; return "" }(),
-		ExitCountry:    func() string { if e.exitResult != nil { return e.exitResult.CountryCode }; return "" }(),
-		ExitLatency:    func() int64 { if e.exitResult != nil { return e.exitResult.LatencyMs }; return 0 }(),
-		IsLoggedIn:     e.auth != nil,
-		UserEmail:      e.userEmail,
-		Traffic:        e.meter.GetStats(),
-		Quota:          quotaObj,
-		Settings:       e.settings,
+		IsVPNIP: ipInfo.IsVPN,
+		ExitIP: func() string {
+			if e.exitResult != nil {
+				return e.exitResult.IP
+			}
+			return ""
+		}(),
+		ExitCountry: func() string {
+			if e.exitResult != nil {
+				return e.exitResult.CountryCode
+			}
+			return ""
+		}(),
+		ExitLatency: func() int64 {
+			if e.exitResult != nil {
+				return e.exitResult.LatencyMs
+			}
+			return 0
+		}(),
+		IsLoggedIn:         e.auth != nil,
+		UserEmail:          e.userEmail,
+		Traffic:            e.meter.GetStats(),
+		Quota:              quotaObj,
+		Settings:           e.settings,
 		IsAdmin:            IsAdmin(),
 		TunActive:          IsTunModeActive(),
 		WintunActive:       IsWintunActive(),
@@ -1088,7 +1108,11 @@ func (e *VpnEngine) getOrRenewProxyPass(ctx context.Context) (*vpnclient.ProxyPa
 	e.mu.RLock()
 	auth := e.auth
 	cached := e.cachedPass
+	customPassFn := e.proxyPassFn
 	e.mu.RUnlock()
+	if customPassFn != nil {
+		return customPassFn(ctx)
+	}
 	if auth == nil || auth.Token == nil {
 		return nil, fmt.Errorf("not logged in")
 	}
@@ -1317,7 +1341,12 @@ func (e *VpnEngine) Connect() error {
 			// to guarantee zero UDP drops and avoid DPI blackholing in Iran!
 			useH3 = false
 		}
-		controller, err := newProxyController(e.guardian, targetURL, 30*time.Second, auth, pass, useH3, settings.ApiProxy, settings.TlsFragmentation, settings.IPProtocol)
+		var controller *proxyController
+		if e.proxyControllerFactory != nil {
+			controller, err = e.proxyControllerFactory(e.guardian, targetURL, 30*time.Second, auth, pass, useH3, settings.ApiProxy, settings.TlsFragmentation, settings.IPProtocol)
+		} else {
+			controller, err = newProxyController(e.guardian, targetURL, 30*time.Second, auth, pass, useH3, settings.ApiProxy, settings.TlsFragmentation, settings.IPProtocol)
+		}
 		if err != nil {
 			if connectCtx.Err() != nil {
 				LogInfo("Connection aborted by user during controller setup")
@@ -1387,17 +1416,22 @@ func (e *VpnEngine) Connect() error {
 		// 5. Test real end-to-end connectivity through the tunnel before declaring Connected!
 		e.setConnectStep("verifying_exit")
 		LogInfo("Verifying tunnel connectivity and exit IP...")
-		probe, err := VerifyExit(controller, 20*time.Second)
-		if err != nil {
-			if connectCtx.Err() != nil {
-				_ = socksSrv.Close()
-				_ = httpSrv.Close()
-				_ = controller.Close()
-				return
+		var probe ExitProbeResult
+		if e.verifyExitFn != nil {
+			probe, err = e.verifyExitFn(controller, 20*time.Second)
+		} else {
+			probe, err = VerifyExit(controller, 20*time.Second)
+			if err != nil {
+				if connectCtx.Err() != nil {
+					_ = socksSrv.Close()
+					_ = httpSrv.Close()
+					_ = controller.Close()
+					return
+				}
+				LogWarn("First exit probe failed (%v); retrying once...", err)
+				time.Sleep(500 * time.Millisecond)
+				probe, err = VerifyExit(controller, 8*time.Second)
 			}
-			LogWarn("First exit probe failed (%v); retrying once...", err)
-			time.Sleep(500 * time.Millisecond)
-			probe, err = VerifyExit(controller, 8*time.Second)
 		}
 		if err != nil {
 			// Clean up and report actual error - NEVER report connected when verification fails!
@@ -1852,7 +1886,6 @@ func configureAPIProxy(raw string, tlsFrag bool) error {
 func createCustomDialer() *net.Dialer {
 	return createProxyDialer(20 * time.Second)
 }
-
 
 // runTunnelWatchdog monitors active connection health and initiates auto-reconnect if tunnel stalls
 func (e *VpnEngine) runTunnelWatchdog(cid int64) {
