@@ -41,11 +41,11 @@ Copy-Item -Force "$repoRoot\README.md" "$repoRoot\build\portable-x86\Fyrnox-Port
 Copy-Item -Force "$repoRoot\cmd\fyrnox\wintun_386.dll" "$repoRoot\build\portable-x86\Fyrnox-Portable\wintun.dll"
 
 Write-Host "=== 6. Packaging Portable ZIPs ==="
-$zipX64 = "$repoRoot\build\Fyrnox-v1.0.5-Windows-x64-Portable.zip"
+$zipX64 = "$repoRoot\build\Fyrnox-v1.0.6-Windows-x64-Portable.zip"
 if (Test-Path $zipX64) { Remove-Item $zipX64 }
 Compress-Archive -Path "$repoRoot\build\portable\Fyrnox-Portable\*" -DestinationPath $zipX64 -CompressionLevel Optimal
 
-$zipX86 = "$repoRoot\build\Fyrnox-v1.0.5-Windows-x86-Portable.zip"
+$zipX86 = "$repoRoot\build\Fyrnox-v1.0.6-Windows-x86-Portable.zip"
 if (Test-Path $zipX86) { Remove-Item $zipX86 }
 Compress-Archive -Path "$repoRoot\build\portable-x86\Fyrnox-Portable\*" -DestinationPath $zipX86 -CompressionLevel Optimal
 
@@ -58,16 +58,16 @@ Copy-Item -Force "$repoRoot\cmd\fyrnox\wintun_amd64.dll" "$repoRoot\cmd\installe
 
 $env:GOARCH = "amd64"
 New-Item -ItemType Directory -Force "$repoRoot\build\installer" | Out-Null
-go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\installer\Fyrnox-Setup-v1.0.5.exe" ./cmd/installer
+go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\installer\Fyrnox-Setup-v1.0.6.exe" ./cmd/installer
 
 Write-Host "=== 8. Cleaning and updating build/dist directory ==="
 New-Item -ItemType Directory -Force "$repoRoot\build\dist" | Out-Null
 Get-ChildItem "$repoRoot\build\dist" -File | Where-Object { $_.Name -match "v1\.0\.[0-4]" } | Remove-Item -Force
 
-Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.5.exe" "$repoRoot\build\dist\Fyrnox-Setup-v1.0.5.exe"
-Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.5.exe" "$repoRoot\build\dist\Fyrnox-Setup-Windows-11-10-x64.exe"
-Copy-Item -Force $zipX64 "$repoRoot\build\dist\Fyrnox-v1.0.5-Windows-x64-Portable.zip"
-Copy-Item -Force $zipX86 "$repoRoot\build\dist\Fyrnox-v1.0.5-Windows-x86-Portable.zip"
+Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.6.exe" "$repoRoot\build\dist\Fyrnox-Setup-v1.0.6.exe"
+Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.6.exe" "$repoRoot\build\dist\Fyrnox-Setup-Windows-11-10-x64.exe"
+Copy-Item -Force $zipX64 "$repoRoot\build\dist\Fyrnox-v1.0.6-Windows-x64-Portable.zip"
+Copy-Item -Force $zipX86 "$repoRoot\build\dist\Fyrnox-v1.0.6-Windows-x86-Portable.zip"
 Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\build\dist\fyrnox.exe"
 Copy-Item -Force "$repoRoot\cmd\fyrnox\wintun_amd64.dll" "$repoRoot\build\dist\wintun.dll"
 

@@ -1,4 +1,4 @@
-# FYRNOX for Windows (v1.0.5)
+# FYRNOX for Windows (v1.0.6)
 
 [English Overview](#-english-overview) | [معرفی و مستندات فارسی](#-معرفی-و-مستندات-فارسی)
 
@@ -20,7 +20,7 @@
 
 **FYRNOX** is a high-performance, subscription-free Windows desktop VPN client. It connects securely using your free **Firefox Account**, obtains an authentic proxy pass token from Mozilla's **Guardian service**, and tunnels your entire network traffic through **Fastly's MASQUE edge network** via HTTP/2 or HTTP/3 (QUIC) with advanced anti-censorship TLS ClientHello fragmentation.
 
-### 🌟 Key Highlights in v1.0.5
+### 🌟 Key Highlights in v1.0.6
 * **Adaptive TLS ClientHello Fragmentation:** Intelligent 2-stage fallback connection strategy ($T_1 = \min(4.5s, R/2, R-3s)$) that bypasses DPI handshake stalls and connection resets on Fastly Anycast edge nodes.
 * **Hardened OAuth Token Lifecycle:** Concurrency-guarded token persistence ensuring Mozilla account refresh tokens are never evicted during background access token renewals.
 * **Dual Routing Modes with Self-Healing Fallback:** Supports kernel-level Layer-3 Wintun TUN mode for gaming, command-line tools, and full UDP coverage, paired with automatic graceful fallback to System Proxy (WinINet + WinHTTP) when running without Administrator elevation.
@@ -32,16 +32,16 @@
 
 ---
 
-### 📦 Download Packages (v1.0.5)
+### 📦 Download Packages (v1.0.6)
 
 | Package | Architecture | Supported Operating Systems | Size | Download |
 | :--- | :---: | :--- | :---: | :--- |
-| **Setup Installer (Recommended)** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.5/Fyrnox-Setup-v1.0.5.exe) |
-| **Windows 11 / 10 Installer (Mirror)** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.5/Fyrnox-Setup-Windows-11-10-x64.exe) |
-| **Legacy Windows Installer** | 32-bit (`x86`) | Windows 7, 8, 8.1, 10 (32-bit) | ~19.8 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.5/Fyrnox-Setup-Windows-7-8-10-x86.exe) |
-| **Portable ZIP (x64)** | 64-bit (`x64`) | Standalone portable (No install required) | ~7.8 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.5/Fyrnox-v1.0.5-Windows-x64-Portable.zip) |
-| **Portable ZIP (x86)** | 32-bit (`x86`) | Standalone portable 32-bit | ~7.8 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.5/Fyrnox-v1.0.5-Windows-x86-Portable.zip) |
-| **Direct Executable** | 64-bit (`x64`) | Direct standalone binary | ~15.5 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.5/fyrnox.exe) |
+| **Setup Installer (Recommended)** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.6/Fyrnox-Setup-v1.0.6.exe) |
+| **Windows 11 / 10 Installer (Mirror)** | 64-bit (`x64`) | Windows 11 & Windows 10 (64-bit) | ~20.6 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.6/Fyrnox-Setup-Windows-11-10-x64.exe) |
+| **Legacy Windows Installer** | 32-bit (`x86`) | Windows 7, 8, 8.1, 10 (32-bit) | ~19.8 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.6/Fyrnox-Setup-Windows-7-8-10-x86.exe) |
+| **Portable ZIP (x64)** | 64-bit (`x64`) | Standalone portable (No install required) | ~7.8 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.6/Fyrnox-v1.0.6-Windows-x64-Portable.zip) |
+| **Portable ZIP (x86)** | 32-bit (`x86`) | Standalone portable 32-bit | ~7.8 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.6/Fyrnox-v1.0.6-Windows-x86-Portable.zip) |
+| **Direct Executable** | 64-bit (`x64`) | Direct standalone binary | ~15.5 MB | [Download](https://github.com/yousefkiamozafari/FYRNOX/releases/download/v1.0.6/fyrnox.exe) |
 
 ---
 
@@ -75,7 +75,7 @@
 
 **فایرناکس (FYRNOX)** یک کلاینت دسکتاپ مدرن، پرسرعت، امن و کاملاً رایگان برای سیستم‌عامل ویندوز (ویندوز ۷ تا ۱۱) است. این نرم‌افزار با اتصال مستقیم به **حساب فایرفاکس (Firefox Account)**، توکن سهمیه رسمی ۵۰ گیگابایت ماهانه را از سرویس **Mozilla Guardian** دریافت کرده و تمام ترافیک سیستم را با پروتکل‌های MASQUE روی شبکه ابری **Fastly** به صورت رمزنگاری‌شده عبور می‌دهد.
 
-### 🚀 مهم‌ترین امکانات نسخه v1.0.5:
+### 🚀 مهم‌ترین امکانات نسخه v1.0.6:
 1. 🛡️ **فرگمنتیشن تطبیقی TLS (Adaptive Fallback):** الگوریتم هوشمند دو مرحله‌ای برای دور زدن فیلترینگ و حملات DPI در هندشیک TLS به سمت لبه‌های Anycast فستلی.
 2. 🔄 **مدیریت ایمن چرخه حیات توکن‌ها:** محافظت کامل از رفرش‌توکن حساب موزیلا در برابر منقضی شدن و ذخیره‌سازی ایزوله در سشن‌های چندگانه.
 3. ⚡ **سوییچ خودکار و اتصال مجدد بی‌وقفه (Seamless Hot-Reconnect):** تغییر مکان خروجی میان ۳۵ سرور با یک کلیک بدون نیاز به قطع دستی و بدون نشت ترافیک.
@@ -122,7 +122,7 @@ cd FYRNOX
 * **[PRIVACY.md](PRIVACY.md):** سند شفافیت حریم خصوصی و عدم جمع‌آوری داده.
 * **[CONTRIBUTING.md](CONTRIBUTING.md):** راهنمای مشارکت در توسعه و استانداردهای کدنویسی.
 * **[CHANGELOG.md](CHANGELOG.md):** تاریخچه کامل تغییرات نسخه‌ها بر اساس استاندارد Keep a Changelog.
-* **[RELEASE.md](RELEASE.md):** یادداشت‌های فنی انتشار نسخه v1.0.5.
+* **[RELEASE.md](RELEASE.md):** یادداشت‌های فنی انتشار نسخه v1.0.6.
 
 ---
 

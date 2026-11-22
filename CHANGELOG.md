@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.6] - 2026-11-22
+
+### Added
+- **Proactive Token Expiration Validation:** Pre-flight validation (`freshRuntimeAuth`) in `cmd/fyrnox/engine.go` checking token validity and clock-skew safety margin ($\ge 120s$) before dispatching requests to Mozilla Guardian (`/api/v1/fpn/token`).
+- **Decoupled Error Classification (HTTP 401 vs 403):** Introduced sentinel errors `ErrReauthRequired` and `ErrNotEntitled` in `fxa.go` and `guardian.go`.
+- **Forced Token Refresh Primitive:** Added `ForceRefreshAndSaveTokens(ctx)` in `tokens.go` allowing one-shot forced token renewal after server-side Bearer token rejection.
+- **Hermetic Token Lifecycle Test Suite:** Added 12 automated unit tests in `cmd/fyrnox/engine_auth_test.go` covering proactive renewal, controlled retry, error bubbling, 403 activation branching, concurrent thread safety, and rollback integrity.
+- **Investigation Artifact:** Comprehensive technical report in `docs/reports/GUARDIAN_HTTP_401_INVESTIGATION.md`.
+
+### Fixed
+- **Mozilla Guardian HTTP 401 Rejections (#22):** Eliminated token expiration rejections by proactively renewing expired or nearing-expiration access tokens.
+- **Invalid Activation Calls on 401:** Prevented erroneous Guardian activation attempts using already-rejected Bearer credentials.
+- **Shadowed Refresh Token Failures:** Surfaced true underlying FxA session expiration (`ErrReauthRequired`) to the UI instead of generic Guardian 401 errors.
+- **GitHub Issue Automation:** Integrated TLS 1.2/1.3 security protocol enforcement in `scripts/publish_github_issue.ps1`.
+
+---
+
 ## [1.0.5] - 2026-11-17
 
 ### Added

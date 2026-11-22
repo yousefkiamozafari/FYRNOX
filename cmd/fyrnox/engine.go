@@ -383,7 +383,7 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 	}
 
 	return VpnStatus{
-		Version:      "1.0.5",
+		Version:      "1.0.6",
 		State:        e.state,
 		ConnectStep:  e.connectStep,
 		ErrorMessage: e.errorMsg,

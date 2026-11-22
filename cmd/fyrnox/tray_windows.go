@@ -182,7 +182,7 @@ func (t *TrayManager) ShowTrayContextMenu() {
 	)
 
 	// 1. Title Item
-	titleStr, _ := syscall.UTF16PtrFromString("FYRNOX Desktop v1.0.5")
+	titleStr, _ := syscall.UTF16PtrFromString("FYRNOX Desktop v1.0.6")
 	procAppendMenuW.Call(hMenu, mfString|mfDisabled, idTitle, uintptr(unsafe.Pointer(titleStr)))
 	procAppendMenuW.Call(hMenu, mfSeparator, 0, 0)
 

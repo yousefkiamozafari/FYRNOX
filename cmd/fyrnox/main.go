@@ -131,7 +131,7 @@ func main() {
 	CleanupStaleKillSwitchRules()
 
 	fmt.Println("==================================================")
-	fmt.Println("           Fyrnox for Windows v1.0.5              ")
+	fmt.Println("           Fyrnox for Windows v1.0.6              ")
 	fmt.Println("    Fast, Subscription-Free Firefox VPN Client    ")
 	fmt.Println("==================================================")
 
