@@ -181,10 +181,22 @@ func SaveTokensWithEmail(tok *TokenResponse, email string) error {
 
 // RefreshAndSaveTokens performs the complete thread-safe OAuth token refresh lifecycle:
 // 1. Reads the current valid refresh token under tokenMu lock.
-// 2. Executes the network OAuth token refresh without holding locks.
-// 3. Validates the resulting token response.
-// 4. Atomically persists the new access token while preserving the refresh token under lock.
+// 2. Returns existing tokens if another concurrent routine already completed a refresh.
+// 3. Executes the network OAuth token refresh without holding locks.
+// 4. Validates the resulting token response.
+// 5. Atomically persists the new access token while preserving the refresh token under lock.
 func RefreshAndSaveTokens(ctx context.Context) (*TokenResponse, error) {
+	return refreshAndSaveTokens(ctx, false)
+}
+
+// ForceRefreshAndSaveTokens forces a network OAuth refresh even if the saved
+// access token has not yet reached its expiration timestamp (e.g. after Guardian
+// rejected the Bearer token with HTTP 401).
+func ForceRefreshAndSaveTokens(ctx context.Context) (*TokenResponse, error) {
+	return refreshAndSaveTokens(ctx, true)
+}
+
+func refreshAndSaveTokens(ctx context.Context, force bool) (*TokenResponse, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
@@ -192,16 +204,29 @@ func RefreshAndSaveTokens(ctx context.Context) (*TokenResponse, error) {
 	tokenMu.Lock()
 	existing, err := loadTokens()
 	if err == nil && existing != nil {
+		if !force && existing.AccessTokenValid() {
+			tokenMu.Unlock()
+			return &TokenResponse{
+				AccessToken:  existing.AccessToken,
+				RefreshToken: existing.RefreshToken,
+				ExpiresIn:    existing.ExpiresIn,
+				Scope:        existing.Scope,
+				TokenType:    "bearer",
+			}, nil
+		}
 		currentRefreshToken = existing.RefreshToken
 	}
 	tokenMu.Unlock()
 
 	if currentRefreshToken == "" {
-		return nil, errors.New("no saved refresh token found")
+		return nil, fmt.Errorf("%w: no saved refresh token found", ErrReauthRequired)
 	}
 
 	newTok, err := fxaRefreshToken(ctx, currentRefreshToken)
 	if err != nil {
+		if errors.Is(err, ErrReauthRequired) {
+			return nil, fmt.Errorf("%w: %v", ErrReauthRequired, err)
+		}
 		return nil, fmt.Errorf("oauth token refresh: %w", err)
 	}
 	if newTok == nil || newTok.AccessToken == "" {

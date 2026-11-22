@@ -55,6 +55,8 @@ $payload = @{
 
 $jsonBytes = [System.Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 5))
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
 $headers = @{
     "Authorization" = "Bearer $token"
     "User-Agent" = "FYRNOX-Automation-Agent"

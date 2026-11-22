@@ -68,6 +68,11 @@ type TokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
+// ErrReauthRequired signals that FxA permanently rejected the stored
+// credential (refresh token or session token), e.g. after the session was
+// revoked server-side. Retrying cannot help; the user must sign in again.
+var ErrReauthRequired = errors.New("Firefox Account sign-in required")
+
 // fxaAPIError carries a non-2xx FxA response so callers can branch on the
 // API errno (e.g. invalid parameter) instead of parsing error strings.
 type fxaAPIError struct {
@@ -81,6 +86,20 @@ func (e *fxaAPIError) Error() string {
 		return fmt.Sprintf("FxA error (HTTP %d, errno %d): %s", e.Status, e.Errno, e.Body)
 	}
 	return fmt.Sprintf("FxA request failed (HTTP %d): %s", e.Status, e.Body)
+}
+
+// Is allows errors.Is to match ErrReauthRequired for credential rejections. FxA
+// answers an invalid or revoked token with HTTP 400 (invalid_grant), 401, or 403;
+// HTTP 429 and 5xx stay transient.
+func (e *fxaAPIError) Is(target error) bool {
+	if target != ErrReauthRequired {
+		return false
+	}
+	switch e.Status {
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden:
+		return e.Errno != fxaErrnoInvalidParameter
+	}
+	return false
 }
 
 func newFxaAPIError(status int, body []byte) *fxaAPIError {

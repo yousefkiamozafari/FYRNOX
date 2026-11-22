@@ -66,9 +66,12 @@ type proxyPassResponse struct {
 var ErrQuotaExceeded = errors.New("quota exceeded")
 
 // ErrTokenInvalid signals that Guardian rejected the access token
-// (HTTP 401/403), e.g. the account has no active subscription. Callers
-// with a session token pool should rotate to the next token on this error.
+// with HTTP 401 Unauthorized. Callers should refresh the OAuth access token.
 var ErrTokenInvalid = errors.New("token invalid")
+
+// ErrNotEntitled signals HTTP 403 Forbidden: the access token is valid but
+// the account has no proxy entitlement yet; activation can grant it.
+var ErrNotEntitled = errors.New("account not entitled")
 
 type GuardianHTTPError struct {
 	Operation  string
@@ -104,8 +107,11 @@ func fetchProxyPass(ctx context.Context, endpoint, accessToken string) (*ProxyPa
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return nil, fmt.Errorf("%w (HTTP 429): %s", ErrQuotaExceeded, readErrorBody(resp.Body))
 	}
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return nil, fmt.Errorf("%w (HTTP %d): %s", ErrTokenInvalid, resp.StatusCode, readErrorBody(resp.Body))
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("%w (HTTP 401): %s", ErrTokenInvalid, readErrorBody(resp.Body))
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("%w (HTTP 403): %s", ErrNotEntitled, readErrorBody(resp.Body))
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, &GuardianHTTPError{

@@ -153,6 +153,9 @@ type VpnEngine struct {
 	proxyPassFn            func(ctx context.Context) (*vpnclient.ProxyPassInfo, error)
 	proxyControllerFactory func(guardian string, proxyURL *url.URL, timeout time.Duration, auth *runtimeAuth, pass *vpnclient.ProxyPassInfo, useH3 bool, apiProxy string, tlsFrag bool, ipProtocol string) (*proxyController, error)
 	verifyExitFn           func(opener tunnelOpener, timeout time.Duration) (ExitProbeResult, error)
+	fetchProxyPassFn       func(ctx context.Context, endpoint, accessToken string) (*vpnclient.ProxyPassInfo, error)
+	activateGuardianFn     func(ctx context.Context, endpoint, accessToken string) (*vpnclient.Entitlement, error)
+	refreshTokenFn         func(ctx context.Context, force bool) (*vpnclient.TokenResponse, error)
 }
 
 func checkLocalIPFamilies() (hasV4 bool, hasV6 bool) {
@@ -1104,24 +1107,92 @@ func (e *VpnEngine) SelectServer(hostname string) error {
 	return nil
 }
 
-func (e *VpnEngine) getOrRenewProxyPass(ctx context.Context) (*vpnclient.ProxyPassInfo, error) {
+func (e *VpnEngine) fetchProxyPass(ctx context.Context, endpoint, accessToken string) (*vpnclient.ProxyPassInfo, error) {
+	e.mu.RLock()
+	fn := e.fetchProxyPassFn
+	e.mu.RUnlock()
+	if fn != nil {
+		return fn(ctx, endpoint, accessToken)
+	}
+	return vpnclient.FetchProxyPass(ctx, endpoint, accessToken)
+}
+
+func (e *VpnEngine) activateGuardian(ctx context.Context, endpoint, accessToken string) (*vpnclient.Entitlement, error) {
+	e.mu.RLock()
+	fn := e.activateGuardianFn
+	e.mu.RUnlock()
+	if fn != nil {
+		return fn(ctx, endpoint, accessToken)
+	}
+	return vpnclient.ActivateGuardian(ctx, endpoint, accessToken)
+}
+
+func (e *VpnEngine) freshRuntimeAuth(ctx context.Context, force bool) (*runtimeAuth, error) {
 	e.mu.RLock()
 	auth := e.auth
+	refreshHook := e.refreshTokenFn
+	e.mu.RUnlock()
+
+	if auth == nil || auth.Token == nil {
+		return nil, errors.New("not logged in")
+	}
+
+	if !force && auth.accessTokenValid(time.Now()) {
+		return auth, nil
+	}
+
+	var newToken *vpnclient.TokenResponse
+	var err error
+
+	if refreshHook != nil {
+		newToken, err = refreshHook(ctx, force)
+	} else if force {
+		newToken, err = vpnclient.ForceRefreshAndSaveTokens(ctx)
+	} else {
+		newToken, err = vpnclient.RefreshAndSaveTokens(ctx)
+	}
+
+	if err != nil {
+		if errors.Is(err, vpnclient.ErrReauthRequired) {
+			return nil, fmt.Errorf("Firefox Account session expired or revoked: %w; please sign in again", err)
+		}
+		return nil, fmt.Errorf("refreshing authentication token: %w", err)
+	}
+
+	e.mu.Lock()
+	e.auth = &runtimeAuth{
+		Token:      newToken,
+		ObtainedAt: time.Now(),
+	}
+	auth = e.auth
+	e.mu.Unlock()
+
+	return auth, nil
+}
+
+func (e *VpnEngine) getOrRenewProxyPass(ctx context.Context) (*vpnclient.ProxyPassInfo, error) {
+	e.mu.RLock()
 	cached := e.cachedPass
 	customPassFn := e.proxyPassFn
 	e.mu.RUnlock()
+
 	if customPassFn != nil {
 		return customPassFn(ctx)
 	}
-	if auth == nil || auth.Token == nil {
-		return nil, fmt.Errorf("not logged in")
+
+	// 1. Proactively ensure valid, fresh runtime auth before any Guardian call
+	auth, err := e.freshRuntimeAuth(ctx, false)
+	if err != nil {
+		return nil, err
 	}
+
+	// 2. Return cached pass if still valid for at least 2 minutes
 	if cached != nil && time.Now().Before(cached.ExpiresAt().Add(-2*time.Minute)) {
 		return cached, nil
 	}
 
-	// 1. Try with current access token
-	pass, err := vpnclient.FetchProxyPass(ctx, e.guardian, auth.Token.AccessToken)
+	// 3. Request proxy pass with validated access token
+	pass, err := e.fetchProxyPass(ctx, e.guardian, auth.Token.AccessToken)
 	if err == nil {
 		e.mu.Lock()
 		e.cachedPass = pass
@@ -1129,64 +1200,48 @@ func (e *VpnEngine) getOrRenewProxyPass(ctx context.Context) (*vpnclient.ProxyPa
 		return pass, nil
 	}
 
-	// 2. If token rejected (401/403), first try to ACTIVATE Guardian (new accounts or inactive FPN tier)
-	if errors.Is(err, vpnclient.ErrTokenInvalid) {
-		LogInfo("Proxy pass returned 401/403. Attempting to activate Guardian account...")
-		actCtx, actCancel := context.WithTimeout(context.Background(), apiRequestTimeout)
-		_, actErr := vpnclient.ActivateGuardian(actCtx, e.guardian, auth.Token.AccessToken)
-		actCancel()
-		if actErr == nil {
-			LogInfo("Guardian account activated successfully! Retrying proxy pass...")
-			pass2, err2 := vpnclient.FetchProxyPass(ctx, e.guardian, auth.Token.AccessToken)
-			if err2 == nil {
-				return pass2, nil
-			}
-			err = err2
-		} else {
-			LogWarn("Activation with current token failed: %v", actErr)
+	// 4. Handle HTTP 401 Unauthorized: token was rejected by Guardian
+	// Attempt EXACTLY ONE controlled token refresh and retry
+	if errors.Is(err, vpnclient.ErrTokenInvalid) && !errors.Is(err, vpnclient.ErrNotEntitled) {
+		LogInfo("OAuth access token rejected by Guardian (HTTP 401). Refreshing token...")
+		refreshedAuth, rErr := e.freshRuntimeAuth(ctx, true)
+		if rErr != nil {
+			LogError("Failed to refresh OAuth token after 401 rejection: %v", rErr)
+			return nil, fmt.Errorf("re-authentication required after Guardian rejection: %w", rErr)
 		}
 
-		// 3. Next try refreshing the OAuth token with FxaRefreshToken
-		LogInfo("Attempting to refresh OAuth token via RefreshToken...")
-		rCtx, rCancel := context.WithTimeout(context.Background(), apiRequestTimeout)
-		newToken, rErr := vpnclient.FxaRefreshToken(rCtx, auth.Token.RefreshToken)
-		rCancel()
-		if rErr == nil && newToken != nil {
-			_ = vpnclient.SaveTokens(newToken)
+		LogInfo("Token refreshed successfully after 401. Retrying proxy pass...")
+		pass2, err2 := e.fetchProxyPass(ctx, e.guardian, refreshedAuth.Token.AccessToken)
+		if err2 == nil {
 			e.mu.Lock()
-			e.auth.Token = newToken
-			auth = e.auth
+			e.cachedPass = pass2
 			e.mu.Unlock()
-
-			// Try fetch with new token
-			pass3, err3 := vpnclient.FetchProxyPass(ctx, e.guardian, newToken.AccessToken)
-			if err3 == nil {
-				return pass3, nil
-			}
-
-			// If still 403, try activating with the new token
-			if errors.Is(err3, vpnclient.ErrTokenInvalid) {
-				LogInfo("Activating Guardian with refreshed token...")
-				actCtx2, actCancel2 := context.WithTimeout(context.Background(), apiRequestTimeout)
-				_, actErr2 := vpnclient.ActivateGuardian(actCtx2, e.guardian, newToken.AccessToken)
-				actCancel2()
-				if actErr2 == nil {
-					LogInfo("Guardian activated with refreshed token!")
-					pass4, err4 := vpnclient.FetchProxyPass(ctx, e.guardian, newToken.AccessToken)
-					if err4 == nil {
-						return pass4, nil
-					}
-					err = err4
-				} else {
-					LogWarn("Activation with refreshed token failed: %v", actErr2)
-					err = err3
-				}
-			} else {
-				err = err3
-			}
-		} else {
-			LogWarn("RefreshToken failed: %v", rErr)
+			return pass2, nil
 		}
+		// Return failure without endless retry
+		return nil, err2
+	}
+
+	// 5. Handle HTTP 403 Forbidden: account lacks entitlement / needs Guardian activation
+	if errors.Is(err, vpnclient.ErrNotEntitled) {
+		LogInfo("Guardian reports account not entitled (HTTP 403). Attempting activation...")
+		actCtx, actCancel := context.WithTimeout(context.Background(), apiRequestTimeout)
+		_, actErr := e.activateGuardian(actCtx, e.guardian, auth.Token.AccessToken)
+		actCancel()
+		if actErr != nil {
+			LogWarn("Guardian activation failed: %v", actErr)
+			return nil, fmt.Errorf("Mozilla account lacks VPN entitlement: %w", actErr)
+		}
+
+		LogInfo("Guardian activated successfully! Retrying proxy pass...")
+		pass3, err3 := e.fetchProxyPass(ctx, e.guardian, auth.Token.AccessToken)
+		if err3 == nil {
+			e.mu.Lock()
+			e.cachedPass = pass3
+			e.mu.Unlock()
+			return pass3, nil
+		}
+		return nil, err3
 	}
 
 	return nil, err
