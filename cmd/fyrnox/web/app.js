@@ -932,28 +932,28 @@ function updateUI(status) {
   if (isConnected) {
     if (bDown) {
       bDown.textContent = (status.traffic && status.traffic.speed_down_human) || '0 B/s';
-      if (status.traffic && status.traffic.down_bytes_per_sec) {
+      if (status.traffic && typeof status.traffic.speed_down === 'number') {
         sparkData.down.shift();
-        sparkData.down.push(status.traffic.down_bytes_per_sec / (1024 * 1024));
+        sparkData.down.push(status.traffic.speed_down / (1024 * 1024));
       }
     }
     if (bUp) {
       bUp.textContent = (status.traffic && status.traffic.speed_up_human) || '0 B/s';
-      if (status.traffic && status.traffic.up_bytes_per_sec) {
+      if (status.traffic && typeof status.traffic.speed_up === 'number') {
         sparkData.up.shift();
-        sparkData.up.push(status.traffic.up_bytes_per_sec / (1024 * 1024));
+        sparkData.up.push(status.traffic.speed_up / (1024 * 1024));
       }
     }
     if (bPing) {
-      let lat = 42;
+      let lat = 0;
       if (status.server && status.server.ping_ms > 0) {
         lat = status.server.ping_ms;
       } else if (status.exit_latency && status.exit_latency > 0) {
         lat = status.exit_latency;
       }
-      bPing.textContent = `${lat} ms`;
+      bPing.textContent = lat > 0 ? `${lat} ms` : '—';
       sparkData.latency.shift();
-      sparkData.latency.push(lat);
+      sparkData.latency.push(lat > 0 ? lat : 0);
     }
     if (bLoss) {
       const loss = typeof status.packet_loss === 'number' ? status.packet_loss : 0;
@@ -1113,10 +1113,10 @@ function updateUI(status) {
   const netLat = document.getElementById('net-latency');
 
   if (netExitIP) {
-    netExitIP.textContent = isConnected ? (status.exit_ip || status.current_ip || '—') : (status.current_ip || '—');
+    netExitIP.textContent = isConnected ? (status.exit_ip || 'Verifying...') : (status.current_ip || '—');
   }
   if (netLoc) {
-    netLoc.textContent = isConnected ? (status.exit_country || status.current_country || (status.server ? status.server.country_name : '—')) : (status.current_country || '—');
+    netLoc.textContent = isConnected ? (status.exit_country || (status.server ? status.server.country_name : '—')) : (status.current_country || '—');
   }
   if (netLat) {
     const ms = isConnected ? (status.exit_latency > 0 ? status.exit_latency : (status.server ? status.server.ping_ms : null)) : (status.server && status.server.ping_ms > 0 ? status.server.ping_ms : null);
@@ -1228,10 +1228,10 @@ function updateUI(status) {
   }
 
   if (isConnected) {
-    const verifiedIP = status.exit_ip || status.current_ip || '--';
-    const verifiedCountry = status.exit_country || status.current_country || 'Verified';
+    const verifiedIP = status.exit_ip || 'Verifying...';
+    const verifiedCountry = status.exit_country || (status.server ? status.server.country_name : 'Verifying...');
     if (egressIP) egressIP.textContent = verifiedIP;
-    if (egressIPStatus) egressIPStatus.textContent = 'Secured via Fastly MASQUE';
+    if (egressIPStatus) egressIPStatus.textContent = status.exit_ip ? 'Secured via Fastly MASQUE' : 'Verifying exit IP...';
     if (egressObserved) egressObserved.innerHTML = `${getFlag(verifiedCountry)} <span>${escapeHtml(verifiedCountry)}</span>`;
     if (egressISP) egressISP.textContent = 'Verified Egress Point';
 

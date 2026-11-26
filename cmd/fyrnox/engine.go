@@ -116,20 +116,22 @@ type VpnStatus struct {
 	FallbackActive     bool            `json:"fallback_active"`
 	FallbackState      string          `json:"fallback_state,omitempty"`
 	KillSwitchActive   bool            `json:"kill_switch_active"`
+	IPv6Operational    bool            `json:"ipv6_operational"`
 }
 
 type VpnEngine struct {
-	mu          sync.RWMutex
-	state       VpnState
-	connectStep string
-	errorMsg    string
-	settings    VpnSettings
-	servers     []ServerLocation
-	selected    *ServerLocation
-	auth        *runtimeAuth
-	userEmail   string
-	quota       *UserQuotaInfo
-	exitResult  *ExitProbeResult
+	mu              sync.RWMutex
+	state           VpnState
+	connectStep     string
+	errorMsg        string
+	settings        VpnSettings
+	servers         []ServerLocation
+	selected        *ServerLocation
+	auth            *runtimeAuth
+	userEmail       string
+	quota           *UserQuotaInfo
+	exitResult      *ExitProbeResult
+	ipv6Operational bool
 
 	currentIP      string
 	currentCountry string
@@ -276,12 +278,8 @@ func NewVpnEngine() *VpnEngine {
 		}
 	}
 
-	// Setup custom DNS or saved upstream API proxy with TLS fragmentation
-	if settings.ApiProxy != "" {
-		_ = configureAPIProxy(settings.ApiProxy, settings.TlsFragmentation)
-	} else {
-		_ = configureAPIProxy("", true)
-	}
+	// Configure control-plane transport from saved settings (Windows Direct mode uses native WinHTTP).
+	_ = configureAPIProxy(settings.ApiProxy, settings.TlsFragmentation)
 
 	// Try loading saved auth tokens
 	saved, err := vpnclient.LoadTokens()
@@ -383,7 +381,7 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 	}
 
 	return VpnStatus{
-		Version:      "1.0.6",
+		Version:      AppVersion,
 		State:        e.state,
 		ConnectStep:  e.connectStep,
 		ErrorMessage: e.errorMsg,
@@ -467,6 +465,7 @@ func (e *VpnEngine) GetStatus() VpnStatus {
 			}
 			return ""
 		}(),
+		IPv6Operational: e.ipv6Operational,
 	}
 }
 
@@ -702,9 +701,15 @@ func measureServerPing(ctx context.Context, s ServerLocation) (pingMs, dnsMs, tc
 
 func (e *VpnEngine) PingAllServers() []ServerLocation {
 	e.mu.RLock()
+	activeTunnel := e.state == StateConnected || e.state == StateConnecting || e.state == StateDisconnecting
 	servers := make([]ServerLocation, len(e.servers))
 	copy(servers, e.servers)
 	e.mu.RUnlock()
+
+	if activeTunnel {
+		LogInfo("Skipping direct server ping sweep while VPN tunnel is active; returning cached baseline latencies")
+		return servers
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -1089,19 +1094,29 @@ func (e *VpnEngine) SelectServer(hostname string) error {
 	LogInfo("Selected server: %s (%s, %s) [current state: %s]", found.Hostname, found.CityName, found.CountryName, currentState)
 
 	shouldReconnect := (currentState == StateConnected || currentState == StateConnecting)
+	var switchConnID int64
 	if shouldReconnect {
 		e.state = StateConnecting
-		e.connectStep = "authorizing"
+		e.connectStep = "switching"
+		switchConnID = time.Now().UnixNano()
+		e.connectID = switchConnID
 	}
 	e.mu.Unlock()
 
 	if shouldReconnect {
 		LogInfo("Seamless server switch triggered for %s. Teardown previous route and hot reconnecting...", hostname)
-		go func() {
-			_ = e.Disconnect()
+		go func(cid int64) {
+			e.mu.RLock()
+			cancelled := (e.connectID != cid || e.state != StateConnecting)
+			e.mu.RUnlock()
+			if cancelled {
+				LogInfo("Server switch aborted before teardown (cancelled)")
+				return
+			}
+			_ = e.disconnectInternal(StateConnecting, "authorizing", cid)
 			time.Sleep(150 * time.Millisecond)
-			_ = e.Connect()
-		}()
+			_ = e.connectInternal(cid)
+		}(switchConnID)
 	}
 
 	return nil
@@ -1311,8 +1326,17 @@ func (e *VpnEngine) refreshUserInfo() {
 }
 
 func (e *VpnEngine) Connect() error {
+	return e.connectInternal(0)
+}
+
+func (e *VpnEngine) connectInternal(switchConnID int64) error {
 	e.mu.Lock()
-	if e.state == StateConnected || e.state == StateConnecting {
+	if switchConnID != 0 {
+		if e.connectID != switchConnID || e.state != StateConnecting {
+			e.mu.Unlock()
+			return nil
+		}
+	} else if e.state == StateConnected || e.state == StateConnecting {
 		e.mu.Unlock()
 		return nil
 	}
@@ -1529,10 +1553,14 @@ func (e *VpnEngine) Connect() error {
 
 		if settings.EnableTunMode {
 			remoteIP := ""
+			ipv6Operational := false
 			if controller != nil {
 				remoteIP = controller.RemoteIP()
+				probeCtx, probeCancel := context.WithTimeout(connectCtx, 3*time.Second)
+				ipv6Operational = controller.IsIPv6Operational(probeCtx)
+				probeCancel()
 			}
-			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname, remoteIP, settings.IPProtocol); err != nil {
+			if err := EnableTunMode(actualSocksAddr, actualHttpAddr, selected.Hostname, remoteIP, settings.IPProtocol, ipv6Operational); err != nil {
 				LogWarn("Could not activate TUN mode (%v); falling back to System Proxy mode...", err)
 				if proxyErr := SetSystemProxyWithBypass(true, actualHttpAddr, actualSocksAddr, settings.BypassRules); proxyErr != nil {
 					LogError("Fallback to System Proxy also failed: %v", proxyErr)
@@ -1546,10 +1574,16 @@ func (e *VpnEngine) Connect() error {
 				e.mu.Lock()
 				e.settings.EnableTunMode = false
 				e.settings.UseSystemProxy = true
+				e.ipv6Operational = false
 				e.mu.Unlock()
+				socksSrv.SetIPv6ForwardingAllowed(false)
 				LogInfo("Fallback to System Proxy activated successfully (HTTP: %s, SOCKS5: %s)", actualHttpAddr, actualSocksAddr)
 			} else {
-				LogInfo("System TUN mode activated successfully")
+				e.mu.Lock()
+				e.ipv6Operational = ipv6Operational
+				e.mu.Unlock()
+				socksSrv.SetIPv6ForwardingAllowed(ipv6Operational)
+				LogInfo("System TUN mode activated successfully (IPv6 operational: %v)", ipv6Operational)
 			}
 		}
 
@@ -1593,12 +1627,24 @@ func (e *VpnEngine) Connect() error {
 }
 
 func (e *VpnEngine) Disconnect() error {
+	return e.disconnectInternal(StateDisconnected, "", 0)
+}
+
+func (e *VpnEngine) disconnectInternal(endState VpnState, endStep string, switchConnID int64) error {
 	e.mu.Lock()
+	if switchConnID != 0 && (e.connectID != switchConnID || e.state != StateConnecting) {
+		e.mu.Unlock()
+		return nil
+	}
 	if e.state == StateDisconnecting {
 		e.mu.Unlock()
 		return nil
 	}
 	if e.state == StateDisconnected && e.socksServer == nil && e.httpServer == nil && e.controller == nil && !IsTunModeActive() {
+		if endState != StateDisconnected && switchConnID != 0 && e.connectID == switchConnID {
+			e.state = endState
+			e.connectStep = endStep
+		}
 		e.mu.Unlock()
 		return nil
 	}
@@ -1607,9 +1653,18 @@ func (e *VpnEngine) Disconnect() error {
 		e.connectCancel()
 		e.connectCancel = nil
 	}
-	e.state = StateDisconnecting
-	e.connectStep = ""
-	e.connectID = time.Now().UnixNano()
+	if endState == StateDisconnected {
+		e.state = StateDisconnecting
+		e.connectStep = ""
+	} else {
+		e.state = endState
+		e.connectStep = endStep
+	}
+	localCid := switchConnID
+	if localCid == 0 {
+		localCid = time.Now().UnixNano()
+		e.connectID = localCid
+	}
 	socksSrv := e.socksServer
 	httpSrv := e.httpServer
 	ctrl := e.controller
@@ -1655,10 +1710,17 @@ func (e *VpnEngine) Disconnect() error {
 	}
 
 	e.mu.Lock()
-	e.state = StateDisconnected
-	e.connectStep = ""
+	if e.connectID == localCid {
+		if e.state != StateDisconnecting && endState == StateDisconnected {
+			e.state = StateDisconnected
+		} else {
+			e.state = endState
+		}
+		e.connectStep = endStep
+	}
 	e.errorMsg = ""
 	e.exitResult = nil
+	e.ipv6Operational = false
 	if e.meter != nil {
 		e.meter.StopSession()
 		stats := e.meter.GetStats()
@@ -1874,20 +1936,18 @@ func (e *VpnEngine) UpdateSettings(s VpnSettings) {
 func configureAPIProxy(raw string, tlsFrag bool) error {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		dialer := createCustomDialer()
-		vpnclient.SetControlPlaneTransport(&http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				c, err := dialer.DialContext(ctx, network, addr)
-				if err != nil {
-					return nil, err
-				}
-				if tlsFrag && strings.HasPrefix(network, "tcp") {
-					return newFragmentingConn(c, "sni"), nil
-				}
-				return c, nil
-			},
-			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+		tr, err := vpnclient.NewControlPlaneTransport(vpnclient.ControlPlaneTransportOptions{
+			TLSFragment: tlsFrag,
 		})
+		if err != nil {
+			return err
+		}
+		vpnclient.SetControlPlaneTransport(tr)
+		if vpnclient.IsWinHTTPTransport(tr) {
+			LogInfo("Control plane API transport initialized: Windows native WinHTTP (NO_PROXY direct mode)")
+		} else {
+			LogInfo("Control plane API transport initialized: Go TLS (tls_fragmentation=%v)", tlsFrag)
+		}
 		return nil
 	}
 
@@ -1905,41 +1965,23 @@ func configureAPIProxy(raw string, tlsFrag bool) error {
 		return err
 	}
 
-	dialer := &net.Dialer{Timeout: 20 * time.Second}
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+	var auth *proxy.Auth
+	if parsed.User != nil {
+		pwd, _ := parsed.User.Password()
+		auth = &proxy.Auth{User: parsed.User.Username(), Password: pwd}
 	}
 
-	switch strings.ToLower(parsed.Scheme) {
-	case "http", "https":
-		transport.Proxy = http.ProxyURL(parsed)
-		transport.DialContext = dialer.DialContext
-	case "socks5", "socks5h":
-		var auth *proxy.Auth
-		if parsed.User != nil {
-			pwd, _ := parsed.User.Password()
-			auth = &proxy.Auth{User: parsed.User.Username(), Password: pwd}
-		}
-		socksDialer, err := proxy.SOCKS5("tcp", parsed.Host, auth, dialer)
-		if err != nil {
-			return fmt.Errorf("creating socks5 dialer: %w", err)
-		}
-		contextDialer, ok := socksDialer.(proxy.ContextDialer)
-		if !ok {
-			return fmt.Errorf("socks5 dialer does not support context")
-		}
-		transport.DialContext = contextDialer.DialContext
-	default:
-		return fmt.Errorf("unsupported proxy scheme: %s", parsed.Scheme)
+	tr, err := vpnclient.NewControlPlaneTransport(vpnclient.ControlPlaneTransportOptions{
+		ProxyURL:  parsed,
+		ProxyAuth: auth,
+	})
+	if err != nil {
+		return err
 	}
 
-	vpnclient.SetControlPlaneTransport(transport)
-	LogInfo("API requests (Firefox Accounts / Guardian) now routed through proxy: %s", formatted)
+	vpnclient.SetControlPlaneTransport(tr)
+	LogInfo("API requests (Firefox Accounts / Guardian) routed via proxy (%s, winhttp=%v)", parsed.Scheme, vpnclient.IsWinHTTPTransport(tr))
 	return nil
-}
-
-func createCustomDialer() *net.Dialer {
-	return createProxyDialer(20 * time.Second)
 }
 
 // runTunnelWatchdog monitors active connection health and initiates auto-reconnect if tunnel stalls
@@ -1973,6 +2015,25 @@ func (e *VpnEngine) runTunnelWatchdog(cid int64) {
 			} else {
 				consecutiveFails = 0
 				_ = testConn.Close()
+			}
+
+			// Periodic IPv6 operational monitoring during active connection
+			e.mu.RLock()
+			isV6Op := e.ipv6Operational
+			e.mu.RUnlock()
+			if isV6Op && ctrl != nil {
+				probeCtx, probeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+				if !ctrl.IsIPv6Operational(probeCtx) {
+					LogWarn("IPv6 operational probe failed during active connection; traffic remains securely blackholed on Wintun")
+					e.mu.Lock()
+					e.ipv6Operational = false
+					socks := e.socksServer
+					e.mu.Unlock()
+					if socks != nil {
+						socks.SetIPv6ForwardingAllowed(false)
+					}
+				}
+				probeCancel()
 			}
 
 			if consecutiveFails >= 3 {

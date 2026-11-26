@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"os"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )

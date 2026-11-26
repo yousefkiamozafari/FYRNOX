@@ -21,6 +21,7 @@ type SocksProxyServer struct {
 	bypassRules string
 	settings    VpnSettings
 	closed      bool
+	ipv6Allowed bool
 	conns       map[net.Conn]struct{}
 	mu          sync.Mutex
 }
@@ -48,25 +49,79 @@ func (s *SocksProxyServer) SetSettings(settings VpnSettings) {
 	s.bypassRules = settings.BypassRules
 }
 
+// SetIPv6ForwardingAllowed atomically controls the IPv6 data-plane gate.
+// When allowed is false, all incoming IPv6 requests (including direct bypass dials)
+// are blocked, and any active in-flight IPv6 connections are immediately aborted.
+func (s *SocksProxyServer) SetIPv6ForwardingAllowed(allowed bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ipv6Allowed = allowed
+	if !allowed {
+		for conn := range s.conns {
+			if rAddr := conn.RemoteAddr(); rAddr != nil {
+				host, _, _ := net.SplitHostPort(rAddr.String())
+				if isIPv6Target(host) {
+					_ = conn.Close()
+				}
+			}
+		}
+	}
+}
+
+// IsIPv6ForwardingAllowed reports whether IPv6 forwarding is currently permitted.
+func (s *SocksProxyServer) IsIPv6ForwardingAllowed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ipv6Allowed
+}
+
+func isIPv6Target(host string) bool {
+	cleaned := host
+	if len(cleaned) > 2 && cleaned[0] == '[' && cleaned[len(cleaned)-1] == ']' {
+		cleaned = cleaned[1 : len(cleaned)-1]
+	}
+	ip := net.ParseIP(cleaned)
+	return ip != nil && ip.To4() == nil
+}
+
 func (s *SocksProxyServer) dialUpstream(target string, clientPort int) (net.Conn, error) {
 	s.mu.Lock()
 	bypass := s.bypassRules
 	settings := s.settings
+	ipv6Allowed := s.ipv6Allowed
 	s.mu.Unlock()
+
+	host, _, _ := net.SplitHostPort(target)
+	isIPv6 := isIPv6Target(host)
+
+	// Explicit, race-safe IPv6 gate: drop immediately before reaching SOCKS5/MASQUE forwarding
+	if isIPv6 && !ipv6Allowed {
+		return nil, fmt.Errorf("ipv6 traffic blocked: ipv6 data-plane is not operational")
+	}
 
 	// 1. Windows default bypass rules (<local>, loopback, private ranges, custom domains)
 	if isBypassTarget(target, bypass) {
+		// Prevent IPv6 leaks: never allow direct host dials for IPv6 when IPv6 is blocked
+		if isIPv6 && !ipv6Allowed {
+			return nil, fmt.Errorf("ipv6 direct bypass blocked: ipv6 data-plane is not operational")
+		}
 		return net.DialTimeout("tcp", target, 5*time.Second)
 	}
 
 	// 2. Smart Iran / Domestic Traffic Direct Routing (Zero-Config Bypass)
 	if settings.DirectIranTraffic && IsDomesticIranTarget(target) {
+		if isIPv6 && !ipv6Allowed {
+			return nil, fmt.Errorf("ipv6 direct domestic bypass blocked: ipv6 data-plane is not operational")
+		}
 		LogInfo("[SOCKS5 Bypass] Direct route domestic Iran target: %s", target)
 		return net.DialTimeout("tcp", target, 5*time.Second)
 	}
 
 	// 3. Process-Based Per-App Split Tunneling
 	if settings.SplitTunnelEnabled && !IsAppAllowedBySplitTunnel(clientPort, target, false, settings) {
+		if isIPv6 && !ipv6Allowed {
+			return nil, fmt.Errorf("ipv6 split-tunnel direct bypass blocked: ipv6 data-plane is not operational")
+		}
 		LogInfo("[SOCKS5 SplitTunnel] Direct bypass for socket target: %s (clientPort: %d)", target, clientPort)
 		return net.DialTimeout("tcp", target, 5*time.Second)
 	}
@@ -206,12 +261,20 @@ func (s *SocksProxyServer) handleClient(clientConn net.Conn) {
 			return
 		}
 		host = string(domain)
+		if isIPv6Target(host) && !s.IsIPv6ForwardingAllowed() {
+			clientConn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+			return
+		}
 	case 0x04: // IPv6
 		ip := make([]byte, 16)
 		if _, err := io.ReadFull(clientConn, ip); err != nil {
 			return
 		}
 		host = net.IP(ip).String()
+		if !s.IsIPv6ForwardingAllowed() {
+			clientConn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+			return
+		}
 	default:
 		clientConn.Write([]byte{0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
@@ -324,6 +387,7 @@ func (s *SocksProxyServer) pipe(client, upstream net.Conn) {
 
 	wg.Wait()
 }
+
 // handleUDPAssociate implements SOCKS5 UDP ASSOCIATE (RFC 1928) for full Wintun TUN mode
 func (s *SocksProxyServer) handleUDPAssociate(clientConn net.Conn, header []byte) {
 	// Read address and port specified by client in UDP ASSOCIATE request
@@ -440,12 +504,18 @@ func (s *SocksProxyServer) handleUDPAssociate(clientConn net.Conn, header []byte
 			}
 			dstHost = string(packetBuf[offset : offset+dLen])
 			offset += dLen
+			if isIPv6Target(dstHost) && !s.IsIPv6ForwardingAllowed() {
+				continue
+			}
 		case 0x04: // IPv6
 			if n < offset+16+2 {
 				continue
 			}
 			dstHost = net.IP(packetBuf[offset : offset+16]).String()
 			offset += 16
+			if !s.IsIPv6ForwardingAllowed() {
+				continue
+			}
 		default:
 			continue
 		}
@@ -664,7 +734,8 @@ func (s *SocksProxyServer) forwardGenericUDP(udpConn *net.UDPConn, clientAddr ne
 
 	fullPacket := append(respHeader, buf[:n]...)
 	if s.meter != nil {
-		s.meter.AddUp(int64(len(data))); s.meter.AddDown(int64(n))
+		s.meter.AddUp(int64(len(data)))
+		s.meter.AddDown(int64(n))
 	}
 	_, _ = udpConn.WriteTo(fullPacket, clientAddr)
 }

@@ -2,9 +2,9 @@ package main
 
 import (
 	"errors"
+	"golang.org/x/sys/windows"
 	"strings"
 	"testing"
-	"golang.org/x/sys/windows"
 )
 
 func TestBuildElevationArgs(t *testing.T) {

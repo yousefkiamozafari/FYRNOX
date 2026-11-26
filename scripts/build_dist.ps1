@@ -3,20 +3,24 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $scriptDir) { $scriptDir = $PSScriptRoot }
 if (-not $scriptDir) { $scriptDir = (Get-Location).Path }
 $repoRoot = (Resolve-Path "$scriptDir\..").Path
+$appVersion = (Get-Content "$repoRoot\VERSION" -Raw).Trim()
+if ($appVersion -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+    throw "Invalid root VERSION format: '$appVersion'"
+}
 Set-Location $repoRoot
 
 if (-not $env:GOCACHE) { $env:GOCACHE = "$repoRoot\.gocache" }
 if (-not $env:GOPATH) { $env:GOPATH = "$repoRoot\.gopath" }
 $env:GOOS = "windows"
 
-Write-Host "=== 1. Building amd64 (x64) binaries ==="
+Write-Host "=== 1. Building amd64 (x64) binaries (v$appVersion) ==="
 $env:GOARCH = "amd64"
-go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\Fyrnox-x64.exe" ./cmd/fyrnox
+go build -ldflags "-s -w -H windowsgui -X main.AppVersion=$appVersion" -o "$repoRoot\build\Fyrnox-x64.exe" ./cmd/fyrnox
 go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\Uninstall.exe" ./cmd/uninstaller
 
-Write-Host "=== 2. Building 386 (x86) binaries ==="
+Write-Host "=== 2. Building 386 (x86) binaries (v$appVersion) ==="
 $env:GOARCH = "386"
-go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\Fyrnox-x86.exe" ./cmd/fyrnox
+go build -ldflags "-s -w -H windowsgui -X main.AppVersion=$appVersion" -o "$repoRoot\build\Fyrnox-x86.exe" ./cmd/fyrnox
 go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\Uninstall-x86.exe" ./cmd/uninstaller
 
 Write-Host "=== 3. Updating root Fyrnox.exe with new amd64 binary and wintun.dll ==="
@@ -41,11 +45,11 @@ Copy-Item -Force "$repoRoot\README.md" "$repoRoot\build\portable-x86\Fyrnox-Port
 Copy-Item -Force "$repoRoot\cmd\fyrnox\wintun_386.dll" "$repoRoot\build\portable-x86\Fyrnox-Portable\wintun.dll"
 
 Write-Host "=== 6. Packaging Portable ZIPs ==="
-$zipX64 = "$repoRoot\build\Fyrnox-v1.0.6-Windows-x64-Portable.zip"
+$zipX64 = "$repoRoot\build\Fyrnox-v$appVersion-Windows-x64-Portable.zip"
 if (Test-Path $zipX64) { Remove-Item $zipX64 }
 Compress-Archive -Path "$repoRoot\build\portable\Fyrnox-Portable\*" -DestinationPath $zipX64 -CompressionLevel Optimal
 
-$zipX86 = "$repoRoot\build\Fyrnox-v1.0.6-Windows-x86-Portable.zip"
+$zipX86 = "$repoRoot\build\Fyrnox-v$appVersion-Windows-x86-Portable.zip"
 if (Test-Path $zipX86) { Remove-Item $zipX86 }
 Compress-Archive -Path "$repoRoot\build\portable-x86\Fyrnox-Portable\*" -DestinationPath $zipX86 -CompressionLevel Optimal
 
@@ -58,16 +62,16 @@ Copy-Item -Force "$repoRoot\cmd\fyrnox\wintun_amd64.dll" "$repoRoot\cmd\installe
 
 $env:GOARCH = "amd64"
 New-Item -ItemType Directory -Force "$repoRoot\build\installer" | Out-Null
-go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\installer\Fyrnox-Setup-v1.0.6.exe" ./cmd/installer
+go build -ldflags "-s -w -H windowsgui -X main.AppVersion=$appVersion" -o "$repoRoot\build\installer\Fyrnox-Setup-v$appVersion.exe" ./cmd/installer
 
 Write-Host "=== 8. Cleaning and updating build/dist directory ==="
 New-Item -ItemType Directory -Force "$repoRoot\build\dist" | Out-Null
-Get-ChildItem "$repoRoot\build\dist" -File | Where-Object { $_.Name -match "v1\.0\.[0-4]" } | Remove-Item -Force
+Get-ChildItem "$repoRoot\build\dist" -File | Where-Object { $_.Name -match "v1\.0\.[0-6]" } | Remove-Item -Force
 
-Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.6.exe" "$repoRoot\build\dist\Fyrnox-Setup-v1.0.6.exe"
-Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v1.0.6.exe" "$repoRoot\build\dist\Fyrnox-Setup-Windows-11-10-x64.exe"
-Copy-Item -Force $zipX64 "$repoRoot\build\dist\Fyrnox-v1.0.6-Windows-x64-Portable.zip"
-Copy-Item -Force $zipX86 "$repoRoot\build\dist\Fyrnox-v1.0.6-Windows-x86-Portable.zip"
+Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v$appVersion.exe" "$repoRoot\build\dist\Fyrnox-Setup-v$appVersion.exe"
+Copy-Item -Force "$repoRoot\build\installer\Fyrnox-Setup-v$appVersion.exe" "$repoRoot\build\dist\Fyrnox-Setup-Windows-11-10-x64.exe"
+Copy-Item -Force $zipX64 "$repoRoot\build\dist\Fyrnox-v$appVersion-Windows-x64-Portable.zip"
+Copy-Item -Force $zipX86 "$repoRoot\build\dist\Fyrnox-v$appVersion-Windows-x86-Portable.zip"
 Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\build\dist\fyrnox.exe"
 Copy-Item -Force "$repoRoot\cmd\fyrnox\wintun_amd64.dll" "$repoRoot\build\dist\wintun.dll"
 
@@ -77,7 +81,7 @@ Copy-Item -Force "$repoRoot\build\Uninstall-x86.exe" "$repoRoot\cmd\installer\pa
 Copy-Item -Force "$repoRoot\build\portable-x86\Fyrnox-Portable\wintun.dll" "$repoRoot\cmd\installer\payload\wintun.dll"
 
 $env:GOARCH = "386"
-go build -ldflags "-s -w -H windowsgui" -o "$repoRoot\build\dist\Fyrnox-Setup-Windows-7-8-10-x86.exe" ./cmd/installer
+go build -ldflags "-s -w -H windowsgui -X main.AppVersion=$appVersion" -o "$repoRoot\build\dist\Fyrnox-Setup-Windows-7-8-10-x86.exe" ./cmd/installer
 
 # Restore x64 payload in cmd/installer/payload
 Copy-Item -Force "$repoRoot\build\Fyrnox-x64.exe" "$repoRoot\cmd\installer\payload\Fyrnox.exe"

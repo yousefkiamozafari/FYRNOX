@@ -94,9 +94,7 @@ func fetchProxyPass(ctx context.Context, endpoint, accessToken string) (*ProxyPa
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		req.Header.Set("Content-Type", "application/json")
-		applyMozillaVPNHeaders(req)
+		applyGuardianHeaders(req, accessToken)
 		return req, nil
 	})
 	if err != nil {
@@ -235,9 +233,7 @@ func fetchUserInfo(ctx context.Context, endpoint, accessToken string) (*Entitlem
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		req.Header.Set("Content-Type", "application/json")
-		applyMozillaVPNHeaders(req)
+		applyGuardianHeaders(req, accessToken)
 		return req, nil
 	})
 	if err != nil {
@@ -276,9 +272,7 @@ func activateGuardian(ctx context.Context, endpoint, accessToken string) (*Entit
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		req.Header.Set("Content-Type", "application/json")
-		applyMozillaVPNHeaders(req)
+		applyGuardianHeaders(req, accessToken)
 		return req, nil
 	})
 	if err != nil {

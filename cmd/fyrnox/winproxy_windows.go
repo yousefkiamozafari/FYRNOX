@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows/registry"

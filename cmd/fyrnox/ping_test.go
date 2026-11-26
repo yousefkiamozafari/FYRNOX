@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestLatencyClassificationThresholds(t *testing.T) {
@@ -82,4 +83,78 @@ func TestComputeMedianLatency(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPingAllServers_PreservesCachedBaselineWhenConnected(t *testing.T) {
+	engine := NewVpnEngine()
+	engine.mu.Lock()
+	if len(engine.servers) == 0 {
+		engine.mu.Unlock()
+		t.Fatalf("expected non-empty default server list")
+	}
+	engine.servers[0].PingMs = 77
+	engine.state = StateConnected
+	engine.mu.Unlock()
+
+	res := engine.PingAllServers()
+	if len(res) == 0 || res[0].PingMs != 77 {
+		t.Fatalf("expected cached baseline PingMs=77 preserved while connected, got %+v", res[0])
+	}
+}
+
+func TestSelectServer_HotSwitchSkipsDisconnectedState(t *testing.T) {
+	engine := NewVpnEngine()
+	engine.mu.Lock()
+	if len(engine.servers) < 2 {
+		engine.mu.Unlock()
+		t.Fatalf("expected at least 2 servers")
+	}
+	targetHost := engine.servers[1].Hostname
+	engine.state = StateConnected
+	engine.mu.Unlock()
+
+	if err := engine.SelectServer(targetHost); err != nil {
+		t.Fatalf("SelectServer failed: %v", err)
+	}
+
+	// Immediately after SelectServer, state must be StateConnecting (not StateDisconnecting/StateDisconnected)
+	st := engine.GetStatus()
+	if st.State != StateConnecting {
+		t.Fatalf("expected StateConnecting immediately after hot SelectServer, got %s", st.State)
+	}
+
+	// Cancel via Disconnect during switch
+	_ = engine.Disconnect()
+	stAfter := engine.GetStatus()
+	if stAfter.State != StateDisconnected {
+		t.Fatalf("expected StateDisconnected after Disconnect cancellation, got %s", stAfter.State)
+	}
+}
+
+func TestSelectServer_HotSwitchInvokesConnectFlow(t *testing.T) {
+	engine := NewVpnEngine()
+	engine.mu.Lock()
+	if len(engine.servers) < 2 {
+		engine.mu.Unlock()
+		t.Fatalf("expected at least 2 servers")
+	}
+	targetHost := engine.servers[1].Hostname
+	engine.auth = nil // Ensure Connect() reaches auth check and transitions to StateError
+	engine.state = StateConnected
+	engine.mu.Unlock()
+
+	if err := engine.SelectServer(targetHost); err != nil {
+		t.Fatalf("SelectServer failed: %v", err)
+	}
+
+	// Wait for async switch goroutine (150ms sleep + Connect() execution)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		st := engine.GetStatus()
+		if st.State == StateError {
+			return // Connect() actually executed instead of returning early on StateConnecting!
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("SelectServer hot switch stuck in state=%s; Connect() returned early without dialing", engine.GetStatus().State)
 }

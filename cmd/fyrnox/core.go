@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -1068,6 +1069,76 @@ func (c *proxyController) RemoteIP() string {
 		}
 	}
 	return ""
+}
+
+// ProbeIPv6DataPath actively executes an authentic, bounded HTTPS connectivity probe
+// over the MASQUE tunnel to a verified IPv6 endpoint (cloudflare-dns.com on [2606:4700:4700::1111]:443).
+// It verifies the TLS 1.2+ handshake, asserts valid x509 certificates and hostname,
+// and confirms a valid HTTP response, guaranteeing genuine IPv6 end-to-end data transport.
+func (c *proxyController) ProbeIPv6DataPath(ctx context.Context) error {
+	c.mu.Lock()
+	sess := c.session
+	c.mu.Unlock()
+	if sess == nil || !isSessionAlive(sess) {
+		return errors.New("no active proxy session")
+	}
+
+	target := "[2606:4700:4700::1111]:443"
+	conn, err := c.OpenTunnel(target)
+	if err != nil {
+		return fmt.Errorf("ipv6 tunnel dial failed: %w", err)
+	}
+	defer conn.Close()
+
+	probeTimeout := 3 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		rem := time.Until(deadline)
+		if rem > 0 && rem < probeTimeout {
+			probeTimeout = rem
+		}
+	}
+	_ = conn.SetDeadline(time.Now().Add(probeTimeout))
+
+	tlsConfig := &tls.Config{
+		ServerName: "cloudflare-dns.com",
+		MinVersion: tls.VersionTLS12,
+	}
+	tlsConn := tls.Client(conn, tlsConfig)
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		return fmt.Errorf("ipv6 probe tls handshake failed: %w", err)
+	}
+	defer tlsConn.Close()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, "https://cloudflare-dns.com/", nil)
+	if err != nil {
+		return fmt.Errorf("ipv6 probe request creation failed: %w", err)
+	}
+	req.Header.Set("User-Agent", "FYRNOX-Probe/1.0")
+	req.Header.Set("Connection", "close")
+
+	if err := req.Write(tlsConn); err != nil {
+		return fmt.Errorf("ipv6 probe http write failed: %w", err)
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(tlsConn), req)
+	if err != nil {
+		return fmt.Errorf("ipv6 probe http read failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("ipv6 probe unexpected http status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// IsIPv6Operational reports whether the upstream tunnel currently provides verified,
+// functional end-to-end IPv6 data transport.
+func (c *proxyController) IsIPv6Operational(ctx context.Context) bool {
+	if c == nil {
+		return false
+	}
+	return c.ProbeIPv6DataPath(ctx) == nil
 }
 
 func (c *proxyController) GetFallbackStatus() (active bool, state string, lossRate float64) {

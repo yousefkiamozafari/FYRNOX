@@ -1,6 +1,10 @@
 ; Inno Setup Script for Fyrnox for Windows
 #define MyAppName "Fyrnox"
-#define MyAppVersion "1.0.0"
+#ifndef MyAppVersion
+  #define VersionFile FileOpen("VERSION")
+  #define MyAppVersion Trim(FileRead(VersionFile))
+  #expr FileClose(VersionFile)
+#endif
 #define MyAppPublisher "Powered by Yousef Kia"
 #define MyAppURL "https://github.com/yousefkiamozafari"
 #define MyAppExeName "Fyrnox.exe"
@@ -16,7 +20,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=build\dist
-OutputBaseFilename=Fyrnox-InnoSetup-v1.0.0
+OutputBaseFilename=Fyrnox-InnoSetup-v{#MyAppVersion}
 SetupIconFile=icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

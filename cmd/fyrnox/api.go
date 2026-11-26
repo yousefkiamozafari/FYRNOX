@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,8 +21,11 @@ import (
 var embeddedWebFS embed.FS
 
 type ApiServer struct {
-	engine *VpnEngine
-	port   int
+	engine   *VpnEngine
+	port     int
+	mu       sync.Mutex
+	server   *http.Server
+	listener net.Listener
 }
 
 func NewApiServer(engine *VpnEngine, port int) *ApiServer {
@@ -26,7 +35,80 @@ func NewApiServer(engine *VpnEngine, port int) *ApiServer {
 	}
 }
 
-func (s *ApiServer) Start() error {
+func (s *ApiServer) isAllowedHost(hostHeader string) bool {
+	if hostHeader == "" {
+		return false
+	}
+	host := hostHeader
+	port := ""
+	if h, p, err := net.SplitHostPort(hostHeader); err == nil {
+		host = h
+		port = p
+	}
+	if host != "127.0.0.1" && !strings.EqualFold(host, "localhost") {
+		return false
+	}
+	if port != "" && s.port > 0 && port != strconv.Itoa(s.port) {
+		return false
+	}
+	return true
+}
+
+func (s *ApiServer) isAllowedOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Scheme != "http" {
+		return false
+	}
+	h := u.Hostname()
+	if h != "127.0.0.1" && !strings.EqualFold(h, "localhost") {
+		return false
+	}
+	if s.port > 0 && u.Port() != strconv.Itoa(s.port) {
+		return false
+	}
+	return true
+}
+
+// securityMiddleware enforces Host, Origin, and Sec-Fetch-Site checks to block remote hosts,
+// DNS rebinding, and browser cross-origin/CSRF attacks.
+// Threat boundary: same-host local processes (including CLI -restore and VM test scripts) are
+// unauthenticated local callers and are not isolated from each other.
+func (s *ApiServer) securityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.isAllowedHost(r.Host) {
+			http.Error(w, "Forbidden host", http.StatusForbidden)
+			return
+		}
+
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			if !s.isAllowedOrigin(origin) {
+				http.Error(w, "Forbidden origin", http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		}
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
+			if strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
+				http.Error(w, "Forbidden cross-site request", http.StatusForbidden)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *ApiServer) buildHandler() (http.Handler, error) {
 	mux := http.NewServeMux()
 
 	// REST API Endpoints
@@ -69,15 +151,41 @@ func (s *ApiServer) Start() error {
 	// Static UI
 	subFS, err := fs.Sub(embeddedWebFS, "web")
 	if err != nil {
-		return fmt.Errorf("embedded web fs error: %w", err)
+		return nil, fmt.Errorf("embedded web fs error: %w", err)
 	}
 	mux.Handle("/", http.FileServer(http.FS(subFS)))
+	return s.securityMiddleware(mux), nil
+}
+
+func (s *ApiServer) Start() error {
+	handler, err := s.buildHandler()
+	if err != nil {
+		return err
+	}
 
 	listenAddr := fmt.Sprintf("127.0.0.1:%d", s.port)
-	LogInfo("Web dashboard running on http://%s", listenAddr)
+	ln, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", listenAddr, err)
+	}
+
+	s.mu.Lock()
+	if tcpAddr, ok := ln.Addr().(*net.TCPAddr); ok {
+		s.port = tcpAddr.Port
+	}
+	srv := &http.Server{
+		Addr:              ln.Addr().String(),
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	s.server = srv
+	s.listener = ln
+	s.mu.Unlock()
+
+	LogInfo("Web dashboard running on http://%s", ln.Addr().String())
 
 	go func() {
-		if err := http.ListenAndServe(listenAddr, mux); err != nil {
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			LogError("HTTP dashboard error: %v", err)
 		}
 	}()
@@ -85,9 +193,21 @@ func (s *ApiServer) Start() error {
 	return nil
 }
 
+// Shutdown gracefully closes the local API server within the given context deadline.
+func (s *ApiServer) Shutdown(ctx context.Context) error {
+	s.mu.Lock()
+	srv := s.server
+	s.server = nil
+	s.listener = nil
+	s.mu.Unlock()
+	if srv == nil {
+		return nil
+	}
+	return srv.Shutdown(ctx)
+}
+
 func (s *ApiServer) jsonResponse(w http.ResponseWriter, data any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	_ = json.NewEncoder(w).Encode(data)
 }
 
@@ -216,9 +336,14 @@ func (s *ApiServer) handlePingServer(w http.ResponseWriter, r *http.Request) {
 		latency, err := s.engine.PingTunnel()
 		if err == nil && latency > 0 {
 			s.jsonResponse(w, map[string]any{
-				"ok":        true,
-				"tunnel":    true,
-				"hostname":  func() string { if status.Server != nil { return status.Server.Hostname }; return "" }(),
+				"ok":     true,
+				"tunnel": true,
+				"hostname": func() string {
+					if status.Server != nil {
+						return status.Server.Hostname
+					}
+					return ""
+				}(),
 				"ping":      latency,
 				"ping_ms":   latency,
 				"timestamp": time.Now().Format("15:04:05"),
@@ -342,7 +467,6 @@ func (s *ApiServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -422,8 +546,6 @@ func (s *ApiServer) handleGamingMode(w http.ResponseWriter, r *http.Request) {
 	}
 	s.jsonResponse(w, globalGamer.GetStats())
 }
-
-
 
 func (s *ApiServer) handleLANShare(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {

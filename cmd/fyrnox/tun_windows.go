@@ -1,8 +1,8 @@
 package main
 
 import (
-	_ "embed"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,14 +28,16 @@ import (
 )
 
 var (
-	tunModeActive   bool
-	wintunActive    bool
-	tunMu           sync.Mutex
-	tunDev          device.Device
-	tunStack        *stack.Stack
-	remoteServerIPs []string
-	defaultGateway  string
-	defaultIfaceIdx int
+	tunModeActive      bool
+	wintunActive       bool
+	tunMu              sync.Mutex
+	tunDev             device.Device
+	tunStack           *stack.Stack
+	remoteServerIPs    []string
+	defaultGateway     string
+	defaultIfaceIdx    int
+	globalRouteManager *RouteManager
+	globalWfpManager   *WfpManager
 
 	modDnsapi                 = syscall.NewLazyDLL("dnsapi.dll")
 	procDnsFlushResolverCache = modDnsapi.NewProc("DnsFlushResolverCache")
@@ -168,7 +170,6 @@ func getPhysicalDefaultGateway() (string, int, error) {
 	return "", 0, fmt.Errorf("could not determine default physical gateway")
 }
 
-
 // ensureWintunDLL guarantees that wintun.dll is present in the application directory
 // and System32 so that LoadLibraryEx can find it under all execution contexts.
 func ensureWintunDLL() error {
@@ -210,7 +211,7 @@ func ensureWintunDLL() error {
 }
 
 // EnableTunMode sets up Layer-3 Wintun routing (when Administrator) and WinHTTP + user environment proxies
-func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string) error {
+func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string, ipv6Operational bool) error {
 	tunMu.Lock()
 	defer tunMu.Unlock()
 
@@ -257,6 +258,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	// 3. Layer-3 Wintun Routing
 	if !IsAdmin() {
 		LogWarn("Running as Standard User: Kernel TUN (Wintun) requires Administrator privileges.")
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+
 		tunModeActive = false
 		wintunActive = false
 		return fmt.Errorf("kernel TUN mode requires administrator privileges")
@@ -269,6 +275,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	if err != nil {
 		LogError("Could not determine physical gateway: %v", err)
 		cleanupHostRoutes()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+
 		tunModeActive = false
 		wintunActive = false
 		return fmt.Errorf("could not determine physical gateway: %w", err)
@@ -316,6 +327,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 	if err != nil {
 		LogError("Failed to create Wintun adapter: %v", err)
 		cleanupHostRoutes()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+
 		tunModeActive = false
 		wintunActive = false
 		return fmt.Errorf("failed to create Wintun adapter: %w", err)
@@ -329,6 +345,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 		closeDevice(dev)
 		tunDev = nil
 		cleanupHostRoutes()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+
 		tunModeActive = false
 		wintunActive = false
 		return fmt.Errorf("failed to initialize SOCKS5 upstream for TUN: %w", err)
@@ -345,6 +366,11 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 		closeDevice(dev)
 		tunDev = nil
 		cleanupHostRoutes()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+
 		tunModeActive = false
 		wintunActive = false
 		return fmt.Errorf("failed to initialize gVisor netstack: %w", err)
@@ -401,33 +427,120 @@ func EnableTunMode(socksAddr, httpAddr, remoteHost, remoteIP, ipProtocol string)
 		"metric=1",
 	).Run()
 
-	// Add split default routes (0.0.0.0/1 and 128.0.0.0/1) to redirect all traffic into TUN
-	// Note: Standard Windows syntax is 'METRIC metric IF interface'
-	if tunIfIndex > 0 {
-		out1, err1 := newSilentCmd("route", "add", "0.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1", "if", strconv.Itoa(tunIfIndex)).CombinedOutput()
-		out2, err2 := newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1", "if", strconv.Itoa(tunIfIndex)).CombinedOutput()
-		LogInfo("Wintun routes configured (IF: %d, r1: %v [%s], r2: %v [%s])", tunIfIndex, err1, stringsTrim(string(out1)), err2, stringsTrim(string(out2)))
-	} else {
-		_ = newSilentCmd("route", "add", "0.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1").Run()
-		_ = newSilentCmd("route", "add", "128.0.0.0", "mask", "128.0.0.0", tunIPAddr, "metric", "1").Run()
-	}
-
-	// IPv6 leak protection: blackhole non-tunnel IPv6 traffic when in IPv4-only mode
-	if ipProtocol == "ipv4" {
-		if tunIfIndex > 0 {
-			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "::/1", "fe80::1", "if", strconv.Itoa(tunIfIndex), "metric", "1")
-			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "8000::/1", "fe80::1", "if", strconv.Itoa(tunIfIndex), "metric", "1")
-		} else {
-			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "::/1", "fe80::1", "metric", "1")
-			_, _ = runSilentCmdWithTimeout(2*time.Second, "route", "-6", "add", "8000::/1", "fe80::1", "metric", "1")
+	// 1. Arm kernel-level WFP leak prevention FIRST so that physical IPv6 and DNS are completely
+	// sealed before any full-tunnel routing changes are applied to the operating system.
+	wfp := NewWfpManager()
+	var outerIPv6 net.IP
+	if remoteIP != "" {
+		if parsed := net.ParseIP(remoteIP); parsed != nil && parsed.To4() == nil {
+			outerIPv6 = parsed
 		}
-		LogInfo("IPv6 leak protection blackhole active in TUN mode")
+	}
+	if err := wfp.EnableIPv6LeakProtection(uint32(tunIfIndex), outerIPv6, 2499); err != nil {
+		LogWarn("WFP IPv6 leak prevention initialization notice: %v (relying on kernel blackhole routes)", err)
+	} else {
+		globalWfpManager = wfp
+		LogInfo("WFP IPv6 leak prevention active (Kernel Dynamic Session, Tun IF: %d, Filters: %d)", tunIfIndex, wfp.FilterCount())
 	}
 
+	// 2. Instantiate scoped RouteManager to track and verify every injected route
+	rm := NewRouteManager(tunIfIndex)
+
+	// Add split default routes (0.0.0.0/1 and 128.0.0.0/1) to redirect all IPv4 traffic into TUN
+	if err := rm.AddRouteIPv4("0.0.0.0", "128.0.0.0", tunIPAddr, 1); err != nil {
+		_ = rm.Rollback()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+		cleanupHostRoutes()
+		closeDevice(dev)
+		tunDev = nil
+		return fmt.Errorf("failed to add IPv4 split route 0.0.0.0/1: %w", err)
+	}
+	if err := rm.AddRouteIPv4("128.0.0.0", "128.0.0.0", tunIPAddr, 1); err != nil {
+		_ = rm.Rollback()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+		cleanupHostRoutes()
+		closeDevice(dev)
+		tunDev = nil
+		return fmt.Errorf("failed to add IPv4 split route 128.0.0.0/1: %w", err)
+	}
+
+	// IPv6 leak protection: enforce verified routes regardless of dual or ipv4 mode
+	if ipv6Operational {
+		LogInfo("IPv6 data-plane operational: routing IPv6 through Wintun tunnel...")
+		if err := rm.AddRouteIPv6("::/1", 1); err != nil {
+			_ = rm.Rollback()
+			if globalWfpManager != nil {
+				_ = globalWfpManager.Close()
+				globalWfpManager = nil
+			}
+			cleanupHostRoutes()
+			closeDevice(dev)
+			tunDev = nil
+			return fmt.Errorf("failed to route IPv6 ::/1 to tunnel: %w", err)
+		}
+		if err := rm.AddRouteIPv6("8000::/1", 1); err != nil {
+			_ = rm.Rollback()
+			if globalWfpManager != nil {
+				_ = globalWfpManager.Close()
+				globalWfpManager = nil
+			}
+			cleanupHostRoutes()
+			closeDevice(dev)
+			tunDev = nil
+			return fmt.Errorf("failed to route IPv6 8000::/1 to tunnel: %w", err)
+		}
+	} else {
+		LogInfo("IPv6 data-plane is unavailable/unverified; enforcing verified IPv6 blackhole leak protection...")
+		if err := rm.AddRouteIPv6("::/1", 1); err != nil {
+			_ = rm.Rollback()
+			if globalWfpManager != nil {
+				_ = globalWfpManager.Close()
+				globalWfpManager = nil
+			}
+			cleanupHostRoutes()
+			closeDevice(dev)
+			tunDev = nil
+			return fmt.Errorf("failed to install IPv6 blackhole route ::/1: %w", err)
+		}
+		if err := rm.AddRouteIPv6("8000::/1", 1); err != nil {
+			_ = rm.Rollback()
+			if globalWfpManager != nil {
+				_ = globalWfpManager.Close()
+				globalWfpManager = nil
+			}
+			cleanupHostRoutes()
+			closeDevice(dev)
+			tunDev = nil
+			return fmt.Errorf("failed to install IPv6 blackhole route 8000::/1: %w", err)
+		}
+	}
+
+	// Verify route presence in kernel routing table before declaring protection active
+	ok1, _ := rm.VerifyRouteExists("::/1", 6)
+	ok2, _ := rm.VerifyRouteExists("8000::/1", 6)
+	if !ok1 || !ok2 {
+		_ = rm.Rollback()
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+		cleanupHostRoutes()
+		closeDevice(dev)
+		tunDev = nil
+		return errors.New("IPv6 leak protection routes failed kernel table verification")
+	}
+
+	globalRouteManager = rm
 	wintunActive = true
 	tunModeActive = true
 	FlushDNSCache()
-	LogInfo("Wintun Layer-3 routing successfully activated (%s, IP: %s, IF: %d)", tunDeviceName, tunIPAddr, tunIfIndex)
+	LogInfo("Wintun Layer-3 routing successfully activated with verified IPv6 protection (%s, IP: %s, IF: %d)", tunDeviceName, tunIPAddr, tunIfIndex)
 	return nil
 }
 
@@ -452,35 +565,29 @@ func DisableTunMode() error {
 
 	// 1. Tear down Wintun routing and network stack if active
 	if wintunActive {
-		// 1a. Close Wintun device FIRST so netstack packet loops terminate immediately!
+		// 1a. Purge WFP IPv6 leak prevention dynamic filters
+		if globalWfpManager != nil {
+			_ = globalWfpManager.Close()
+			globalWfpManager = nil
+		}
+
+		// 1b. Close Wintun device FIRST so netstack packet loops terminate immediately!
 		if tunDev != nil {
 			closeDevice(tunDev)
 			tunDev = nil
 		}
 
-		// Parallelize route deletions for instantaneous teardown (< 100ms)
-		var routeWg sync.WaitGroup
-		routeWg.Add(5)
-		go func() {
-			defer routeWg.Done()
+		if globalRouteManager != nil {
+			_ = globalRouteManager.Rollback()
+			globalRouteManager = nil
+		} else {
+			// Fallback cleanup if RouteManager was nil
 			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "delete", "0.0.0.0", "mask", "128.0.0.0")
-		}()
-		go func() {
-			defer routeWg.Done()
 			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "delete", "128.0.0.0", "mask", "128.0.0.0")
-		}()
-		go func() {
-			defer routeWg.Done()
-			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "-6", "delete", "::/1")
-		}()
-		go func() {
-			defer routeWg.Done()
-			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "route", "-6", "delete", "8000::/1")
-		}()
-		go func() {
-			defer routeWg.Done()
-			cleanupHostRoutes()
-		}()
+			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "netsh", "interface", "ipv6", "delete", "route", "::/1", "store=active")
+			_, _ = runSilentCmdWithTimeout(500*time.Millisecond, "netsh", "interface", "ipv6", "delete", "route", "8000::/1", "store=active")
+		}
+		cleanupHostRoutes()
 
 		// 1b. Tear down gVisor netstack with bounded timeout
 		if tunStack != nil {
@@ -499,7 +606,6 @@ func DisableTunMode() error {
 			}
 		}
 
-		routeWg.Wait()
 		wintunActive = false
 		LogInfo("Wintun Layer-3 adapter removed and routing table restored")
 	}
@@ -512,18 +618,28 @@ func DisableTunMode() error {
 
 	FlushDNSCache()
 
+	if globalWfpManager != nil {
+		_ = globalWfpManager.Close()
+		globalWfpManager = nil
+	}
+
 	tunModeActive = false
 	LogInfo("System routing and proxies completely restored")
 	return nil
 }
 
-// VerifyTunCleanup verifies that TUN routes and interfaces have been removed cleanly
+// VerifyTunCleanup verifies that FYRNOX-owned IPv4 and IPv6 TUN routes have been removed cleanly.
 func VerifyTunCleanup() bool {
-	out, err := runSilentCmdWithTimeout(2*time.Second, "route", "print", "0.0.0.0")
-	if err == nil && (strings.Contains(out, "10.254.1.1") || strings.Contains(out, "128.0.0.0")) {
-		LogWarn("Detected lingering TUN routes after disconnect; executing force route delete...")
-		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "delete", "0.0.0.0", "mask", "128.0.0.0")
-		_, _ = runSilentCmdWithTimeout(1500*time.Millisecond, "route", "delete", "128.0.0.0", "mask", "128.0.0.0")
+	res, err := RecoverOrphanedTunRoutes()
+	if res.Removed > 0 {
+		LogWarn("Detected and cleaned %d lingering FYRNOX TUN route(s) after disconnect", res.Removed)
+		return false
+	}
+	if len(res.Unresolved) > 0 {
+		LogWarn("Left %d unresolved non-FYRNOX split route(s) untouched: %v", len(res.Unresolved), res.Unresolved)
+	}
+	if err != nil {
+		LogWarn("TUN cleanup verification encountered errors: %v", err)
 		return false
 	}
 	return true

@@ -113,7 +113,7 @@ func (m *ServiceMatrixManager) runProbesLocked(engine *VpnEngine) ServiceMatrixR
 
 func probeTarget(tgt ServiceProbeTarget, proxyURL *url.URL) ServiceStatus {
 	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: false},
 		DisableKeepAlives: true,
 	}
 	if proxyURL != nil {

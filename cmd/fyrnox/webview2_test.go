@@ -40,6 +40,3 @@ func TestWebView2SafeLaunch(t *testing.T) {
 		t.Log("WebView2 successfully initialized and cleaned up")
 	}
 }
-
-
-

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	vpnclient "firefox-vpn-client"
+	"golang.org/x/net/proxy"
 )
 
 func TestPhysicalGateway(t *testing.T) {
@@ -535,4 +537,146 @@ func TestLiveConnectAtomicRollback(t *testing.T) {
 	if status.State != StateDisconnected {
 		t.Fatalf("Expected StateDisconnected after Disconnect(), got %s", status.State)
 	}
+}
+
+func TestLiveEngineAcceptance(t *testing.T) {
+	if os.Getenv("FXA_E2E") == "" {
+		t.Skip("set FXA_E2E=1 to run full live WinHTTP + VPN engine acceptance test")
+	}
+
+	engine := NewVpnEngine()
+	if engine.auth == nil {
+		t.Skip("Not logged in; skipping live engine acceptance test")
+	}
+	// 1. Verify default NewVpnEngine() initializes WinHTTP on Windows Direct mode.
+	if !vpnclient.IsWinHTTPTransport(vpnclient.ControlPlaneTransport()) {
+		t.Fatalf("expected NewVpnEngine() default ControlPlaneTransport to be native WinHTTP, got %T", vpnclient.ControlPlaneTransport())
+	}
+	t.Log("1. Verified NewVpnEngine() initialized native WinHTTP control-plane transport")
+
+	// Avoid mutating host Windows registry system proxy / Wintun adapter during automated test.
+	engine.mu.Lock()
+	engine.settings.UseSystemProxy = false
+	engine.settings.EnableTunMode = false
+	if os.Getenv("FXA_E2E_IPV4") == "1" {
+		engine.settings.IPProtocol = "ipv4"
+	}
+	engine.mu.Unlock()
+
+	// 2. Verify live FxA refresh via WinHTTP & atomic token persistence without exposing secrets.
+	beforeTok, err := vpnclient.LoadTokens()
+	if err != nil {
+		t.Fatalf("LoadTokens before refresh: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	refreshedAuth, err := engine.freshRuntimeAuth(ctx, true)
+	if err != nil {
+		t.Fatalf("live freshRuntimeAuth(force=true) failed: %v", err)
+	}
+	afterTok, err := vpnclient.LoadTokens()
+	if err != nil {
+		t.Fatalf("LoadTokens after refresh: %v", err)
+	}
+	if !afterTok.ObtainedAt.After(beforeTok.ObtainedAt) {
+		t.Fatalf("expected persisted ObtainedAt (%v) to advance past %v", afterTok.ObtainedAt, beforeTok.ObtainedAt)
+	}
+	if refreshedAuth == nil || refreshedAuth.Token == nil || afterTok.AccessToken == "" || afterTok.RefreshToken == "" {
+		t.Fatal("persisted refreshed tokens are incomplete")
+	}
+	t.Logf("2. Verified live FxA refresh via WinHTTP & atomic persistence (obtained_at=%s, access_len=%d, refresh_len=%d)",
+		afterTok.ObtainedAt.Format(time.RFC3339), len(afterTok.AccessToken), len(afterTok.RefreshToken))
+
+	// 3. Verify Guardian Proxy Pass acquisition via WinHTTP with freshly refreshed token.
+	engine.mu.Lock()
+	engine.cachedPass = nil
+	engine.mu.Unlock()
+	pass, err := engine.getOrRenewProxyPass(ctx)
+	if err != nil {
+		t.Fatalf("getOrRenewProxyPass failed: %v", err)
+	}
+	if pass == nil || len(pass.RawToken) == 0 {
+		t.Fatal("expected non-empty Guardian Proxy Pass")
+	}
+	t.Logf("3. Verified Guardian Proxy Pass via WinHTTP (jwt_len=%d, expires_at=%s)",
+		len(pass.RawToken), pass.ExpiresAt().Format(time.RFC3339))
+
+	// Helper to connect, send real traffic through local SOCKS5 tunnel, and verify exit IP + disconnect.
+	verifyConnectCycle := func(cycle string) string {
+		if err := engine.Connect(); err != nil {
+			t.Fatalf("[%s] Connect initiation failed: %v", cycle, err)
+		}
+		deadline := time.Now().Add(45 * time.Second)
+		for time.Now().Before(deadline) {
+			st := engine.GetStatus()
+			if st.State == StateConnected {
+				break
+			}
+			if st.State == StateError {
+				t.Fatalf("[%s] Connect entered error state: %s", cycle, st.ErrorMessage)
+			}
+			time.Sleep(150 * time.Millisecond)
+		}
+		st := engine.GetStatus()
+		if st.State != StateConnected || st.ExitIP == "" {
+			t.Fatalf("[%s] expected StateConnected with non-empty ExitIP, got state=%s exit_ip=%q", cycle, st.State, st.ExitIP)
+		}
+
+		// Route live HTTPS traffic through the engine's local SOCKS5 listener.
+		socksPort := st.Settings.SocksPort
+		if socksPort <= 0 || socksPort == 10808 {
+			socksPort = 20808
+		}
+		socksAddr := fmt.Sprintf("127.0.0.1:%d", socksPort)
+		dialer, derr := proxy.SOCKS5("tcp", socksAddr, nil, &net.Dialer{Timeout: 10 * time.Second})
+		if derr != nil {
+			t.Fatalf("[%s] socks5 dialer: %v", cycle, derr)
+		}
+		httpClient := &http.Client{
+			Timeout: 15 * time.Second,
+			Transport: &http.Transport{
+				DialContext: func(dctx context.Context, network, addr string) (net.Conn, error) {
+					return dialer.(proxy.ContextDialer).DialContext(dctx, network, addr)
+				},
+			},
+		}
+		defer httpClient.CloseIdleConnections()
+
+		resp, rerr := httpClient.Get("https://api.ipify.org")
+		if rerr != nil {
+			t.Fatalf("[%s] live HTTP GET through VPN SOCKS5 %s failed: %v", cycle, socksAddr, rerr)
+		}
+		ipBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 128))
+		resp.Body.Close()
+		tunnelIP := strings.TrimSpace(string(ipBytes))
+		if tunnelIP == "" {
+			t.Fatalf("[%s] empty exit IP returned through VPN tunnel", cycle)
+		}
+		t.Logf("[%s] Connected: engine_exit_ip=%s tunnel_ipify=%s server=%s",
+			cycle, st.ExitIP, tunnelIP, st.Server.Hostname)
+
+		if err := engine.Disconnect(); err != nil {
+			t.Fatalf("[%s] Disconnect failed: %v", cycle, err)
+		}
+		discDeadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(discDeadline) {
+			if engine.GetStatus().State == StateDisconnected {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		if engine.GetStatus().State != StateDisconnected {
+			t.Fatalf("[%s] expected StateDisconnected, got %s", cycle, engine.GetStatus().State)
+		}
+		if c, lerr := net.DialTimeout("tcp", socksAddr, 200*time.Millisecond); lerr == nil {
+			c.Close()
+			t.Fatalf("[%s] expected SOCKS5 listener %s to close after disconnect", cycle, socksAddr)
+		}
+		return tunnelIP
+	}
+
+	// 4. First Connect + real traffic + Disconnect; then Reconnect + real traffic + Disconnect.
+	ip1 := verifyConnectCycle("connect-1")
+	ip2 := verifyConnectCycle("reconnect-2")
+	t.Logf("4. Disconnect + Reconnect cycles passed (cycle1_ip=%s, cycle2_ip=%s)", ip1, ip2)
 }

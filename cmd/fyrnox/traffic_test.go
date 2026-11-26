@@ -52,7 +52,7 @@ func TestTrafficMeterSessionLifecycle(t *testing.T) {
 	meter.StartSession()
 	time.Sleep(10 * time.Millisecond)
 	meter.AddDown(245*1024*1024 + 800*1024) // ~245.8 MB
-	meter.AddUp(18*1024*1024 + 400*1024)   // ~18.4 MB
+	meter.AddUp(18*1024*1024 + 400*1024)    // ~18.4 MB
 
 	activeStats := meter.GetStats()
 	if activeStats.BytesDown <= 0 || activeStats.BytesUp <= 0 {

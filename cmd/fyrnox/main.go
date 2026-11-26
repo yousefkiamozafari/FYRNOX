@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -126,12 +127,15 @@ func main() {
 	// Clean up any old orphaned instances from previous sessions
 	terminateOldInstances(exeName)
 
-	// Clean up any old orphaned proxy settings from crashed sessions
+	// Clean up any old orphaned proxy settings, firewall rules, and FYRNOX-owned TUN routes from crashed sessions
 	CleanOrphanedProxy()
 	CleanupStaleKillSwitchRules()
+	if res, err := RecoverOrphanedTunRoutes(); res.Removed > 0 || len(res.Unresolved) > 0 || err != nil {
+		LogWarn("Startup route recovery: removed=%d, unresolved=%v, err=%v", res.Removed, res.Unresolved, err)
+	}
 
 	fmt.Println("==================================================")
-	fmt.Println("           Fyrnox for Windows v1.0.6              ")
+	fmt.Printf("           Fyrnox for Windows v%s              \n", AppVersion)
 	fmt.Println("    Fast, Subscription-Free Firefox VPN Client    ")
 	fmt.Println("==================================================")
 
@@ -165,6 +169,9 @@ func main() {
 	go func() {
 		<-sigCh
 		LogInfo("Shutting down Fyrnox...")
+		shCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = apiServer.Shutdown(shCtx)
+		cancel()
 		_ = globalKillSwitch.Disarm()
 		_ = engine.Disconnect()
 		_ = RestoreSystemProxy()
@@ -181,6 +188,9 @@ func main() {
 		if globalTray != nil {
 			globalTray.Remove()
 		}
+		shCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = apiServer.Shutdown(shCtx)
+		cancel()
 		_ = globalKillSwitch.Disarm()
 		_ = engine.Disconnect()
 		_ = RestoreSystemProxy()

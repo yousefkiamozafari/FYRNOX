@@ -18,21 +18,21 @@ var (
 	modIphlpapi = syscall.NewLazyDLL("iphlpapi.dll")
 	modPsapi    = syscall.NewLazyDLL("psapi.dll")
 
-	procGetExtendedTcpTable          = modIphlpapi.NewProc("GetExtendedTcpTable")
-	procGetExtendedUdpTable          = modIphlpapi.NewProc("GetExtendedUdpTable")
-	procCreateToolhelp32Snapshot     = kernel32Mod.NewProc("CreateToolhelp32Snapshot")
-	procProcess32FirstW              = kernel32Mod.NewProc("Process32FirstW")
-	procProcess32NextW               = kernel32Mod.NewProc("Process32NextW")
-	procOpenProcess                  = kernel32Mod.NewProc("OpenProcess")
-	procCloseHandle                  = kernel32Mod.NewProc("CloseHandle")
-	procQueryFullProcessImageNameW   = kernel32Mod.NewProc("QueryFullProcessImageNameW")
+	procGetExtendedTcpTable        = modIphlpapi.NewProc("GetExtendedTcpTable")
+	procGetExtendedUdpTable        = modIphlpapi.NewProc("GetExtendedUdpTable")
+	procCreateToolhelp32Snapshot   = kernel32Mod.NewProc("CreateToolhelp32Snapshot")
+	procProcess32FirstW            = kernel32Mod.NewProc("Process32FirstW")
+	procProcess32NextW             = kernel32Mod.NewProc("Process32NextW")
+	procOpenProcess                = kernel32Mod.NewProc("OpenProcess")
+	procCloseHandle                = kernel32Mod.NewProc("CloseHandle")
+	procQueryFullProcessImageNameW = kernel32Mod.NewProc("QueryFullProcessImageNameW")
 )
 
 const (
-	afInet                 = 2
-	tcpTableOwnerPidAll    = 5
-	udpTableOwnerPid       = 1
-	th32csSnapProcess      = 0x00000002
+	afInet                  = 2
+	tcpTableOwnerPidAll     = 5
+	udpTableOwnerPid        = 1
+	th32csSnapProcess       = 0x00000002
 	processQueryLimitedInfo = 0x1000
 )
 
@@ -423,19 +423,19 @@ func isSystemProcessExcluded(name string) bool {
 
 func getFriendlyAppName(exe string) string {
 	names := map[string]string{
-		"chrome.exe":       "Google Chrome",
-		"firefox.exe":      "Mozilla Firefox",
-		"msedge.exe":       "Microsoft Edge",
-		"brave.exe":        "Brave Browser",
-		"opera.exe":        "Opera Browser",
-		"telegram.exe":     "Telegram Desktop",
-		"discord.exe":      "Discord",
-		"steam.exe":        "Steam Client",
+		"chrome.exe":            "Google Chrome",
+		"firefox.exe":           "Mozilla Firefox",
+		"msedge.exe":            "Microsoft Edge",
+		"brave.exe":             "Brave Browser",
+		"opera.exe":             "Opera Browser",
+		"telegram.exe":          "Telegram Desktop",
+		"discord.exe":           "Discord",
+		"steam.exe":             "Steam Client",
 		"epicgameslauncher.exe": "Epic Games Launcher",
-		"spotify.exe":      "Spotify",
-		"obs64.exe":        "OBS Studio",
-		"code.exe":         "Visual Studio Code",
-		"idman.exe":        "Internet Download Manager",
+		"spotify.exe":           "Spotify",
+		"obs64.exe":             "OBS Studio",
+		"code.exe":              "Visual Studio Code",
+		"idman.exe":             "Internet Download Manager",
 	}
 	if n, ok := names[strings.ToLower(exe)]; ok {
 		return n

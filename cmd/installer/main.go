@@ -11,6 +11,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows/registry"
+
+	vpnclient "firefox-vpn-client"
 )
 
 //go:embed payload/Fyrnox.exe
@@ -56,6 +58,8 @@ func createShortcut(targetExe, shortcutPath, iconPath, workDir string) error {
 	return cmd.Run()
 }
 
+var AppVersion = vpnclient.Version
+
 func main() {
 	silent := flag.Bool("silent", false, "Run silent installation")
 	flag.BoolVar(silent, "s", false, "Run silent installation")
@@ -69,14 +73,14 @@ func main() {
 	installDir := filepath.Join(localAppData, "Programs", "Fyrnox")
 
 	if !*silent {
-		welcomeText := fmt.Sprintf("Welcome to Fyrnox for Windows v1.0.6 Setup!\n"+
+		welcomeText := fmt.Sprintf("Welcome to Fyrnox for Windows v%s Setup!\n"+
 			"Fast, Subscription-Free Firefox VPN Client\n"+
 			"Powered by Yousef Kia\n"+
 			"GitHub: https://github.com/yousefkiamozafari\n\n"+
 			"Installation Directory:\n%s\n\n"+
 			"Would you like to continue with the installation?\n\n"+
-			"به برنامه نصب Fyrnox خوش آمدید! آیا مایل به شروع نصب هستید؟", installDir)
-		resp := showMsg("Fyrnox Setup v1.0.6", welcomeText, mbYesNo|mbIconQuestion)
+			"به برنامه نصب Fyrnox خوش آمدید! آیا مایل به شروع نصب هستید؟", AppVersion, installDir)
+		resp := showMsg(fmt.Sprintf("Fyrnox Setup v%s", AppVersion), welcomeText, mbYesNo|mbIconQuestion)
 		if resp != idYes {
 			os.Exit(0)
 		}
@@ -133,7 +137,7 @@ func main() {
 	uninstallRegKey := `Software\Microsoft\Windows\CurrentVersion\Uninstall\Fyrnox`
 	if k, _, err := registry.CreateKey(registry.CURRENT_USER, uninstallRegKey, registry.SET_VALUE); err == nil {
 		_ = k.SetStringValue("DisplayName", "Fyrnox")
-		_ = k.SetStringValue("DisplayVersion", "1.0.6")
+		_ = k.SetStringValue("DisplayVersion", AppVersion)
 		_ = k.SetStringValue("Publisher", "Powered by Yousef Kia")
 		_ = k.SetStringValue("DisplayIcon", targetIcon)
 		_ = k.SetStringValue("UninstallString", fmt.Sprintf("\"%s\"", targetUninstaller))
@@ -147,10 +151,10 @@ func main() {
 
 	if !*silent {
 		launchResp := showMsg("Fyrnox Setup Complete",
-			"Fyrnox v1.0.6 has been installed successfully!\n\n"+
+			fmt.Sprintf("Fyrnox v%s has been installed successfully!\n\n"+
 				"Shortcuts have been created on your Desktop and Start Menu.\n\n"+
 				"Would you like to launch Fyrnox now?\n\n"+
-				"برنامه با موفقیت نصب شد! آیا مایلید اکنون Fyrnox اجرا شود؟",
+				"برنامه با موفقیت نصب شد! آیا مایلید اکنون Fyrnox اجرا شود؟", AppVersion),
 			mbYesNo|mbIconInfo)
 
 		if launchResp == idYes {

@@ -9,7 +9,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$BodyMarkdown,
 
-    [string[]]$Labels = @("enhancement", "documentation")
+    [string[]]$Labels = @("enhancement", "documentation"),
+
+    [string]$Socks5hProxy = "127.0.0.1:10808"
 )
 
 # 1. Retrieve Git Credential Manager Token
@@ -47,27 +49,61 @@ if (-not $token) {
 }
 
 $repo = "yousefkiamozafari/FYRNOX"
-$payload = @{
-    title = $Title
-    body = $BodyMarkdown
+$payloadObj = @{
+    title  = $Title
+    body   = $BodyMarkdown
     labels = $Labels
 }
 
-$jsonBytes = [System.Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 5))
-
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-
-$headers = @{
-    "Authorization" = "Bearer $token"
-    "User-Agent" = "FYRNOX-Automation-Agent"
-    "Accept" = "application/vnd.github.v3+json"
-}
+# Write payload as UTF-8 without BOM so Persian & Markdown bytes are transmitted verbatim.
+$tmpPayload = Join-Path ([System.IO.Path]::GetTempPath()) ("fyrnox-issue-" + [System.Guid]::NewGuid().ToString("N") + ".json")
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$jsonText = $payloadObj | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText($tmpPayload, $jsonText, $utf8NoBom)
 
 try {
-    $response = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/issues" -Method Post -Headers $headers -Body $jsonBytes -ContentType "application/json; charset=utf-8"
+    $useProxy = $false
+    if ($Socks5hProxy) {
+        $parts = $Socks5hProxy -split ":"
+        $proxyHost = $parts[0]
+        $proxyPort = if ($parts.Count -ge 2) { [int]$parts[1] } else { 10808 }
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $iar = $tcp.BeginConnect($proxyHost, $proxyPort, $null, $null)
+            if ($iar.AsyncWaitHandle.WaitOne(500, $false) -and $tcp.Connected) {
+                $useProxy = $true
+            }
+            $tcp.Close()
+        } catch {
+            $useProxy = $false
+        }
+    }
+
+    $curlArgs = @(
+        "-sS",
+        "--fail-with-body",
+        "--max-time", "30",
+        "-X", "POST",
+        "-H", "Authorization: Bearer $token",
+        "-H", "User-Agent: FYRNOX-Automation-Agent",
+        "-H", "Accept: application/vnd.github.v3+json",
+        "-H", "Content-Type: application/json; charset=utf-8",
+        "--data-binary", "@$tmpPayload"
+    )
+    if ($useProxy) {
+        $curlArgs = @("--socks5-hostname", $Socks5hProxy) + $curlArgs
+    }
+    $curlArgs += "https://api.github.com/repos/$repo/issues"
+
+    $rawOut = & curl.exe @curlArgs 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to publish GitHub Issue via curl.exe (exit $LASTEXITCODE): $rawOut"
+        exit 1
+    }
+
+    $response = ($rawOut -join "`n") | ConvertFrom-Json
     Write-Host "SUCCESS: Published Issue #$($response.number) - $($response.html_url)"
     return $response
-} catch {
-    Write-Error "Failed to publish GitHub Issue: $_"
-    exit 1
+} finally {
+    Remove-Item -Path $tmpPayload -Force -ErrorAction SilentlyContinue
 }

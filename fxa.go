@@ -1,6 +1,7 @@
 package vpnclient
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,13 +22,14 @@ import (
 )
 
 const (
-	fxaAuthServer   = "https://api.accounts.firefox.com/v1"
-	firefoxClientID = "5882386c6d801776"
-	oauthScope      = "profile https://identity.mozilla.com/apps/vpn"
-	protocolVersion = "identity.mozilla.com/picl/v1/"
-	pbkdf2Rounds    = 1000
-	stretchedPWLen  = 32
-	hkdfLen         = 32
+	fxaAuthServer    = "https://api.accounts.firefox.com/v1"
+	fxaOAuthTokenURL = "https://oauth.accounts.firefox.com/v1/token"
+	firefoxClientID  = "5882386c6d801776"
+	oauthScope       = "profile https://identity.mozilla.com/apps/vpn"
+	protocolVersion  = "identity.mozilla.com/picl/v1/"
+	pbkdf2Rounds     = 1000
+	stretchedPWLen   = 32
+	hkdfLen          = 32
 
 	// maxChallengeAttempts bounds how many times an FxA call re-solves the
 	// Fastly anti-bot challenge; with rotating-exit proxies a solved cookie
@@ -49,6 +52,7 @@ const (
 	// deployment that does not accept verificationMethod in the login
 	// body answers with it, so we fall back to a plain login.
 	fxaErrnoInvalidParameter = 107
+	fxaErrnoInvalidToken     = 108
 )
 
 type LoginResponse struct {
@@ -198,10 +202,16 @@ func hawkHeader(method, rawURL, hawkID string, hawkKey []byte, payload string) (
 // body, no FxA error payload). The request factory is invoked again after
 // each successful solve because request bodies are single-use readers.
 func fxaDo(ctx context.Context, newRequest func() (*http.Request, error)) (*http.Response, error) {
+	return fxaDoWith406Fallback(ctx, newRequest, nil)
+}
+
+// fxaDoWith406Fallback sends an FxA API request with support for a custom 406 handler
+// (e.g. alternate OAuth endpoint fallback) before or in lieu of the Fastly anti-bot challenge.
+func fxaDoWith406Fallback(ctx context.Context, newRequest func() (*http.Request, error), on406 func(context.Context, int) (*http.Response, error)) (*http.Response, error) {
 	ctx, cancel := contextWithMinDeadline(ctx, fxaCallMinBudget)
 	defer cancel()
 
-	for attempt := 1; attempt <= maxChallengeAttempts; attempt++ {
+	for solved := 0; solved <= maxChallengeAttempts; solved++ {
 		req, err := newRequest()
 		if err != nil {
 			return nil, err
@@ -213,14 +223,38 @@ func fxaDo(ctx context.Context, newRequest func() (*http.Request, error)) (*http
 		if resp.StatusCode != http.StatusNotAcceptable {
 			return resp, nil
 		}
-		io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		resp.Body.Close()
+
+		if on406 != nil {
+			if alternate, err := on406(ctx, solved); alternate != nil || err != nil {
+				return alternate, err
+			}
+		}
+
+		// Avoid attempting Fastly HTML challenge parsing on standard JSON API errors.
+		if isJSONAPIResponse(resp.Header, bodyBytes) {
+			return nil, newFxaAPIError(http.StatusNotAcceptable, bodyBytes)
+		}
+
+		if solved == maxChallengeAttempts {
+			return nil, fmt.Errorf("Fastly anti-bot challenge still failing after %d attempts (HTTP 406)", maxChallengeAttempts)
+		}
 
 		if err := solveFastlyChallenge(ctx); err != nil {
 			return nil, fmt.Errorf("Fastly anti-bot challenge: %w", err)
 		}
 	}
 	return nil, fmt.Errorf("Fastly anti-bot challenge still failing after %d attempts (HTTP 406)", maxChallengeAttempts)
+}
+
+func isJSONAPIResponse(header http.Header, body []byte) bool {
+	ct := header.Get("Content-Type")
+	if strings.Contains(ct, "application/json") {
+		return true
+	}
+	trimmed := strings.TrimSpace(string(body))
+	return strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")
 }
 
 func fxaLogin(ctx context.Context, email, password string) (*LoginResponse, error) {
@@ -367,6 +401,50 @@ func fxaOAuthToken(ctx context.Context, sessionToken string) (*TokenResponse, er
 	return &tok, nil
 }
 
+func requestOAuthRefresh(ctx context.Context, newRequest func(string) (*http.Request, error)) (*http.Response, error) {
+	const primary = fxaAuthServer + "/oauth/token"
+	return fxaDoWith406Fallback(ctx, func() (*http.Request, error) {
+		return newRequest(primary)
+	}, func(ctx context.Context, solved int) (*http.Response, error) {
+		if solved != 0 {
+			return nil, nil
+		}
+		log.Printf("[INFO] Primary OAuth token refresh challenged (HTTP 406). Attempting alternate Mozilla OAuth endpoint...")
+		req, err := newRequest(fxaOAuthTokenURL)
+		if err != nil {
+			return nil, err
+		}
+		return refreshAtOAuthEndpoint(req.WithContext(ctx))
+	})
+}
+
+// refreshAtOAuthEndpoint sends the refresh request to Mozilla's alternate OAuth endpoint (oauth.accounts.firefox.com).
+func refreshAtOAuthEndpoint(req *http.Request) (*http.Response, error) {
+	resp, err := doControlPlane(req)
+	if err != nil {
+		log.Printf("[WARN] Alternate Mozilla OAuth endpoint network error: %v", err)
+		return nil, nil
+	}
+	log.Printf("[INFO] Alternate Mozilla OAuth endpoint returned HTTP %d", resp.StatusCode)
+	if resp.StatusCode == http.StatusOK {
+		log.Printf("[INFO] Token refreshed successfully via alternate Mozilla OAuth endpoint.")
+		return resp, nil
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusNotAcceptable:
+		return nil, nil
+	case http.StatusBadRequest:
+		apiErr := newFxaAPIError(resp.StatusCode, []byte(readErrorBody(resp.Body)))
+		if apiErr.Errno == fxaErrnoInvalidToken {
+			apiErr.Body = "invalid refresh token"
+			return nil, apiErr
+		}
+		return nil, apiErr
+	}
+	return nil, fmt.Errorf("Mozilla's OAuth endpoint returned HTTP %d: %s", resp.StatusCode, readErrorBody(resp.Body))
+}
+
 func fxaRefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error) {
 	body := map[string]interface{}{
 		"client_id":     firefoxClientID,
@@ -376,15 +454,13 @@ func fxaRefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, 
 	}
 	bodyJSON, _ := json.Marshal(body)
 
-	tokenURL := fxaAuthServer + "/oauth/token"
-
-	resp, err := fxaDo(ctx, func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(string(bodyJSON)))
+	resp, err := requestOAuthRefresh(ctx, func(tokenURL string) (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, bytes.NewReader(bodyJSON))
 		if err != nil {
 			return nil, fmt.Errorf("creating refresh request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		applyMozillaVPNHeaders(req)
+		applyFirefoxHeaders(req)
 		return req, nil
 	})
 	if err != nil {

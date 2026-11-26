@@ -90,11 +90,11 @@ func isBypassTarget(target, customBypass string) bool {
 		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
 			return true
 		}
-	}
-
-	// Plain intranet hosts without dots or standard local network TLDs (.local, .lan, .internal, .home)
-	if !strings.Contains(hostLower, ".") || strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".lan") || strings.HasSuffix(hostLower, ".internal") || strings.HasSuffix(hostLower, ".home") {
-		return true
+	} else {
+		// Plain intranet hosts without dots or standard local network TLDs (.local, .lan, .internal, .home)
+		if !strings.Contains(hostLower, ".") || strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".lan") || strings.HasSuffix(hostLower, ".internal") || strings.HasSuffix(hostLower, ".home") {
+			return true
+		}
 	}
 
 	if customBypass != "" {

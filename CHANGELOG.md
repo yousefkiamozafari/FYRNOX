@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-11-26
+
+### Added
+- **Native WinHTTP Control-Plane Transport & Firefox TLS Fingerprinting:** Added `winhttp_transport_windows.go`, `firefoxtls/`, and `tls_frag.go` for resilient FxA/Guardian/Fastly API transport.
+- **3-Layer WFP IPv6 Leak Prevention & `RouteManager` (Pending VM Verification):** Added `cmd/fyrnox/wfp_windows.go`, `cmd/fyrnox/route_manager_windows.go`, and standalone `cmd/diagnostic-wfp` (`test_wfp_integration.exe`) for dynamic BFE filtering across `ALE_AUTH_CONNECT_V6`, `OUTBOUND_TRANSPORT_V6`, and `OUTBOUND_IPPACKET_V6` alongside `GetIpForwardTable2`/`GetBestRoute2` route tracking. *(Note: Full-Tunnel IPv6 leak prevention awaits final isolated-VM acceptance testing and packet capture before production sign-off).*
+- **Safe Startup Route Recovery:** Added ownership-verified `RecoverOrphanedTunRoutes()` (`CleanupOrphanedFyrnoxRoutes`) inspecting IPv4 (`0.0.0.0/1`, `128.0.0.0/1`) and IPv6 (`::/1`, `8000::/1`) split routes via `FyrnoxTun` interface index, FYRNOX next-hop (`10.254.1.1`), or dead interface indices while preserving unrelated VPNs.
+- **Single-Source Version Management:** Added `cmd/fyrnox/version.go` (`AppVersion = "1.1.0"`) with `-ldflags` injection across `cmd/fyrnox`, `cmd/installer`, `installer.iss`, and `scripts/build_dist.ps1`.
+
+### Fixed
+- **KillSwitchManager Error Propagation & IPv6 LAN Rules (D1):** `KillSwitchManager.Arm()` now enforces Admin privileges, verifies every `netsh advfirewall` rule, rolls back partial installations on error, and permits IPv6 loopback (`::1`) and link-local (`fe80::/10`) in `AllowLAN`.
+- **IPv6 `VerifyTunCleanup()` Coverage (D2):** Extended `VerifyTunCleanup()` to inspect and clean lingering FYRNOX-owned IPv6 routes in addition to IPv4 routes.
+- **Local API Security & Graceful Shutdown (D3):** Replaced unmanaged `http.ListenAndServe` with an owned `http.Server` and `Shutdown(ctx)` on exit; replaced wildcard CORS (`*`) with strict `127.0.0.1:<port>` / `localhost:<port>` `Host`, `Origin`, and `Sec-Fetch-Site` validation.
+- **UI Telemetry & Exit IP Accuracy (D4/D5):** Fixed sparkline mappings to read `speed_down` / `speed_up`, removed the fabricated `42 ms` latency fallback in favor of `—`, and removed the fallback to physical `current_ip` when `exit_ip` is still verifying.
+- **Server-Switch State Flicker & Connected Ping Integrity (D6):** Hot server switching now preserves `StateConnecting` without flashing `StateDisconnected`; `PingAllServers()` skips direct TCP sweeps while a tunnel is active so baseline latencies are not distorted.
+
+---
+
 ## [1.0.6] - 2026-11-22
 
 ### Added
